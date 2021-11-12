@@ -1,2 +1,6 @@
 # ScalpiEditor
-# Simple text editor for programmers and others...
+
+depends: zig
+
+for compile:
+$ zig build
