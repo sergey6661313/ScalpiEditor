@@ -1,2 +1,2 @@
 # ScalpiEditor
-# Simple text editor for programmers
+# Simple text editor for programmers and others...
