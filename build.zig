@@ -2,10 +2,12 @@ const std = @import("std");
 
 pub fn build(b: *std.build.Builder) void {
     var target = b.standardTargetOptions(.{});
+    target.abi = .musl;
     const mode = b.standardReleaseOptions();
     const exe = b.addExecutable("ScalpiEditor", "src/main.zig");
     exe.setTarget(target);
-    exe.setBuildMode(mode);
+    exe.setBuildMode(mode);    
+    exe.linkLibC();
     exe.install();
 
     const run_cmd = exe.run();
