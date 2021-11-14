@@ -1,6 +1,6 @@
 const std = @import("std");
 const asBytes = std.mem.asBytes;
-const Main = @This();
+const Prog = @This();
 
 pub fn cmp(a: []u8, b: []u8) enum {equal, various} {
     if(a.len != a.len) return .various;
@@ -101,7 +101,7 @@ pub const Console = struct {
 console: Console = .{},
 
 
-var prog: Main = undefined;
+var prog: Prog = undefined;
 
 pub fn createBufferScreen(self: *Main, _size: ?*Coor2u) error{
     SizeIsBiggestFromConsole,
