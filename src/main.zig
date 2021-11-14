@@ -54,6 +54,18 @@ pub const ansi = struct {
 pub const Coor2u = struct {
     x: usize,
     y: usize,
+
+    pub fn isNotSmaller(self: *Coor2u, target: *Coor2u) bool {
+        if(self.x < target.x) return false;
+        if(self.y < target.y) return false;
+        return true;
+    }
+
+    pub fn isBigger(self: *Coor2u, target: *Coor2u) bool {
+        if (self.x > target.x) return true;
+        if (self.y > target.y) return true;
+        return false;
+    }
 };
 
 pub const Modes = enum {
@@ -91,12 +103,17 @@ console: Console = .{},
 
 var prog: Main = undefined;
 
-pub fn createBufferScreen(self: *Main, _size: ?*Coor2u) error{Oops}!void {
+pub fn createBufferScreen(self: *Main, _size: ?*Coor2u) error{
+    SizeIsBiggestFromConsole,
+    Oops,
+}!void {
     var size: Coor2u = undefined;
-    if (_size == null) {
+    if (_size) |s| {
+        if (size.isBigger(self.console.size)) return error.SizeIsBiggestFromConsole;
+        size = s;
+    } else {
         size = self.console.size;
     }
-    // TODO check "size is bigger self.console.size ?" then return error.
     // TODO create console buffer
 }
 
