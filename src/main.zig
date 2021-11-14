@@ -28,22 +28,27 @@ pub const c = @cImport({
     @cInclude("unistd.h");
 });
 
+// zig fmt: off
 pub const ansi = struct {
-    pub const esc = "\x1B";
-    pub const control = ESC ++ "[";
+    pub const esc     = "\x1B";
+    pub const control = esc ++ "[";
+    pub const reset   = control ++ "0m";
+    pub const bold    = control ++ "1m";
+    pub const dim     = control ++ "2m";
 
     pub const Colors = struct {
-        // zig fmt: off
-        pub const RED   = "\x1b[31;1m";
-        pub const GREEN = "\x1b[32;1m";
-        pub const CYAN  = "\x1b[36;1m";
-        pub const WHITE = "\x1b[37;1m";
-        pub const BOLD  = "\x1b[1m";
-        pub const DIM   = "\x1b[2m";
-        pub const RESET = "\x1b[0m";
-        // zig fmt: on
+        pub const red    = control ++ "31;1m";
+        pub const green  = control ++ "32;1m";
+        pub const __c33  = control ++ "33;1m";
+        pub const __c34  = control ++ "34;1m";
+        pub const __c35  = control ++ "35;1m";
+        pub const cyan   = control ++ "36;1m";
+        pub const white  = control ++ "37;1m";
+        pub const __c38  = control ++ "38;1m";
+        pub const __c39  = control ++ "39;1m";
     };
 };
+// zig fmt: on
 
 
 pub const Coor2u = struct {
