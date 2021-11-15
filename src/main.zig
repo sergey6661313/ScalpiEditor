@@ -84,25 +84,40 @@ pub const Modes = enum {
 
 pub const Console = struct {
     size: Coor2u = .{.x = 0, .y = 0},
-    system_flags: c.struct_termios = undefined, 
+    stdin_system_flags: c.struct_termios = undefined, 
+    stdout_system_flags: c.struct_termios = undefined, 
 
     pub fn init(self: *Console) void {
-        // Use termios to turn off line buffering to input
-        const f_stdin = c.fileno(c.stdin); 
-        var term: c.termios = undefined;
-        self.system_flags = term;
-        _ = c.tcgetattr(f_stdin, &term);
-        term.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+
+        // save std in/out settings
+        const f_stdin  = c.fileno(c.stdin); 
+        const f_stdout  = c.fileno(c.stdout); 
+        _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
+        _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
+
+        // turn off line buffering
+        var flags: c.struct_termios = undefined;
         c.setbuf(c.stdin, null);
-        _ = c.tcsetattr(f_stdin, c.TCSANOW, &term);
+        c.setbuf(c.stdout, null);
+        
+        _ = c.tcgetattr(f_stdin, &flags);
+        flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+        _ = c.tcsetattr(f_stdin, c.TCSANOW, &flags);
+
+        _ = c.tcgetattr(f_stdout, &flags);
+        flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+        _ = c.tcsetattr(f_stdout, c.TCSANOW, &flags);
 
         _ = self.updateSize();
     }
 
     pub fn deInit(self: *Console) void {
-        // return buffer settings
-        const f_stdin = c.fileno(c.stdin); 
-        _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.system_flags);
+        // restore buffer settings
+        const f_stdin  = c.fileno(c.stdin);
+        _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
+        
+        const f_stdout  = c.fileno(c.stdout); 
+        _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
     }
 
     pub fn updateSize(self: *Console) bool {
@@ -166,6 +181,10 @@ pub fn main() error{
     const self = &prog;
     self.console.init();
     self.createBufferScreen(null) catch return error.BufferNotCreated;
+    // TODO set cursour pos to 0.0
+    // TODO display modes
+    // TODO change mode to write
     // TODO save file
+    self.console.deInit();
     std.log.info("{s}:{}: Bye!", .{@src().file, @src().line});
 }
