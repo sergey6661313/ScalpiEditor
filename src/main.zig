@@ -2,6 +2,14 @@ const std = @import("std");
 const asBytes = std.mem.asBytes;
 const Prog = @This();
 
+pub fn print(text: []const u8) void {
+    for (text) |ch| {
+        _ = c.fputc(ch, c.stdout);
+        _ = c.fflush(c.stdout);
+        std.time.sleep(std.time.ns_per_ms * 5);
+    }
+}
+
 pub fn cmp(a: []u8, b: []u8) enum {equal, various} {
     if(a.len != a.len) return .various;
     var pos: usize = 0;
@@ -76,17 +84,33 @@ pub const Modes = enum {
 
 pub const Console = struct {
     size: Coor2u = .{.x = 0, .y = 0},
+    system_flags: c.struct_termios = undefined, 
 
     pub fn init(self: *Console) void {
+        // Use termios to turn off line buffering to input
+        const f_stdin = c.fileno(c.stdin); 
+        var term: c.termios = undefined;
+        self.system_flags = term;
+        _ = c.tcgetattr(f_stdin, &term);
+        term.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+        c.setbuf(c.stdin, null);
+        _ = c.tcsetattr(f_stdin, c.TCSANOW, &term);
+
         _ = self.updateSize();
+    }
+
+    pub fn deInit(self: *Console) void {
+        // return buffer settings
+        const f_stdin = c.fileno(c.stdin); 
+        _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.system_flags);
     }
 
     pub fn updateSize(self: *Console) bool {
         var w: c.winsize = undefined;
         _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
         var new_size: Coor2u = .{
-            .x = w.ws_row,
-            .y = w.ws_col,
+            .x = w.ws_col,
+            .y = w.ws_row,
         };
         
         if (cmp(asBytes(&self.size), asBytes(&new_size)) == .various) {
@@ -103,26 +127,45 @@ console: Console = .{},
 
 var prog: Prog = undefined;
 
-pub fn createBufferScreen(self: *Main, _size: ?*Coor2u) error{
+pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     SizeIsBiggestFromConsole,
     Oops,
 }!void {
     var size: Coor2u = undefined;
     if (_size) |s| {
-        if (size.isBigger(self.console.size)) return error.SizeIsBiggestFromConsole;
-        size = s;
+        if (size.isBigger(&self.console.size)) return error.SizeIsBiggestFromConsole;
+        size = s.*;
     } else {
         size = self.console.size;
     }
-    // TODO create console buffer
+
+    std.log.info("size is {}", .{size});
+    // screen alloc and clear screen
+    {
+        var pos: usize = 0;
+        while(true) {
+            print("\n");
+            var spaces: usize = 0;
+            while(true){
+                print(" ");
+                if(spaces == size.x - 1) break;
+                spaces += 1;
+            }
+            if(pos == size.y - 1) break;
+            pos += 1;
+        }
+    }
 }
 
 
-pub fn main() error{Oops}!void {
+pub fn main() error{
+    BufferNotCreated,
+    Oops,
+}!void {
     std.log.info("{s}:{}: Hello!", .{@src().file, @src().line});
     const self = &prog;
     self.console.init();
-    try self.createBufferScreen(null);
+    self.createBufferScreen(null) catch return error.BufferNotCreated;
     // TODO save file
     std.log.info("{s}:{}: Bye!", .{@src().file, @src().line});
 }
