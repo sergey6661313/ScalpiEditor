@@ -83,10 +83,22 @@ pub const Coor2u = struct {
     }
 };
 
-pub const Modes = enum {
+pub const Mode = enum {
+    mainMenu, // logo, minihelp, create, open, close  
+    fileNavigation,
     navigation,
     edit,
     command,
+
+    pub fn ToText(m: Mode) []const u8 {
+        return switch (m) {
+            .mainMenu       => "main menu", // logo, minihelp, create, open, close  
+            .fileNavigation => "file navigation",
+            .navigation    => "navigation",
+            .edit          => "edit",
+            .command       => "command",
+        };
+    }
 };
 
 pub const Console = struct {
@@ -234,7 +246,8 @@ pub const Console = struct {
 };
 
 console: Console = .{},
-
+status_line: StatusLine = .{},
+mode: Mode = .edit,
 
 var prog: Prog = undefined;
 
@@ -272,6 +285,17 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     }
 }
 
+pub const StatusLine = struct {
+    pos: usize = 0, // line num. TODO change to buffer size - 2; 
+
+    pub fn draw(self: *StatusLine) void {
+        _ = &self;
+        // TODO set cursour to 0, self.pos
+        print("\n");
+        print(prog.mode.ToText());
+        print("\n");
+    }
+};
 
 pub fn main() error{
     BufferNotCreated,
@@ -283,8 +307,9 @@ pub fn main() error{
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorMove(0, 0);
     // TODO display modes
+    self.status_line.draw();
     // TODO change mode to write
     // TODO save file
     self.console.deInit();
-    std.log.info("{s}:{}: Bye!", .{@src().file, @src().line});
+    std.log.info("\n{s}:{}: Bye!", .{@src().file, @src().line});
 }
