@@ -2,11 +2,32 @@ const std = @import("std");
 const asBytes = std.mem.asBytes;
 const Prog = @This();
 
+const c = @cImport({
+    // canonical c
+    @cInclude("stdio.h");
+
+    // linux
+    @cInclude("arpa/inet.h");
+    @cInclude("fcntl.h");
+    @cInclude("netinet/in.h");
+    @cInclude("netinet/ip.h");
+    @cInclude("termios.h");
+    @cInclude("sys/ioctl.h");
+    @cInclude("sys/socket.h");
+    @cInclude("unistd.h");
+});
+
+pub fn printRune(rune: u8) void {
+    _ = c.fputc(rune, c.stdout);
+    _ = c.fflush(c.stdout);
+    std.time.sleep(std.time.ns_per_ms * 1);
+}
+
 pub fn print(text: []const u8) void {
     for (text) |ch| {
         _ = c.fputc(ch, c.stdout);
         _ = c.fflush(c.stdout);
-        std.time.sleep(std.time.ns_per_ms * 5);
+        std.time.sleep(std.time.ns_per_ms * 1);
     }
 }
 
@@ -21,20 +42,6 @@ pub fn cmp(a: []u8, b: []u8) enum {equal, various} {
     }
 }
 
-pub const c = @cImport({
-    // canonical c
-    @cInclude("stdio.h");
-
-    // linux
-    @cInclude("arpa/inet.h");
-    @cInclude("fcntl.h");
-    @cInclude("netinet/in.h");
-    @cInclude("netinet/ip.h");
-    @cInclude("termios.h");
-    @cInclude("sys/ioctl.h");
-    @cInclude("sys/socket.h");
-    @cInclude("unistd.h");
-});
 
 // zig fmt: off
 pub const ansi = struct {
@@ -85,7 +92,8 @@ pub const Modes = enum {
 pub const Console = struct {
     size: Coor2u = .{.x = 0, .y = 0},
     stdin_system_flags: c.struct_termios = undefined, 
-    stdout_system_flags: c.struct_termios = undefined, 
+    stdout_system_flags: c.struct_termios = undefined,
+    cursor: Cursor = .{},
 
     pub fn init(self: *Console) void {
 
@@ -135,6 +143,94 @@ pub const Console = struct {
         return true;
 
     }
+
+    pub fn print(self: *Console, text: []const u8) void {
+        for(text) |rune| {
+            switch (rune) {
+                '\r' => {
+                    self.cursor.x = 0;
+                },
+
+                '\n' => {
+                    self.cursor.x = 0;
+                    self.cursor.y += 1;
+                },
+
+                else => {
+                    self.cursor.x += 1;
+                },
+            }
+            Prog.printRune(rune);
+        }
+    }
+
+    pub fn cursorMove(self: *Console, x: usize, y: usize) void {
+        self.cursor.move(x, y);
+        if (self.cursor.x > self.size.x) unreachable;
+        if (self.cursor.y > self.size.y) unreachable;
+    }
+
+    pub const Cursor = struct {
+        x: usize = 0,
+        y: usize = 0,
+
+        pub fn Init(x: usize, y: usize) Cursor {
+            return .{
+                .x = x,
+                .y = y,
+            };
+        }
+
+        pub fn move(self: *Cursor, x: usize, y: usize) void {
+            if (x != self.x) {
+                if (x > self.x) {
+                    self.shiftRight(x - self.x);
+                } else {
+                    self.shiftLeft(self.x - x);
+                }
+            }
+
+            if (y != self.y) {
+                if (y > self.y) {
+                    self.shiftDown(y - self.y);
+                } else {
+                    self.shiftUp(self.y - y);
+                }
+            }
+        }
+
+        pub fn shiftLeft(self: *Cursor, pos: usize) void {
+            const target = self.x - pos;
+            while (self.x > target) {
+                Prog.print(ansi.control ++ "1D");
+                self.x -= 1;
+            }
+        }
+
+        pub fn shiftRight(self: *Cursor, pos: usize) void {
+            const target = self.x + pos;
+            while (self.x < target) {
+                Prog.print(ansi.control ++ "1C");
+                self.x += 1;
+            }
+        }
+
+        pub fn shiftUp(self: *Cursor, pos: usize) void {
+            const target = self.y - pos;
+            while(self.y > target) {
+                Prog.print(ansi.control ++ "1A");
+                self.y -= 1;
+            }
+        }
+
+        pub fn shiftDown(self: *Cursor, pos: usize) void {
+            const target = self.y + pos;
+            while(self.y < target) {
+                Prog.print(ansi.control ++ "1B");
+                self.y += 1;
+            }
+        }
+    };
 };
 
 console: Console = .{},
@@ -155,14 +251,18 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     }
 
     std.log.info("size is {}", .{size});
+    print("\n");
+    self.console.cursor.x = 0;
+    self.console.cursor.y = 0;
+
     // screen alloc and clear screen
     {
         var pos: usize = 0;
         while(true) {
-            print("\n");
+            self.console.print("\n");
             var spaces: usize = 0;
             while(true){
-                print(" ");
+                self.console.print(" ");
                 if(spaces == size.x - 1) break;
                 spaces += 1;
             }
@@ -181,7 +281,7 @@ pub fn main() error{
     const self = &prog;
     self.console.init();
     self.createBufferScreen(null) catch return error.BufferNotCreated;
-    // TODO set cursour pos to 0.0
+    self.console.cursorMove(0, 0);
     // TODO display modes
     // TODO change mode to write
     // TODO save file
