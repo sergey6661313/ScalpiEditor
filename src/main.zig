@@ -310,12 +310,13 @@ pub fn main() error{
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorToEnd();
     self.status_line.draw();
-    // TODO add if args not exist:
-    self.mode = .mainMenu;
-    self.status_line.draw();
-    self.status_line.draw();
-    self.status_line.draw();
-    // TODO change mode to write
+    if (std.os.argv.len == 0) {
+        self.mode = .mainMenu;
+        self.status_line.draw();
+    } else {
+        // TODO read process args
+        // TODO change mode to write
+    }
     // TODO save file
     self.console.deInit();
     std.log.info("{s}:{}: Bye!", .{@src().file, @src().line});
