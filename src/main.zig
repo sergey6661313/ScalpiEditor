@@ -299,11 +299,13 @@ pub const StatusLine = struct {
 
 pub fn main() error{
     BufferNotCreated,
-    Oops,
+    FileNotOpened,
+    Unexpected,
 }!void {
     std.log.info("{s}:{}: Hello!", .{ @src().file, @src().line });
     const self = &prog;
     self.console.init();
+    defer self.console.deInit();
     self.status_line.pos = self.console.size.y - 2;
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorToEnd();
@@ -315,14 +317,31 @@ pub fn main() error{
         var argIterator_packed = std.process.ArgIterator.init();
         var argIterator = &argIterator_packed.inner;
         while (argIterator.next()) |arg| {
+            // TODO change mode to write
+
             self.console.print(arg);
             self.console.print("\n");
+
+            // TODO parse ":"
             // TODO try open file
+            var cwd = std.fs.cwd();
+            var file = cwd.openFile("", .{
+                .read  = true,
+                .write = false,
+                .lock  = .None,
+                .lock_nonblocking = false,
+                .intended_io_mode = .blocking,
+                .allow_ctty = false,
+            }) catch return error.FileNotOpened;
+            // TODO read file size
+            // TODO allock memory for file
+            // TODO load full file to buffer.
+            // TODO create tab with this file
+            file.close();
         }
-        // TODO change mode to write
     } // end else of if (std.os.argv.len == 1)
     self.mainLoop();
-    self.console.deInit();
+
     std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
 }
 
