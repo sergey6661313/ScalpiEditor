@@ -31,17 +31,16 @@ pub fn print(text: []const u8) void {
     }
 }
 
-pub fn cmp(a: []u8, b: []u8) enum {equal, various} {
-    if(a.len != a.len) return .various;
+pub fn cmp(a: []u8, b: []u8) enum { equal, various } {
+    if (a.len != a.len) return .various;
     var pos: usize = 0;
     const last = a.len - 1;
-    while(true) {
-        if(a[pos] != b[pos]) return .various;
-        if(pos == last) return .equal;
+    while (true) {
+        if (a[pos] != b[pos]) return .various;
+        if (pos == last) return .equal;
         pos += 1;
     }
 }
-
 
 // zig fmt: off
 pub const ansi = struct {
@@ -65,14 +64,13 @@ pub const ansi = struct {
 };
 // zig fmt: on
 
-
 pub const Coor2u = struct {
     x: usize,
     y: usize,
 
     pub fn isNotSmaller(self: *Coor2u, target: *Coor2u) bool {
-        if(self.x < target.x) return false;
-        if(self.y < target.y) return false;
+        if (self.x < target.x) return false;
+        if (self.y < target.y) return false;
         return true;
     }
 
@@ -84,7 +82,7 @@ pub const Coor2u = struct {
 };
 
 pub const Mode = enum {
-    mainMenu, // logo, minihelp, create, open, close  
+    mainMenu, // logo, minihelp, create, open, close
     fileNavigation,
     navigation,
     edit,
@@ -92,26 +90,26 @@ pub const Mode = enum {
 
     pub fn ToText(m: Mode) []const u8 {
         return switch (m) {
-            .mainMenu       => "main menu", // logo, minihelp, create, open, close  
+            .mainMenu => "main menu", // logo, minihelp, create, open, close
             .fileNavigation => "file navigation",
-            .navigation    => "navigation",
-            .edit          => "edit",
-            .command       => "command",
+            .navigation => "navigation",
+            .edit => "edit",
+            .command => "command",
         };
     }
 };
 
 pub const Console = struct {
-    size: Coor2u = .{.x = 0, .y = 0},
-    stdin_system_flags: c.struct_termios = undefined, 
+    size: Coor2u = .{ .x = 0, .y = 0 },
+    stdin_system_flags: c.struct_termios = undefined,
     stdout_system_flags: c.struct_termios = undefined,
     cursor: Cursor = .{},
 
     pub fn init(self: *Console) void {
 
         // save std in/out settings
-        const f_stdin  = c.fileno(c.stdin); 
-        const f_stdout  = c.fileno(c.stdout); 
+        const f_stdin = c.fileno(c.stdin);
+        const f_stdout = c.fileno(c.stdout);
         _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
         _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
 
@@ -119,7 +117,7 @@ pub const Console = struct {
         var flags: c.struct_termios = undefined;
         c.setbuf(c.stdin, null);
         c.setbuf(c.stdout, null);
-        
+
         _ = c.tcgetattr(f_stdin, &flags);
         flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
         _ = c.tcsetattr(f_stdin, c.TCSANOW, &flags);
@@ -133,10 +131,10 @@ pub const Console = struct {
 
     pub fn deInit(self: *Console) void {
         // restore buffer settings
-        const f_stdin  = c.fileno(c.stdin);
+        const f_stdin = c.fileno(c.stdin);
         _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
-        
-        const f_stdout  = c.fileno(c.stdout); 
+
+        const f_stdout = c.fileno(c.stdout);
         _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
     }
 
@@ -144,20 +142,19 @@ pub const Console = struct {
         var w: c.winsize = undefined;
         _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
         var new_size: Coor2u = .{
-            .x = w.ws_col -1,
-            .y = w.ws_row -1,
+            .x = w.ws_col - 1,
+            .y = w.ws_row - 1,
         };
-        
+
         if (cmp(asBytes(&self.size), asBytes(&new_size)) == .various) {
             self.size = new_size;
             return false;
         }
         return true;
-
     }
 
     pub fn print(self: *Console, text: []const u8) void {
-        for(text) |rune| {
+        for (text) |rune| {
             switch (rune) {
                 '\r' => {
                     self.cursor.x = 0;
@@ -233,7 +230,7 @@ pub const Console = struct {
 
         pub fn shiftUp(self: *Cursor, pos: usize) void {
             const target = self.y - pos;
-            while(self.y > target) {
+            while (self.y > target) {
                 Prog.print(ansi.control ++ "1A");
                 self.y -= 1;
             }
@@ -241,7 +238,7 @@ pub const Console = struct {
 
         pub fn shiftDown(self: *Cursor, pos: usize) void {
             const target = self.y + pos;
-            while(self.y < target) {
+            while (self.y < target) {
                 Prog.print(ansi.control ++ "1B");
                 self.y += 1;
             }
@@ -252,6 +249,7 @@ pub const Console = struct {
 console: Console = .{},
 status_line: StatusLine = .{},
 mode: Mode = .edit,
+working: bool = true,
 
 var prog: Prog = undefined;
 
@@ -275,22 +273,22 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     // screen alloc and clear screen
     {
         var pos: usize = 0;
-        while(true) {
+        while (true) {
             self.console.print("\n");
             var spaces: usize = 0;
-            while(true){
+            while (true) {
                 self.console.print(" ");
-                if(spaces == size.x - 1) break;
+                if (spaces == size.x - 1) break;
                 spaces += 1;
             }
-            if(pos == size.y - 1) break;
+            if (pos == size.y - 1) break;
             pos += 1;
         }
     }
 }
 
 pub const StatusLine = struct {
-    pos: usize = 0, // line num. TODO change to buffer size - 2; 
+    pos: usize = 0, // line num. TODO change to buffer size - 2;
 
     pub fn draw(self: *StatusLine) void {
         prog.console.cursor.move(0, self.pos);
@@ -303,21 +301,38 @@ pub fn main() error{
     BufferNotCreated,
     Oops,
 }!void {
-    std.log.info("{s}:{}: Hello!", .{@src().file, @src().line});
+    std.log.info("{s}:{}: Hello!", .{ @src().file, @src().line });
     const self = &prog;
     self.console.init();
     self.status_line.pos = self.console.size.y - 2;
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorToEnd();
     self.status_line.draw();
-    if (std.os.argv.len == 0) {
+    if (std.os.argv.len == 1) {
         self.mode = .mainMenu;
         self.status_line.draw();
-    } else {
-        // TODO read process args
+    } else { // end if (std.os.argv.len == 1)
+        var argIterator_packed = std.process.ArgIterator.init();
+        var argIterator = &argIterator_packed.inner;
+        while (argIterator.next()) |arg| {
+            self.console.print(arg);
+            self.console.print("\n");
+            // TODO try open file
+        }
         // TODO change mode to write
-    }
-    // TODO save file
+    } // end else of if (std.os.argv.len == 1)
+    self.mainLoop();
     self.console.deInit();
-    std.log.info("{s}:{}: Bye!", .{@src().file, @src().line});
+    std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
+}
+
+pub fn mainLoop(self: *Prog) void {
+    while (self.working) {
+        self.working = false;
+    }
+    // TODO if key == q {bufferClose(),
+}
+
+pub fn bufferClose() void {
+    // TODO save file
 }
