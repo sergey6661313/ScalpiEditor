@@ -4,11 +4,9 @@ for compile:
 $ zig build
 
 current stage of development*:  
-    [ ] files are read  
-    [ ] editor allows to make changes  
-    [ ] files are saved  
-      
-[ ] - means in development  
+    ⚠️ files are not read  
+    ⚠️ editor not allows to make changes  
+    ⚠️ files are not saved   
 
 depends:  
     zig v0.9  
