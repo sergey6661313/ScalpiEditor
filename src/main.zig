@@ -1,13 +1,16 @@
 const std = @import("std");
 const Prog = @This();
 pub const ansi = @import("ansi.zig");
+pub const Console = @import("Console.zig");
 pub const lib = @import("lib.zig");
 pub const c = lib.c; 
 pub const printRune = lib.printRune;
 pub const print = lib.print;
 pub const cmp = lib.cmp;
+pub const findSymbol = lib.findSymbol;
 pub const Coor2u = lib.Coor2u;
-pub const Console = @import("Console.zig");
+pub const countSymbol = lib.countSymbol;
+pub const u64FromCharsDec = lib.u64FromCharsDec;
 
 
 pub const Mode = enum {
@@ -81,15 +84,19 @@ pub const StatusLine = struct {
     }
 };
 
+
+
 pub fn main() error{
     BufferNotCreated,
     FileNotOpened,
     Unexpected,
 }!void {
+    lib.u64FromCharsDec_tests() catch return error.Unexpected;
+
     std.log.info("{s}:{}: Hello!", .{ @src().file, @src().line });
     const self = &prog;
     self.console.init();
-    defer self.console.deInit();
+    defer self.console.deinit();
     self.status_line.pos = self.console.size.y - 2;
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorToEnd();
@@ -101,15 +108,13 @@ pub fn main() error{
         var argIterator_packed = std.process.ArgIterator.init();
         var argIterator = &argIterator_packed.inner;
         while (argIterator.next()) |arg| {
-            // TODO change mode to write
-
+            self.mode = .edit;
             self.console.print(arg);
             self.console.print("\n");
-
-            // TODO parse ":"
-            // TODO try open file
+            const parsed_path = try ParsePath.init(arg);
+            std.log.info("try file {s} open...",.{parsed_path.file_name});
             var cwd = std.fs.cwd();
-            var file = cwd.openFile("", .{
+            var file = cwd.openFile(parsed_path.file_name, .{
                 .read  = true,
                 .write = false,
                 .lock  = .None,
@@ -117,10 +122,13 @@ pub fn main() error{
                 .intended_io_mode = .blocking,
                 .allow_ctty = false,
             }) catch return error.FileNotOpened;
+            std.log.info("File {s} opened.",.{parsed_path.file_name});
             // TODO read file size
             // TODO allock memory for file
             // TODO load full file to buffer.
             // TODO create tab with this file
+            // TODO parse this file
+            // TODO if parsed_path.line goto line;
             file.close();
         }
     } // end else of if (std.os.argv.len == 1)
@@ -131,11 +139,62 @@ pub fn main() error{
 
 pub fn mainLoop(self: *Prog) void {
     while (self.working) {
+        // TODO if key == ctrl + w {bufferClose();}
+        // TODO if key == ctrl + q {bufferClose(); self.working = false;}
         self.working = false;
     }
-    // TODO if key == q {bufferClose(),
 }
 
 pub fn bufferClose() void {
     // TODO save file
 }
+
+
+pub const ParsePath = struct {
+    file_name: []const u8,
+    line:      ?usize = null,
+    column:    ?usize = null,
+
+    pub fn init(text: []const u8) error{
+        Unexpected,
+    }!ParsePath {
+        const comma_symbol = ':';
+        const count_comma: usize = countSymbol(text, comma_symbol);
+        var self: ParsePath = .{.file_name = undefined};
+        switch (count_comma) {
+            0 => {
+                self.file_name = text[0..];
+            },
+
+            1 => {
+                var comma_pos = findSymbol(text, comma_symbol).?;
+
+                // parse name
+                self.file_name = text[0..comma_pos + 1];
+
+                // parse line
+                const line_as_text = text[comma_pos + 1..];
+                self.line = u64FromCharsDec(line_as_text) catch return error.Unexpected;
+            },
+
+            2 => {
+                var comma_pos_1 = findSymbol(text, comma_symbol).?;
+                var comma_pos_2 = findSymbol(text[comma_pos_1 + 1 ..], comma_symbol).?;
+
+                // parse name
+                self.file_name = text[0..comma_pos_1 + 1];
+
+                // parse line
+                const line_as_text = text[comma_pos_1 + 1..];
+                self.line = u64FromCharsDec(line_as_text) catch return error.Unexpected;
+
+                // parse column
+                const column_as_text = text[comma_pos_2 + 1..];
+                self.column = u64FromCharsDec(column_as_text) catch return error.Unexpected;
+            },
+
+            else => return error.Unexpected,
+        }
+        return self;
+    }
+};

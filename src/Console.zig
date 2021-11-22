@@ -40,7 +40,7 @@ pub fn init(self: *Console) void {
     _ = self.updateSize();
 }
 
-pub fn deInit(self: *Console) void {
+pub fn deinit(self: *Console) void {
     // restore buffer settings
     const f_stdin = c.fileno(c.stdin);
     _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
@@ -98,7 +98,7 @@ pub const Cursor = struct {
     x: usize = 0,
     y: usize = 0,
 
-    pub fn Init(x: usize, y: usize) Cursor {
+    pub fn init(x: usize, y: usize) Cursor {
         return .{
             .x = x,
             .y = y,

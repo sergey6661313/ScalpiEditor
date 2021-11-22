@@ -1,9 +1,9 @@
 # ScalpiEditor is "hierarchy" text editor for programmers and others...
 
-for compile:
-$ zig build
+for compile:  
+$ zig build  
 
-current stage of development*:  
+current problems:  
     ⚠️ files are not read  
     ⚠️ editor not allows to make changes  
     ⚠️ files are not saved   
