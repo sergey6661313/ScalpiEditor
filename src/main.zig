@@ -91,8 +91,6 @@ pub fn main() error{
     FileNotOpened,
     Unexpected,
 }!void {
-    lib.u64FromCharsDec_tests() catch return error.Unexpected;
-
     std.log.info("{s}:{}: Hello!", .{ @src().file, @src().line });
     const self = &prog;
     self.console.init();
@@ -123,7 +121,11 @@ pub fn main() error{
                 .allow_ctty = false,
             }) catch return error.FileNotOpened;
             std.log.info("File {s} opened.",.{parsed_path.file_name});
-            // TODO read file size
+            
+            // read file size
+            const stat = file.stat() catch return error.Unexpected;
+            std.log.info("file size = {}", .{stat.size});
+            
             // TODO allock memory for file
             // TODO load full file to buffer.
             // TODO create tab with this file
