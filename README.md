@@ -4,8 +4,7 @@ for compile:
 $ zig build  
 
 current problems:  
-    ⚠️ files are not read  
-    ⚠️ editor not allows to make changes  
+    ⚠️ no interface for edit opened file
     ⚠️ files are not saved   
 
 depends:  

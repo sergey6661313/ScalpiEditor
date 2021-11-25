@@ -37,6 +37,7 @@ console: Console = .{},
 status_line: StatusLine = .{},
 mode: Mode = .edit,
 working: bool = true,
+file_name: [1024]u8,
 
 var prog: Prog = undefined;
 
@@ -52,13 +53,12 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
         size = self.console.size;
     }
 
-    std.log.info("size is {}", .{size});
-    print("\n");
     self.console.cursor.x = 0;
     self.console.cursor.y = 0;
 
     // screen alloc and clear screen
     {
+        print("\n");
         var pos: usize = 0;
         while (true) {
             self.console.print("\n");
@@ -75,6 +75,7 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
 }
 
 pub const StatusLine = struct {
+    // TODO draw name of current file (maybe scrolling text if size is very big)
     pos: usize = 0, // line num. TODO change to buffer size - 2;
 
     pub fn draw(self: *StatusLine) void {
@@ -91,7 +92,6 @@ pub fn main() error{
     FileNotOpened,
     Unexpected,
 }!void {
-    std.log.info("{s}:{}: Hello!", .{ @src().file, @src().line });
     const self = &prog;
     self.console.init();
     defer self.console.deinit();
@@ -99,39 +99,59 @@ pub fn main() error{
     self.createBufferScreen(null) catch return error.BufferNotCreated;
     self.console.cursorToEnd();
     self.status_line.draw();
-    if (std.os.argv.len == 1) {
+
+    // if arguments not exist
+    if (std.os.argv.len == 1) { 
         self.mode = .mainMenu;
         self.status_line.draw();
-    } else { // end if (std.os.argv.len == 1)
+    
+    // if arguments exist
+    } else {
+        // iterate on arguments:
         var argIterator_packed = std.process.ArgIterator.init();
         var argIterator = &argIterator_packed.inner;
+        _ = argIterator.skip();
         while (argIterator.next()) |arg| {
+
             self.mode = .edit;
+
             self.console.print(arg);
             self.console.print("\n");
+
+            // parse argument
             const parsed_path = try ParsePath.init(arg);
-            std.log.info("try file {s} open...",.{parsed_path.file_name});
-            var cwd = std.fs.cwd();
-            var file = cwd.openFile(parsed_path.file_name, .{
-                .read  = true,
-                .write = false,
-                .lock  = .None,
-                .lock_nonblocking = false,
-                .intended_io_mode = .blocking,
-                .allow_ctty = false,
-            }) catch return error.FileNotOpened;
-            std.log.info("File {s} opened.",.{parsed_path.file_name});
+            
+            // open file
+            const file_name = parsed_path.file_name; 
+            // TODO copy file_name to global variable;
+            // DODO use zig api for file, but ONLY after zig release
+            const handle: *c.struct__IO_FILE = c.fopen(file_name.ptr, "rb") orelse return error.Unexpected; 
+            defer {
+                var fcloseResult = c.fclose(handle);
+                if(fcloseResult != 0) unreachable; // this is NOT unreachable, but zig not supports error in defer 0_o
+            }
             
             // read file size
-            const stat = file.stat() catch return error.Unexpected;
-            std.log.info("file size = {}", .{stat.size});
-            
-            // TODO allock memory for file
-            // TODO load full file to buffer.
+            _ = c.fseek(handle, 0, c.SEEK_END);
+            const size = @intCast(usize, c.ftell(handle));
+            const err_value = std.math.maxInt(u32);
+            if (size == err_value) return error.Unexpected;
+
+            // allock memory for file
+            // DODO rewrite this to zig allocator, but ONLY after zig release
+            const memory_ptr = c.malloc(size) orelse return error.Unexpected; 
+            const buffer = @ptrCast([*]u8, memory_ptr)[0..size];
+
+            // load full file to buffer.
+            _ = c.fseek(handle, 0, c.SEEK_SET);
+            const freadResult = c.fread(memory_ptr, 1, size, handle);
+            if(freadResult != size) return error.Unexpected;
+            self.console.print(buffer);
+
             // TODO create tab with this file
             // TODO parse this file
             // TODO if parsed_path.line goto line;
-            file.close();
+
         }
     } // end else of if (std.os.argv.len == 1)
     self.mainLoop();
