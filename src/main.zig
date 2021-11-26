@@ -1,16 +1,27 @@
-const std = @import("std");
+// zig fmt: off
+const std  = @import("std");
 const Prog = @This();
-pub const ansi = @import("ansi.zig");
-pub const Console = @import("Console.zig");
-pub const lib = @import("lib.zig");
-pub const c = lib.c; 
-pub const printRune = lib.printRune;
-pub const print = lib.print;
-pub const cmp = lib.cmp;
-pub const findSymbol = lib.findSymbol;
-pub const Coor2u = lib.Coor2u;
-pub const countSymbol = lib.countSymbol;
+pub const ansi            = @import("ansi.zig");
+pub const Console         = @import("Console.zig");
+pub const lib             = @import("lib.zig");
+pub const c               = lib.c; 
+pub const printRune       = lib.printRune;
+pub const print           = lib.print;
+pub const cmp             = lib.cmp;
+pub const findSymbol      = lib.findSymbol;
+pub const Coor2u          = lib.Coor2u;
+pub const countSymbol     = lib.countSymbol;
 pub const u64FromCharsDec = lib.u64FromCharsDec;
+
+console:     Console    = .{},
+status_line: StatusLine = .{},
+mode:        Mode       = .edit,
+working:     bool       = true,
+file_name:   [1024]u8   = undefined,
+keyboard:    Keyboard   = .{},
+// zig fmt: off
+
+var prog: Prog = .{};
 
 
 pub const Mode = enum {
@@ -30,16 +41,6 @@ pub const Mode = enum {
         };
     }
 };
-
-
-
-console: Console = .{},
-status_line: StatusLine = .{},
-mode: Mode = .edit,
-working: bool = true,
-file_name: [1024]u8,
-
-var prog: Prog = undefined;
 
 pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     SizeIsBiggestFromConsole,
@@ -161,11 +162,31 @@ pub fn main() error{
 
 pub fn mainLoop(self: *Prog) void {
     while (self.working) {
-        // TODO if key == ctrl + w {bufferClose();}
-        // TODO if key == ctrl + q {bufferClose(); self.working = false;}
-        self.working = false;
+        self.keyboard.updateKeys();
     }
 }
+
+
+const Keyboard = struct {
+    last: c_int = 0,
+
+    pub fn updateKeys(self: *Keyboard) void {
+        const f_stdin = c.fileno(c.stdin); 
+        var bytesWaiting: c_int = undefined;
+        _ = c.ioctl(f_stdin, c.FIONREAD, &bytesWaiting);
+            while(bytesWaiting > 0) : (bytesWaiting -= 1) {
+            const char = c.getchar();
+            switch(char) {
+                'q', 208, 185 => prog.working = false,
+                else => {},
+            }
+            self.last = char;
+        }
+        // TODO if key == ctrl + w {bufferClose();}
+        // TODO if key == ctrl + q {bufferClose(); self.working = false;}
+    }    
+};
+
 
 pub fn bufferClose() void {
     // TODO save file
