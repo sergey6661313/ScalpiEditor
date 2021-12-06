@@ -13,13 +13,24 @@ pub const print           = lib.print;
 pub const cmp             = lib.cmp;
 pub const Coor2u          = lib.Coor2u;
 
-console:     Console    = .{},
-status_line: StatusLine = .{},
-mode:        Mode       = .edit,
-working:     bool       = true,
-file_name:   [1024]u8   = undefined,
-keyboard:    Keyboard   = .{},
-// zig fmt: off
+const Line = struct {
+    bytes:     [254]u8 = undefined,
+    next_line: ?usize  = null,
+    prev_line: ?usize  = null,
+};
+
+const lines_max = 254;
+
+console:     Console          = .{},
+status_line: StatusLine       = .{},
+mode:        Mode             = .edit,
+working:     bool             = true,
+file_name:   [1024]u8         = undefined,
+keyboard:    Keyboard         = .{},
+lines:       [lines_max]Line  = undefined, // how do .{}**lines_max, ???
+lines_count: usize            = 0,
+lines_index: [lines_max]u16   = undefined,
+// zig fmt: on
 
 pub var prog: Prog = .{};
 
@@ -84,6 +95,8 @@ pub fn main() error{
     FileNotOpened,
     Unexpected,
 }!void {
+    // TODO init self.lines
+    // TODO init self.lines_index
     const self = &prog;
     self.console.init();
     defer self.console.deinit();
@@ -114,8 +127,8 @@ pub fn main() error{
             const parsed_path = try ParsePath.init(arg);
             
             // open file
-            const file_name = parsed_path.file_name; 
-            // TODO copy file_name to global variable;
+            const file_name = parsed_path.file_name;
+            std.mem.copy(u8, self.file_name[0..], file_name); // copy file_name to global variable;
             // DODO use zig api for file, but ONLY after zig release
             const handle: *c.struct__IO_FILE = c.fopen(file_name.ptr, "rb") orelse return error.Unexpected; 
             defer {
