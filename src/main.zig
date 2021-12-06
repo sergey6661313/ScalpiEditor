@@ -4,14 +4,14 @@ const Prog = @This();
 pub const ansi            = @import("ansi.zig");
 pub const Console         = @import("Console.zig");
 pub const lib             = @import("lib.zig");
+pub const ParsePath       = @import("ParsePath.zig");
+pub const StatusLine      = @import("StatusLine.zig");
+pub const Keyboard        = @import("Keyboard.zig");
 pub const c               = lib.c; 
 pub const printRune       = lib.printRune;
 pub const print           = lib.print;
 pub const cmp             = lib.cmp;
-pub const findSymbol      = lib.findSymbol;
 pub const Coor2u          = lib.Coor2u;
-pub const countSymbol     = lib.countSymbol;
-pub const u64FromCharsDec = lib.u64FromCharsDec;
 
 console:     Console    = .{},
 status_line: StatusLine = .{},
@@ -21,7 +21,7 @@ file_name:   [1024]u8   = undefined,
 keyboard:    Keyboard   = .{},
 // zig fmt: off
 
-var prog: Prog = .{};
+pub var prog: Prog = .{};
 
 
 pub const Mode = enum {
@@ -75,16 +75,7 @@ pub fn createBufferScreen(self: *Prog, _size: ?*Coor2u) error{
     }
 }
 
-pub const StatusLine = struct {
-    // TODO draw name of current file (maybe scrolling text if size is very big)
-    pos: usize = 0, // line num. TODO change to buffer size - 2;
 
-    pub fn draw(self: *StatusLine) void {
-        prog.console.cursor.move(0, self.pos);
-        prog.console.print(prog.mode.ToText());
-        prog.console.cursorToEnd();
-    }
-};
 
 
 
@@ -167,25 +158,7 @@ pub fn mainLoop(self: *Prog) void {
 }
 
 
-const Keyboard = struct {
-    last: c_int = 0,
 
-    pub fn updateKeys(self: *Keyboard) void {
-        const f_stdin = c.fileno(c.stdin); 
-        var bytesWaiting: c_int = undefined;
-        _ = c.ioctl(f_stdin, c.FIONREAD, &bytesWaiting);
-            while(bytesWaiting > 0) : (bytesWaiting -= 1) {
-            const char = c.getchar();
-            switch(char) {
-                'q', 208, 185 => prog.working = false,
-                else => {},
-            }
-            self.last = char;
-        }
-        // TODO if key == ctrl + w {bufferClose();}
-        // TODO if key == ctrl + q {bufferClose(); self.working = false;}
-    }    
-};
 
 
 pub fn bufferClose() void {
@@ -193,51 +166,3 @@ pub fn bufferClose() void {
 }
 
 
-pub const ParsePath = struct {
-    file_name: []const u8,
-    line:      ?usize = null,
-    column:    ?usize = null,
-
-    pub fn init(text: []const u8) error{
-        Unexpected,
-    }!ParsePath {
-        const comma_symbol = ':';
-        const count_comma: usize = countSymbol(text, comma_symbol);
-        var self: ParsePath = .{.file_name = undefined};
-        switch (count_comma) {
-            0 => {
-                self.file_name = text[0..];
-            },
-
-            1 => {
-                var comma_pos = findSymbol(text, comma_symbol).?;
-
-                // parse name
-                self.file_name = text[0..comma_pos + 1];
-
-                // parse line
-                const line_as_text = text[comma_pos + 1..];
-                self.line = u64FromCharsDec(line_as_text) catch return error.Unexpected;
-            },
-
-            2 => {
-                var comma_pos_1 = findSymbol(text, comma_symbol).?;
-                var comma_pos_2 = findSymbol(text[comma_pos_1 + 1 ..], comma_symbol).?;
-
-                // parse name
-                self.file_name = text[0..comma_pos_1 + 1];
-
-                // parse line
-                const line_as_text = text[comma_pos_1 + 1..];
-                self.line = u64FromCharsDec(line_as_text) catch return error.Unexpected;
-
-                // parse column
-                const column_as_text = text[comma_pos_2 + 1..];
-                self.column = u64FromCharsDec(column_as_text) catch return error.Unexpected;
-            },
-
-            else => return error.Unexpected,
-        }
-        return self;
-    }
-};
