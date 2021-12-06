@@ -27,7 +27,7 @@ mode:        Mode             = .edit,
 working:     bool             = true,
 file_name:   [1024]u8         = undefined,
 keyboard:    Keyboard         = .{},
-lines:       [lines_max]Line  = undefined, // how do .{}**lines_max, ???
+lines:       [lines_max]Line  = .{.{}}**lines_max, // OwO syntax
 lines_count: usize            = 0,
 lines_index: [lines_max]u16   = undefined,
 // zig fmt: on
@@ -95,9 +95,17 @@ pub fn main() error{
     FileNotOpened,
     Unexpected,
 }!void {
-    // TODO init self.lines
-    // TODO init self.lines_index
     const self = &prog;
+
+    { // init self.lines_index
+        var pos: usize = 0;
+        while(true) {
+            self.lines_index[pos] = pos;
+            if (pos == lines_max) break;
+            pos += 1;
+        }
+    }
+
     self.console.init();
     defer self.console.deinit();
     self.status_line.pos = self.console.size.y - 2;
