@@ -1,6 +1,7 @@
 const std = @import("std");
 const expect = std.testing.expect;
 
+//defines
 pub const c = @cImport({
     // canonical c
     @cInclude("stdio.h");
@@ -16,8 +17,6 @@ pub const c = @cImport({
     @cInclude("sys/socket.h");
     @cInclude("unistd.h");
 });
-
-
 pub const Coor2u = struct {
     x: usize,
     y: usize,
@@ -35,14 +34,12 @@ pub const Coor2u = struct {
     }
 };
 
-
+// methods
 pub fn printRune(rune: u8) void {
     _ = c.fputc(rune, c.stdout);
     _ = c.fflush(c.stdout);
     std.time.sleep(std.time.ns_per_ms * 1);
 }
-
-
 pub fn print(text: []const u8) void {
     for (text) |ch| {
         _ = c.fputc(ch, c.stdout);
@@ -50,8 +47,6 @@ pub fn print(text: []const u8) void {
         std.time.sleep(std.time.ns_per_ms * 1);
     }
 }
-
-
 pub fn cmp(a: []u8, b: []u8) enum { equal, various } {
     if (a.len != a.len) return .various;
     var pos: usize = 0;
@@ -62,8 +57,6 @@ pub fn cmp(a: []u8, b: []u8) enum { equal, various } {
         pos += 1;
     }
 }
-
-
 pub fn findSymbol(text: []const u8, symbol: u8) ?usize {
     for(text) |rune, id| {
         if (rune == symbol) return id;
@@ -77,8 +70,6 @@ pub fn countSymbol(text: []const u8, symbol: u8) usize {
     }
     return count;
 }
-
-
 pub fn u64FromCharsDec(data: []const u8) error{
     NotNumber,
     Unexpected,
@@ -108,15 +99,41 @@ pub fn u64FromCharsDec(data: []const u8) error{
         pos -= 1;
     }
 }
+pub fn loadFile(name: []const u8) error{
+    FileNotExist,
+    Unexpected,
+}![]u8 {
+    // TODO check - file exits?
+    // open file DODO use zig api for file, but ONLY after zig release
+    const handle: *c.struct__IO_FILE = c.fopen(name.ptr, "rb") orelse return error.FileNotExist;
+    defer {
+        var fcloseResult = c.fclose(handle);
+        if (fcloseResult != 0) unreachable; // this is NOT unreachable, but zig not supports error in defer 0_o
+    }
 
+    // read file size
+    _ = c.fseek(handle, 0, c.SEEK_END);
+    const size = @intCast(usize, c.ftell(handle));
+    const err_value = std.math.maxInt(u32);
+    if (size == err_value) return error.Unexpected;
 
+    // allock memory for file
+    // DODO rewrite this to zig allocator, but ONLY after zig release
+    const memory_ptr = c.malloc(size) orelse return error.Unexpected;
+    const buffer = @ptrCast([*]u8, memory_ptr)[0..size]; // how to normal syntax to create slice?
 
-fn printedTest(data: []const u8, expected: u64) !void {
+    // load full file to buffer.
+    _ = c.fseek(handle, 0, c.SEEK_SET);
+    const freadResult = c.fread(memory_ptr, 1, size, handle);
+    if (freadResult != size) return error.Unexpected;
+
+    return buffer;
+}
+pub fn printedTest(data: []const u8, expected: u64) !void {
     const result = try u64FromCharsDec(data);
     std.log.info("expected {} received {}", .{ expected, result });
     try expect(expected == result);
 }
-
 pub fn u64FromCharsDec_tests() !void {
     try printedTest("0", 0);
     try printedTest("1", 1);
