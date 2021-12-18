@@ -4,16 +4,16 @@
 const Prog = @This();
 
 // defines
-const std = @import("std");
-pub const ansi = @import("ansi.zig");
-pub const Console = @import("Console.zig");
-pub const lib = @import("lib.zig");
+const           std = @import("std");
+pub const      ansi = @import("ansi.zig");
+pub const   Console = @import("Console.zig");
+pub const       lib = @import("lib.zig");
 pub const ParsePath = @import("ParsePath.zig");
-pub const Keyboard = @import("Keyboard.zig");
-pub const Line = struct {
+pub const  Keyboard = @import("Keyboard.zig");
+pub const      Line = struct {
     bytes: [254]u8 = undefined,
 };
-pub const Mode = enum {
+pub const      Mode = enum {
     mainMenu, // logo, minihelp, create, open, close
     fileNavigation,
     navigation,
@@ -30,7 +30,7 @@ pub const Mode = enum {
         };
     }
 };
-pub const Screen = struct {
+pub const    Screen = struct {
     console: Console = .{},
     
     // methods
@@ -64,7 +64,7 @@ pub const Screen = struct {
         }
     } // end fn alloc
 };
-pub const Lines = struct {
+pub const     Lines = struct {
     // defines
     pub const max = 40000; // about 10 mb...
     
@@ -88,7 +88,7 @@ pub const Lines = struct {
         return &self.lines[self.index[pos]];
     }
 };
-pub const Buffer = struct {
+pub const    Buffer = struct {
     mode: Mode = .edit,
     file_name: [1024]u8 = undefined,
     lines: Lines = .{},

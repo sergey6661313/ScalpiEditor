@@ -1,21 +1,22 @@
-pub const Console = @This();
+const Console = @This();
 
-const Prog = @import("root");
-const c = Prog.c;
-const Coor2u = Prog.Coor2u;
-const ansi = Prog.ansi;
-
-const lib = Prog.lib;
-const cmp = lib.cmp;
-
+// defines
 const std = @import("std");
 const asBytes = std.mem.asBytes;
+const Prog = @import("root");
+const ansi = Prog.ansi;
+const lib = Prog.lib;
+const c = lib.c;
+const Coor2u = lib.Coor2u;
+const cmp = lib.cmp;
 
+// fields
 size: Coor2u = .{ .x = 0, .y = 0 },
 stdin_system_flags: c.struct_termios = undefined,
 stdout_system_flags: c.struct_termios = undefined,
 cursor: Cursor = .{},
 
+// methods
 pub fn init(self: *Console) void {
 
     // save std in/out settings
@@ -39,7 +40,6 @@ pub fn init(self: *Console) void {
 
     _ = self.updateSize();
 }
-
 pub fn deinit(self: *Console) void {
     // restore buffer settings
     const f_stdin = c.fileno(c.stdin);
@@ -48,7 +48,6 @@ pub fn deinit(self: *Console) void {
     const f_stdout = c.fileno(c.stdout);
     _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
 }
-
 pub fn updateSize(self: *Console) bool {
     var w: c.winsize = undefined;
     _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
@@ -63,7 +62,6 @@ pub fn updateSize(self: *Console) bool {
     }
     return true;
 }
-
 pub fn print(self: *Console, text: []const u8) void {
     for (text) |rune| {
         switch (rune) {
@@ -80,20 +78,17 @@ pub fn print(self: *Console, text: []const u8) void {
                 self.cursor.x += 1;
             },
         }
-        Prog.printRune(rune);
+        lib.printRune(rune);
     }
 }
-
 pub fn cursorToEnd(self: *Console) void {
     self.cursor.move(0, self.size.y);
 }
-
 pub fn cursorMove(self: *Console, x: usize, y: usize) void {
     self.cursor.move(x, y);
     if (self.cursor.x > self.size.x) unreachable;
     if (self.cursor.y > self.size.y) unreachable;
 }
-
 pub const Cursor = struct {
     x: usize = 0,
     y: usize = 0,
@@ -126,7 +121,7 @@ pub const Cursor = struct {
     pub fn shiftLeft(self: *Cursor, pos: usize) void {
         const target = self.x - pos;
         while (self.x > target) {
-            Prog.print(ansi.control ++ "1D");
+            lib.print(ansi.control ++ "1D");
             self.x -= 1;
         }
     }
@@ -134,7 +129,7 @@ pub const Cursor = struct {
     pub fn shiftRight(self: *Cursor, pos: usize) void {
         const target = self.x + pos;
         while (self.x < target) {
-            Prog.print(ansi.control ++ "1C");
+            lib.print(ansi.control ++ "1C");
             self.x += 1;
         }
     }
@@ -142,7 +137,7 @@ pub const Cursor = struct {
     pub fn shiftUp(self: *Cursor, pos: usize) void {
         const target = self.y - pos;
         while (self.y > target) {
-            Prog.print(ansi.control ++ "1A");
+            lib.print(ansi.control ++ "1A");
             self.y -= 1;
         }
     }
@@ -150,7 +145,7 @@ pub const Cursor = struct {
     pub fn shiftDown(self: *Cursor, pos: usize) void {
         const target = self.y + pos;
         while (self.y < target) {
-            Prog.print(ansi.control ++ "1B");
+            lib.print(ansi.control ++ "1B");
             self.y += 1;
         }
     }
