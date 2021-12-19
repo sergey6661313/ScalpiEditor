@@ -4,17 +4,16 @@
 const Prog = @This();
 
 // defines
-const           std = @import("std");
-pub const      ansi = @import("ansi.zig");
-pub const   Console = @import("Console.zig");
-pub const       lib = @import("lib.zig");
-pub const ParsePath = @import("ParsePath.zig");
-pub const  Keyboard = @import("Keyboard.zig");
-pub const      Line = struct {
+    const std        = @import("std");
+pub const ansi       = @import("ansi.zig");
+pub const Console    = @import("Console.zig");
+pub const lib        = @import("lib.zig");
+pub const ParsePath  = @import("ParsePath.zig");
+pub const Keyboard   = @import("Keyboard.zig");
+pub const Line       = struct {
     bytes: [254]u8 = undefined,
 };
-pub const      Mode = enum {
-    mainMenu, // logo, minihelp, create, open, close
+pub const Mode       = enum {
     fileNavigation,
     navigation,
     edit,
@@ -30,7 +29,7 @@ pub const      Mode = enum {
         };
     }
 };
-pub const    Screen = struct {
+pub const Screen     = struct {
     console: Console = .{},
     
     // methods
@@ -64,7 +63,7 @@ pub const    Screen = struct {
         }
     } // end fn alloc
 };
-pub const     Lines = struct {
+pub const Lines      = struct {
     // defines
     pub const max = 40000; // about 10 mb...
     
@@ -88,16 +87,16 @@ pub const     Lines = struct {
         return &self.lines[self.index[pos]];
     }
 };
-pub const    Buffer = struct {
-    mode: Mode = .edit,
+pub const Buffer     = struct {
+    mode:      Mode     = .edit,
     file_name: [1024]u8 = undefined,
-    lines: Lines = .{},
+    lines:     Lines    = .{},
 
     // methods
-    pub fn init(self: *Buffer) !void {
+    pub fn init   (self: *Buffer) !void {
         self.lines.init();
     }
-    pub fn close() void {
+    pub fn close  () void {
         // TODO save file
     }
 };
@@ -106,44 +105,57 @@ pub const    Buffer = struct {
 screen:   Screen   = .{},
 working:  bool     = true,
 keyboard: Keyboard = .{},
+buffer:   Buffer   = .{},
 
 // methods
-pub fn getTextFromArgument() error{Unexpected} ![]const u8 {
+pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var argIterator_packed = std.process.ArgIterator.init();
     var argIterator = &argIterator_packed.inner;
     _ = argIterator.skip(); // skip name of programm
     var arg = argIterator.next() orelse return error.Unexpected;
     return arg;
 }
-pub fn main() error{
+pub fn init                 (self: *Prog) error{
     ScreenNotInit,
-    BufferNotCreated,
-    FileNotOpened,
+    BufferNotInit,
+                            }!void {
+    self.screen.init() catch return error.ScreenNotInit; defer self.screen.deInit();
+    self.buffer.init() catch return error.BufferNotInit;
+}
+pub fn main                 () error{
+    NotInit,
     Unexpected,
-}!void {
+                            } !void {
     const self = &prog;
-    if (std.os.argv.len == 1) { // if exist not exist
-        std.log.info(
-            \\This is ScalpiEditor text editor. 
+    if (std.os.argv.len == 1) { // exit if arguments not exist
+        std.log.info( // print 
+            \\This is ScalpiEditor file-text editor.
             \\For edit file run ScalpiEditor with file name as argument
-            \\example: ScalpiEditor ~/.bashrc
+            \\  ScalpiEditor ~/.bashrc
+            \\or use next keys:
+            \\  "--help"     for open documentation
+            \\  "--settings" for open settings edittor
             ,.{}
         );
         return;
     }
-    self.screen.init() catch return error.ScreenNotInit; 
-    defer self.screen.deInit();
+    self.init() catch return error.NotInit;
+    // read file from argument
     var argument = try getTextFromArgument();
     const parsed_path = try ParsePath.init(argument);
     const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-        error.FileNotExist => {
-            return error.FileNotOpened; // TODO replace this to answer to create file.
+        error.FileNotExist => { // exit
+            std.log.info( // print "File not exist"
+                  \\ File not exist. ScalpiEditor does not create files itself. 
+                  \\ You can create file with command: 
+                  \\   touch file_name
+            ,.{});
+            return;
         },
         error.Unexpected => return error.Unexpected,
     };
     lib.print(file_data_allocated);
     _ = &self;
-    // buffer.mode = .edit;
     // std.mem.copy(u8, self.file_name[0..], parsed_path.file_name); // copy file_name self variable;
     // TODO create buffer with this file
     // TODO check - file map exist?
@@ -154,9 +166,11 @@ pub fn main() error{
     self.mainLoop();
     std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
 }
-pub fn mainLoop(self: *Prog) void {
+pub fn mainLoop             (self: *Prog) void {
     while (self.working) {
         self.keyboard.updateKeys();
     }
 }
+
+//export 
 pub var prog: Prog = .{};
