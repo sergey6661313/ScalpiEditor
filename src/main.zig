@@ -94,7 +94,7 @@ pub const Buffer     = struct {
 
     // methods
     pub fn init   (self: *Buffer) !void {
-        self.lines.init();
+        try self.lines.init();
     }
     pub fn close  () void {
         // TODO save file
@@ -127,34 +127,36 @@ pub fn main                 () error{
     Unexpected,
                             } !void {
     const self = &prog;
-    if (std.os.argv.len == 1) { // exit if arguments not exist
-        std.log.info( // print 
-            \\This is ScalpiEditor file-text editor.
-            \\For edit file run ScalpiEditor with file name as argument
-            \\  ScalpiEditor ~/.bashrc
-            \\or use next keys:
-            \\  "--help"     for open documentation
-            \\  "--settings" for open settings edittor
-            ,.{}
+    if (std.os.argv.len == 1) { // exit if argument not exist
+        lib.print( // print mini info
+            \\  This is ScalpiEditor file-text editor.
+            \\  For edit file run ScalpiEditor with file name as argument
+            \\    ScalpiEditor ~/.bashrc
+            \\  or use next keys:
+            \\    "--help"     for open documentation
+            \\    "--settings" for open settings edittor
+            \\
         );
         return;
     }
-    self.init() catch return error.NotInit;
     // read file from argument
     var argument = try getTextFromArgument();
     const parsed_path = try ParsePath.init(argument);
     const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
         error.FileNotExist => { // exit
-            std.log.info( // print "File not exist"
-                  \\ File not exist. ScalpiEditor does not create files itself. 
-                  \\ You can create file with command: 
-                  \\   touch file_name
-            ,.{});
+            lib.print( // print "File not exist"
+                \\  File not exist. 
+                \\  ScalpiEditor does not create files itself. 
+                \\  You can create file with command: 
+                \\     touch file_name
+                \\
+            );
             return;
         },
         error.Unexpected => return error.Unexpected,
     };
     lib.print(file_data_allocated);
+    self.init() catch return error.NotInit;
     _ = &self;
     // std.mem.copy(u8, self.file_name[0..], parsed_path.file_name); // copy file_name self variable;
     // TODO create buffer with this file
