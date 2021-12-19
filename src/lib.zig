@@ -38,7 +38,7 @@ pub const Coor2u = struct {
 pub fn printRune(rune: u8) void {
     _ = c.fputc(rune, c.stdout);
     _ = c.fflush(c.stdout);
-    std.time.sleep(std.time.ns_per_ms * 1);
+    //~ std.time.sleep(std.time.ns_per_ms * 1);
 }
 pub fn print(text: []const u8) void {
     for (text) |ch| {

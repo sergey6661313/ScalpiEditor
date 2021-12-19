@@ -1,5 +1,5 @@
 // Dear Andrewrk, please add to ZIG language the ability to write comments on the left side of the line ... 
-
+// TODO 
 
 const Prog = @This();
 
@@ -119,8 +119,11 @@ pub fn init                 (self: *Prog) error{
     ScreenNotInit,
     BufferNotInit,
                             }!void {
-    self.screen.init() catch return error.ScreenNotInit; defer self.screen.deInit();
+    self.screen.init() catch return error.ScreenNotInit;
     self.buffer.init() catch return error.BufferNotInit;
+}
+pub fn deInit               (self: *Prog) void {
+    self.screen.deInit();
 }
 pub fn main                 () error{
     NotInit,
@@ -156,7 +159,7 @@ pub fn main                 () error{
         error.Unexpected => return error.Unexpected,
     };
     lib.print(file_data_allocated);
-    self.init() catch return error.NotInit;
+    self.init() catch return error.NotInit; defer self.deInit();
     _ = &self;
     // std.mem.copy(u8, self.file_name[0..], parsed_path.file_name); // copy file_name self variable;
     // TODO create buffer with this file
