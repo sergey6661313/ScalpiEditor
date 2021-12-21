@@ -1,9 +1,11 @@
-// Dear Andrewrk, please add to ZIG language the ability to write comments on the left side of the line ... 
-// TODO 
-
-const Prog = @This();
+// license:
+//~ This code can be freely redistributed except for:
+//~ 1) letters, numbers, special characters, signs.
+//~ 2) Under no circumstances should you mention about spaces!
+//~ 3) do not use without lubrication. 
 
 // defines
+    const Prog       = @This();
     const std        = @import("std");
 pub const ansi       = @import("ansi.zig");
 pub const Console    = @import("Console.zig");
@@ -100,8 +102,8 @@ pub const Buffer     = struct {
         // TODO save file
     }
 };
-
-//fields
+        
+// fields
 screen:   Screen   = .{},
 working:  bool     = true,
 keyboard: Keyboard = .{},
@@ -115,23 +117,15 @@ pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var arg = argIterator.next() orelse return error.Unexpected;
     return arg;
 }
-pub fn init                 (self: *Prog) error{
+pub fn main                 () error{
     ScreenNotInit,
     BufferNotInit,
-                            }!void {
-    self.screen.init() catch return error.ScreenNotInit;
-    self.buffer.init() catch return error.BufferNotInit;
-}
-pub fn deInit               (self: *Prog) void {
-    self.screen.deInit();
-}
-pub fn main                 () error{
-    NotInit,
     Unexpected,
                             } !void {
     const self = &prog;
-    if (std.os.argv.len == 1) { // exit if argument not exist
-        lib.print( // print mini info
+    // exit if argument not exist. // Dear Andrewrk, please add to ZIG language the ability to write comments on the left side of the line ... This is perfectly folded  code (in editor) and viev as one line. and no one reasons to have discription in upper line before same line.
+    if (std.os.argv.len == 1) {
+        lib.print(
             \\  This is ScalpiEditor file-text editor.
             \\  For edit file run ScalpiEditor with file name as argument
             \\    ScalpiEditor ~/.bashrc
@@ -142,9 +136,10 @@ pub fn main                 () error{
         );
         return;
     }
-    // read file from argument
+    // parse argument
     var argument = try getTextFromArgument();
     const parsed_path = try ParsePath.init(argument);
+    // read file
     const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
         error.FileNotExist => { // exit
             lib.print( // print "File not exist"
@@ -159,23 +154,27 @@ pub fn main                 () error{
         error.Unexpected => return error.Unexpected,
     };
     lib.print(file_data_allocated);
-    self.init() catch return error.NotInit; defer self.deInit();
-    _ = &self;
-    // std.mem.copy(u8, self.file_name[0..], parsed_path.file_name); // copy file_name self variable;
-    // TODO create buffer with this file
+    // init systems
+    self.screen.init() catch return error.ScreenNotInit; defer self.screen.deInit();
+    // create buffer with this file
+    self.buffer.init() catch return error.BufferNotInit;
+    std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
     // TODO check - file map exist?
+    
     // const map_buffer =
     // TODO parse this file
     // TODO if parsed_path.line goto line;
+    _ = &self;
     
     self.mainLoop();
     std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
 }
 pub fn mainLoop             (self: *Prog) void {
     while (self.working) {
+        // TODO draw buffer 
         self.keyboard.updateKeys();
     }
 }
 
-//export 
+// export 
 pub var prog: Prog = .{};
