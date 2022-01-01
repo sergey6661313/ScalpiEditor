@@ -1,94 +1,14 @@
-const Console = @This();
-
-// defines
-const std = @import("std");
-const asBytes = std.mem.asBytes;
-const Prog = @import("root");
-const ansi = Prog.ansi;
-const lib = Prog.lib;
-const c = lib.c;
-const Coor2u = lib.Coor2u;
-const cmp = lib.cmp;
-
-// fields
-size: Coor2u = .{ .x = 0, .y = 0 },
-stdin_system_flags: c.struct_termios = undefined,
-stdout_system_flags: c.struct_termios = undefined,
-cursor: Cursor = .{},
-
-// methods
-pub fn init(self: *Console) void {
-
-    // save std in/out settings
-    const f_stdin = c.fileno(c.stdin);
-    const f_stdout = c.fileno(c.stdout);
-    _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
-    _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
-
-    // turn off line buffering
-    var flags: c.struct_termios = undefined;
-    c.setbuf(c.stdin, null);
-    c.setbuf(c.stdout, null);
-
-    _ = c.tcgetattr(f_stdin, &flags);
-    flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
-    _ = c.tcsetattr(f_stdin, c.TCSANOW, &flags);
-
-    _ = c.tcgetattr(f_stdout, &flags);
-    flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
-    _ = c.tcsetattr(f_stdout, c.TCSANOW, &flags);
-
-    _ = self.updateSize();
-}
-pub fn deinit(self: *Console) void {
-    // restore buffer settings
-    const f_stdin = c.fileno(c.stdin);
-    _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
-
-    const f_stdout = c.fileno(c.stdout);
-    _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
-}
-pub fn updateSize(self: *Console) bool {
-    var w: c.winsize = undefined;
-    _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
-    var new_size: Coor2u = .{
-        .x = w.ws_col - 1,
-        .y = w.ws_row - 1,
-    };
-
-    if (cmp(asBytes(&self.size), asBytes(&new_size)) == .various) {
-        self.size = new_size;
-        return false;
-    }
-    return true;
-}
-pub fn print(self: *Console, text: []const u8) void {
-    for (text) |rune| {
-        switch (rune) {
-            '\r' => {
-                self.cursor.x = 0;
-            },
-
-            '\n' => {
-                self.cursor.x = 0;
-                self.cursor.y += 1;
-            },
-
-            else => {
-                self.cursor.x += 1;
-            },
-        }
-        lib.printRune(rune);
-    }
-}
-pub fn cursorToEnd(self: *Console) void {
-    self.cursor.move(0, self.size.y);
-}
-pub fn cursorMove(self: *Console, x: usize, y: usize) void {
-    self.cursor.move(x, y);
-    if (self.cursor.x > self.size.x) unreachable;
-    if (self.cursor.y > self.size.y) unreachable;
-}
+// zig fmt: off
+//{ defines
+const Console    = @This();
+const std        = @import("std");
+const asBytes    = std.mem.asBytes;
+const Prog       = @import("root");
+const ansi       = Prog.ansi;
+const lib        = Prog.lib;
+const c          = lib.c;
+const Coor2u     = lib.Coor2u;
+const cmp        = lib.cmp;
 pub const Cursor = struct {
     x: usize = 0,
     y: usize = 0,
@@ -150,3 +70,91 @@ pub const Cursor = struct {
         }
     }
 };
+//}
+//{ fields
+size:                Coor2u           = .{ .x = 0, .y = 0 },
+stdin_system_flags:  c.struct_termios = undefined,
+stdout_system_flags: c.struct_termios = undefined,
+cursor:              Cursor           = .{},
+//}
+//{ methods
+pub fn init               (self: *Console) void {
+    //{ save std in/out settings
+    const f_stdin = c.fileno(c.stdin);
+    const f_stdout = c.fileno(c.stdout);
+    _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
+    _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
+    //}
+    //{ turn off line buffering
+    var flags: c.struct_termios = undefined;
+    c.setbuf(c.stdin, null);
+    c.setbuf(c.stdout, null);
+
+    _ = c.tcgetattr(f_stdin, &flags);
+    flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+    _ = c.tcsetattr(f_stdin, c.TCSANOW, &flags);
+
+    _ = c.tcgetattr(f_stdout, &flags);
+    flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+    _ = c.tcsetattr(f_stdout, c.TCSANOW, &flags);
+    //}
+}
+pub fn deInit             (self: *Console) void {
+    // restore buffer settings
+    const f_stdin = c.fileno(c.stdin);
+    _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
+
+    const f_stdout = c.fileno(c.stdout);
+    _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
+}
+pub fn updateSize         (self: *Console) void {
+    var w: c.winsize = undefined;
+    _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
+    self.size.x = w.ws_col - 1;
+    self.size.y = w.ws_row - 1;
+}
+pub fn printRune          (self: *Console, rune: u8) void {
+    switch (rune) {
+        '\r' => {
+            self.cursor.x = 0;
+        },
+
+        '\n' => {
+            self.cursor.x = 0;
+            self.cursor.y += 1;
+        },
+
+        else => {
+            self.cursor.x += 1;
+        },
+    }
+    lib.printRune(rune);
+}
+pub fn print              (self: *Console, text: []const u8) void {
+    for (text) |rune| {
+        self.printRune(rune);
+    }
+}
+pub fn cursorToEnd        (self: *Console) void {
+    self.cursor.move(0, self.size.y);
+}
+pub fn cursorMove         (self: *Console, x: usize, y: usize) void {
+    self.cursor.move(x, y);
+    if (self.cursor.x > self.size.x) unreachable;
+    if (self.cursor.y > self.size.y) unreachable;
+}
+pub fn clear              (self: *Console) void {
+    self.cursorMove(0, 0);
+    self.updateSize();
+    while (self.cursor.y != self.size.y - 1) { 
+        self.fillSpaces();
+        self.print("\r\n");
+    } // end while
+    self.cursorToEnd();
+} // end fn clear
+pub fn fillSpaces         (self: *Console) void {
+    while (self.cursor.x != self.size.x - 1) {
+        self.printRune(' ');
+    }
+}
+//}

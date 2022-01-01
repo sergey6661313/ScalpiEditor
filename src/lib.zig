@@ -42,9 +42,7 @@ pub fn printRune(rune: u8) void {
 }
 pub fn print(text: []const u8) void {
     for (text) |ch| {
-        _ = c.fputc(ch, c.stdout);
-        _ = c.fflush(c.stdout);
-        std.time.sleep(std.time.ns_per_ms * 1);
+        printRune(ch);
     }
 }
 pub fn cmp(a: []u8, b: []u8) enum { equal, various } {
@@ -128,26 +126,4 @@ pub fn loadFile(name: []const u8) error{
     if (freadResult != size) return error.Unexpected;
 
     return buffer;
-}
-pub fn printedTest(data: []const u8, expected: u64) !void {
-    const result = try u64FromCharsDec(data);
-    std.log.info("expected {} received {}", .{ expected, result });
-    try expect(expected == result);
-}
-pub fn u64FromCharsDec_tests() !void {
-    try printedTest("0", 0);
-    try printedTest("1", 1);
-    try printedTest("10", 10);
-    try printedTest("2", 2);
-    try printedTest("20", 20);
-    try printedTest("200", 200);
-    try printedTest("8", 8);
-    try printedTest("16", 16);
-    try printedTest("32", 32);
-    try printedTest("64", 64);
-    try printedTest("128", 128);
-    try printedTest("256", 256);
-    try printedTest("9223372036854775807", 9223372036854775807);
-    try printedTest("9223372036854775808", 9223372036854775808);
-    try printedTest("18446744073709551615", 18446744073709551615);
 }

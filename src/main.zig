@@ -6,41 +6,7 @@ pub const ansi       = @import("ansi.zig");
 pub const lib        = @import("lib.zig");
 pub const ParsePath  = @import("ParsePath.zig");
 pub const Keyboard   = @import("Keyboard.zig");
-pub const Screen     = struct {
-    pub const Console  = @import("Console.zig");
-    console: Console   = .{},
-    
-    // methods
-    pub fn deInit  (self: *Screen) void {
-        self.console.deinit();
-    }
-    pub fn init    (self: *Screen) !void {
-        self.console.init(); 
-        self.console.cursor.x = 0;
-        self.console.cursor.y = 0;
-        try self.resize();
-    }
-    pub fn resize  (self: *Screen) !void {
-        self.alloc();
-        self.console.cursorToEnd();
-    }
-    pub fn alloc   (self: *Screen) void { // alloc and clear
-        lib.print("\n");
-        { // print \n\n\n\n\n...            
-            var pos: usize = 0;
-            while (pos != self.console.size.y) { 
-                self.console.print("\n");
-                var spaces: usize = 0;
-                while (true) {
-                    self.console.print(" ");
-                    if (spaces == self.console.size.x - 1) break;
-                    spaces += 1;
-                }
-                pos += 1;
-            }
-        }
-    } // end fn alloc
-};
+pub const Console    = @import("Console.zig");
 pub const Buffer     = struct {
     pub const Mode      = enum {
         navigation,
@@ -142,12 +108,15 @@ const MainErrors     = error {
     BufferNotInit,
     Unexpected,
 };
+
 //}
 //{ fields
-screen:   Screen   = .{},
+console:  Console  = .{},
 working:  bool     = true,
 keyboard: Keyboard = .{},
 buffer:   Buffer   = .{},
+selected_line_id: usize = 0,
+need_redraw:      bool  = true,
 //}
 //{ methods
 pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
@@ -183,15 +152,24 @@ pub fn loadLinesToBuffer    (
 } // end fn loadLinesToBuffer
 pub fn main                 () MainErrors!void {   
     const self = &prog;
-    //{ exit if argument not exist. 
-    if (std.os.argv.len == 1) {
+    //{ init console
+    self.console.init();
+    defer self.console.deInit();
+    //}
+    //{ check argument
+    if (std.os.argv.len == 1) { // print usage and exit
         lib.print(
-            \\  This is ScalpiEditor file-text editor.
-            \\  For edit file run ScalpiEditor with file name as argument
-            \\    ScalpiEditor ~/.bashrc
-            \\  or use next keys:
-            \\    "--help"     for open documentation
-            \\    "--settings" for open settings edittor
+            \\
+            \\    This is ScalpiEditor file-text editor.
+            \\
+            \\    usage examples:
+            \\        ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
+            // TODO \\        ScalpiEditor --help       - open documentation
+            // TODO \\        ScalpiEditor --settings   - open settings
+            \\
+            \\    inside editor:
+            \\        use q for quit
+            \\
             \\
         );
         return;
@@ -216,52 +194,54 @@ pub fn main                 () MainErrors!void {
         error.Unexpected => return error.Unexpected,
     };
     //}
-    //{ init systems
-    self.screen.init() catch return error.ScreenNotInit; defer self.screen.deInit();
-    //}
     //{ create buffer with this file
     self.buffer.init() catch return error.BufferNotInit;
     std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
     self.loadLinesToBuffer(file_data_allocated);
     //}
-    { // draw lines
-        const console = &self.screen.console;
-        console.cursorMove(0, 0);
-        //const folder = self.buffer.lines.getCurrentFolder();
-        // TODO create iterator for lines
-        var pos: usize = 0;
-        std.log.info("self.screen.console.size = {}",.{self.screen.console.size});
-        var line_id: ?usize = 0;
-        while(true) {
-            if(pos == self.screen.console.size.y ) {
-                console.print("...");
-                break;
-            }
-                if (line_id) |id| {
-                pos += 1;
-                console.print("line -- ");
-                const line = prog.buffer.lines.get(id);
-                console.print(line.getText());                
-                console.print("\r\n");
-                line_id = line.next;
-            } else {
-                break;
-            }
-        } // end while
-    } // end draw lines
+    //lib.print("\n");
     self.mainLoop();
     std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
 }
 pub fn mainLoop             (self: *Prog) void {
     while (self.working) {
-        // TODO draw buffer 
         self.keyboard.updateKeys();
+        if(self.need_redraw) self.draw();
+        std.time.sleep(std.time.ns_per_ms * 20);
     }
 }
+pub fn draw                 (self: *Prog) void { 
+    self.console.clear();
+    self.need_redraw = false;
+    self.console.cursorMove(0, 0);
+    var pos: usize = 0;
+    var line_id: ?usize = 0;
+    while(true) {
+        if(pos == self.console.size.y ) {
+            self.console.print("...");
+            break;
+        }
+        if (line_id) |id| {
+            pos += 1;
+            const line = prog.buffer.lines.get(id);
+            if (self.selected_line_id == id) {
+                self.console.print(Prog.ansi.colors.cyan);
+                self.console.print(line.getText());
+                self.console.fillSpaces();
+                self.console.print(Prog.ansi.reset);
+            } else {
+                self.console.print(line.getText());                
+                self.console.fillSpaces();
+            }
+            self.console.print("\r\n");
+            line_id = line.next;
+        } else {
+            break;
+        }
+    } // end while
+    
+} // end draw lines
 //} end methods
 //{ export 
 pub var prog: Prog = .{};
-//}
-//{ TODOs
-// * file "map" for speedup
 //}

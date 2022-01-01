@@ -7,7 +7,7 @@ pub const reset   = control ++ "0m";
 pub const bold    = control ++ "1m";
 pub const dim     = control ++ "2m";
 
-pub const Colors = struct {
+pub const colors = struct {
     pub const red    = control ++ "31;1m";
     pub const green  = control ++ "32;1m";
     pub const __c33  = control ++ "33;1m";
