@@ -1,7 +1,0 @@
-Под Debian:
-    cp /usr/share/geany/filetypes.c ~/.config/geany/filedefs/
-    chown myUser:myGroup ~/.config/geany/filedefs/filetypes.c
-    Отредактируйте файл. В разделе [lexer_properties] добавьте строку:
-    fold.cpp.comment.explicit = 1
-    Сохраните файл.
-    Откройте geany. Теперь вы можете размещать пользовательские папки с использованием разделителей по умолчанию //{ и //} в c и cpp. Они не влияют на ваш код, потому что для c и cpp это комментарии.

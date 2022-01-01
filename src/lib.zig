@@ -1,6 +1,12 @@
 const std = @import("std");
 const expect = std.testing.expect;
-
+pub const key = struct {
+    pub const esc   = 27;
+    pub const up    = 65;
+    pub const down  = 66;
+    pub const right = 67;
+    pub const left  = 68;
+};
 //defines
 pub const c = @cImport({
     // canonical c

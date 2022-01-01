@@ -1,6 +1,6 @@
+// zig fmt: off
 pub const ansi = @This();
 
-// zig fmt: off
 pub const esc     = "\x1B";
 pub const control = esc ++ "[";
 pub const reset   = control ++ "0m";

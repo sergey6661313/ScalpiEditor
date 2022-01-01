@@ -85,9 +85,12 @@ pub const Buffer     = struct {
             //{ inc self.count
             self.count += 1;
             //}
+            //{ update prev next
             const last_line = self.get(self.last_created_line); 
-            self.last_created_line = id;
+            added_line.prev = self.last_created_line;
             last_line.next = id;
+            //}
+            self.last_created_line = id;
             return id;
         } // end fn add
         //}
@@ -108,7 +111,25 @@ const MainErrors     = error {
     BufferNotInit,
     Unexpected,
 };
-
+//{ usage text
+pub const usage_text = 
+    \\This is ScalpiEditor - "heirarhy" text editor. (NOT WORKING YET!)
+    \\Navigate in your code on MC-like style, but vi bindings.
+    \\
+    \\basic keys:
+    \\    ECS or q    - quit
+    \\    ↑   or k    - select upper  line
+    \\    ↓   or j    - select bottom line
+    \\    ↵ (enter)   - open block
+    \\
+    \\usage examples:
+    \\    ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
+    // TODO \\    ScalpiEditor --help       - open documentation
+    // TODO \\    ScalpiEditor --settings   - open settings
+    \\
+    \\
+;
+//}
 //}
 //{ fields
 console:  Console  = .{},
@@ -127,23 +148,21 @@ pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     return arg;
 }
 pub fn loadLinesToBuffer    (
-  self: *Prog, 
-  fda:  []u8 // file_data_allocated;
+  self: *Prog,
+  text:  []const u8,
 ) void {
-    const last_symbol_pos: usize = fda.len - 1;
+    const last_symbol_pos: usize = text.len - 1;
     var   pos: usize = 0;
     var   start_next_line: usize = 0;
     while(true) {
-        const symbol = fda[pos];
+        const symbol = text[pos];
         if(symbol == '\n') {
-            const text = fda[start_next_line .. pos];
-            _ = self.buffer.lines.add(text);
+            _ = self.buffer.lines.add(text[start_next_line .. pos]);
             start_next_line = pos + 1;
         }
         if (pos == last_symbol_pos) {
             if (symbol != '\n') {
-                const text = fda[start_next_line .. pos];
-                _ = self.buffer.lines.add(text);
+                _ = self.buffer.lines.add(text[start_next_line .. pos]);
             }
             break;
         }
@@ -152,54 +171,45 @@ pub fn loadLinesToBuffer    (
 } // end fn loadLinesToBuffer
 pub fn main                 () MainErrors!void {   
     const self = &prog;
-    //{ init console
-    self.console.init();
-    defer self.console.deInit();
+    lib.print("\n");
+    //{ init systems
+    self.console.init(); defer self.console.deInit();
+    self.buffer.init() catch return error.BufferNotInit;
+    lib.print(ansi.control ++ "?25l"); // hide cursor
+    defer lib.print(ansi.control ++ "?25h"); // show cursor
     //}
-    //{ check argument
-    if (std.os.argv.len == 1) { // print usage and exit
-        lib.print(
-            \\
-            \\    This is ScalpiEditor file-text editor.
-            \\
-            \\    usage examples:
-            \\        ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
-            // TODO \\        ScalpiEditor --help       - open documentation
-            // TODO \\        ScalpiEditor --settings   - open settings
-            \\
-            \\    inside editor:
-            \\        use q for quit
-            \\
-            \\
-        );
-        return;
+    
+    //{ load text (from argument)
+    if (std.os.argv.len == 1) { // load usage text
+        std.mem.copy(u8, self.buffer.file_name[0..], "usage");
+        self.loadLinesToBuffer(usage_text);
+    } else { // load file
+        //{ get path from arguments
+        var argument = try getTextFromArgument();
+        const parsed_path = try ParsePath.init(argument);
+        //}
+        //{ read file
+        const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
+            error.FileNotExist => { // exit
+                lib.print( // print "File not exist"
+                    \\  File not exist. 
+                    \\  ScalpiEditor does not create files itself. 
+                    \\  You can create file with command: 
+                    \\     touch file_name
+                    \\
+                );
+                return;
+            },
+            error.Unexpected => return error.Unexpected,
+        };
+        //}
+        //{ create buffer with this file
+        std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
+        self.loadLinesToBuffer(file_data_allocated);
+        lib.c.free(file_data_allocated.ptr);
+        //}
     }
     //}
-    //{ get path from arguments
-    var argument = try getTextFromArgument();
-    const parsed_path = try ParsePath.init(argument);
-    //}
-    //{ read file
-    const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-        error.FileNotExist => { // exit
-            lib.print( // print "File not exist"
-                \\  File not exist. 
-                \\  ScalpiEditor does not create files itself. 
-                \\  You can create file with command: 
-                \\     touch file_name
-                \\
-            );
-            return;
-        },
-        error.Unexpected => return error.Unexpected,
-    };
-    //}
-    //{ create buffer with this file
-    self.buffer.init() catch return error.BufferNotInit;
-    std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
-    self.loadLinesToBuffer(file_data_allocated);
-    //}
-    //lib.print("\n");
     self.mainLoop();
     std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
 }
@@ -226,7 +236,9 @@ pub fn draw                 (self: *Prog) void {
             const line = prog.buffer.lines.get(id);
             if (self.selected_line_id == id) {
                 self.console.print(Prog.ansi.colors.cyan);
-                self.console.print(line.getText());
+                var text: []const u8 = line.getText();
+                if (text.len == 0) text = "_";
+                self.console.print(text);
                 self.console.fillSpaces();
                 self.console.print(Prog.ansi.reset);
             } else {
@@ -239,7 +251,6 @@ pub fn draw                 (self: *Prog) void {
             break;
         }
     } // end while
-    
 } // end draw lines
 //} end methods
 //{ export 
