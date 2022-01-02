@@ -138,6 +138,7 @@ keyboard: Keyboard = .{},
 buffer:   Buffer   = .{},
 selected_line_id: usize = 0,
 need_redraw:      bool  = true,
+
 //}
 //{ methods
 pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
