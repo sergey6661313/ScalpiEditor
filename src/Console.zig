@@ -111,7 +111,7 @@ pub fn updateSize         (self: *Console) void {
     var w: c.winsize = undefined;
     _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
     self.size.x = w.ws_col - 1;
-    self.size.y = w.ws_row - 1;
+    self.size.y = w.ws_row - 10;
 }
 pub fn printRune          (self: *Console, rune: u8) void {
     switch (rune) {
@@ -138,17 +138,18 @@ pub fn print              (self: *Console, text: []const u8) void {
 pub fn cursorToEnd        (self: *Console) void {
     self.cursor.move(0, self.size.y);
 }
-pub fn cursorMove         (self: *Console, x: usize, y: usize) void {
-    self.cursor.move(x, y);
+pub fn cursorMove         (self: *Console, pos: Coor2u) void {
+    self.cursor.move(pos.x, pos.y);
     if (self.cursor.x > self.size.x) unreachable;
     if (self.cursor.y > self.size.y) unreachable;
 }
 pub fn clear              (self: *Console) void {
-    self.cursorMove(0, 0);
+    self.cursorMove(.{.x = 0, .y = 0});
     self.updateSize();
-    while (self.cursor.y != self.size.y - 1) { 
+    while (true) { 
         self.fillSpaces();
         self.print("\r\n");
+        if (self.cursor.y > self.size.y) break;
     } // end while
     self.cursorToEnd();
 } // end fn clear
