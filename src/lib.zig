@@ -1,13 +1,6 @@
 //{ defines
     const std = @import("std");
     const expect = std.testing.expect;
-    pub const key = struct {
-        pub const esc   = 27;
-        pub const up    = 65;
-        pub const down  = 66;
-        pub const right = 67;
-        pub const left  = 68;
-    };
     pub const c = @cImport({
         // canonical c
         @cInclude("stdio.h");
@@ -22,6 +15,7 @@
         @cInclude("sys/ioctl.h");
         @cInclude("sys/socket.h");
         @cInclude("unistd.h");
+        @cInclude("signal.h");
     });
     pub const Coor2u = struct {
         x: usize = 0,
@@ -80,7 +74,7 @@
                 const freadResult = c.fread(buffer.ptr, 1, buffer.len, self.handle);
                 if (freadResult != buffer.len) return error.Unexpected;
             }
-            pub fn write   (self: *File, data: []u8) void {
+            pub fn write   (self: *File, data: []const u8) void {
                 _ = c.fwrite(data.ptr, 1, data.len, self.handle);
             }
         //}
@@ -98,8 +92,8 @@
             printRune(ch);
         }
     }
-    pub fn cmp             (a: []u8, b: []u8) enum { equal, various } {
-        if (a.len != a.len) return .various;
+    pub fn cmp             (a: []const u8, b: []const u8) enum { equal, various } {
+        if (a.len != b.len) return .various;
         var pos: usize = 0;
         const last = a.len - 1;
         while (true) {

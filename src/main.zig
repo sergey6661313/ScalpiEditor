@@ -5,7 +5,6 @@
     pub const ansi       = @import("ansi.zig");
     pub const lib        = @import("lib.zig");
     pub const ParsePath  = @import("ParsePath.zig");
-    pub const Keyboard   = @import("Keyboard.zig");
     pub const Console    = @import("Console.zig");
     pub const Buffer     = struct {
         //{ defines
@@ -114,35 +113,70 @@
         Unexpected,
     };
     //{ usage text
-    pub const usage_text = 
-        \\This is ScalpiEditor - "heirarhy" text editor.
-        \\Navigate on your code in MC-like style
-        \\
-        \\basic keys:
-        \\    [Esc]      - quit
-        \\    [↑]        - select upper  line
-        \\    [↓]        - select bottom line
-        \\    [Enter]    - !! NOT WORKING YET !! - open selected block
-        \\    [s]        - !! NOT WORKING YET !! - save file 
-        \\    [e]        - !! NOT WORKING YET !! - edit selected line
-        \\
-        \\usage examples:
-        \\    ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
-        // TODO \\    ScalpiEditor --help       - open documentation
-        // TODO \\    ScalpiEditor --settings   - open settings
-        \\
-        \\
-    ;
+        pub const usage_text = 
+            \\This is ScalpiEditor - "heirarhy" text editor.
+            \\Navigate on your code in MC-like style
+            \\
+            \\usage examples:
+            \\    ScalpiEditor ~/.bashrc  => open to edit file "~/.bashrc"
+            \\
+            \\
+            \\basic keys: 
+            \\              [ctrl] + [q]  =X  exit
+            \\                     [ESC]  =X  change mode to block navigation
+            \\                      [F2]  =X  change view mode (current, tree)
+            \\              [Ctrl] + [s]  =X  save
+            \\
+            \\block navigation:
+            \\                       [↑]  =>  select upper  line
+            \\                       [↓]  =>  select bottom line
+            \\                   [Enter]  =X  open selected block
+            \\      [ctrl] + [BackSpace]  =X  exit of block
+            \\
+            \\block functions: (recursive)
+            \\              [Ctrl] + [x]  =X  cut
+            \\              [Ctrl] + [c]  =X  copy 
+            \\              [Ctrl] + [v]  =X  paste
+            \\              [Ctrl] + [d]  =X  delete
+            \\    [shift] + [Ctrl] + [v]  =X  paste inside (create block)
+            \\
+            \\         [Shift] + [Enter]  =X  create blank line upper current line
+            \\          [Ctrl] + [Enter]  =X  create blank line below current line
+            \\
+            \\line navigation:
+            \\                       [←]  =X  move cursour left  (change mode to edit)
+            \\                       [→]  =X  move cursour right (change mode to edit)
+            \\
+            \\marks:
+            \\            [Alt] + [slash] =X create new mark
+            \\               [ctrl] + [↑] =X jump to prev mark
+            \\               [ctrl] + [↓] =X jump to next mark
+            \\
+            \\
+        ;
     //} // end usage text
+    const SignalKey      = enum {
+            CtrlQ,
+            CtrlS,
+            CtrlZ,
+            CtrlX,
+            CtrlC,
+            CtrlV,
+
+        pub fn ctrlCHandler(_: c_int) callconv(.C) void {
+            prog.terminal_signal_key_pressed = .CtrlC;
+            _ = lib.c.signal(lib.c.SIGINT, SignalKey.ctrlCHandler);
+        }
+    };
 //} // end defines
 //{ fields
-    console:  Console  = .{},
-    working:  bool     = true,
-    keyboard: Keyboard = .{},
-    buffer:   Buffer   = .{},
-    selected_line_id: usize = 0,
-    need_redraw:      bool  = true,
-    amount_drawable_upper_lines:  usize = 0,
+    console:                      Console    = .{},
+    working:                      bool       = true,
+    buffer:                       Buffer     = .{},
+    selected_line_id:             usize      = 0,
+    need_redraw:                  bool       = true,
+    amount_drawable_upper_lines:  usize      = 0,
+    terminal_signal_key_pressed:  ?SignalKey = null,
 //} end fields
 //{ methods
     pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
@@ -180,9 +214,9 @@
         //{ init systems
             self.console.init(); defer self.console.deInit();
             self.buffer.init() catch return error.BufferNotInit;
-            lib.print(ansi.control ++ "?25l"); // hide cursor
-            defer lib.print(ansi.control ++ "?25h"); // show cursor
         //}
+        //~ lib.print(ansi.cyrsor_style.hide);
+        //~ defer lib.print(ansi.cyrsor_style.show);
         //{ load text (from argument)
             if (std.os.argv.len == 1) { // load usage text
                 //{ set path
@@ -228,7 +262,7 @@
     }
     pub fn mainLoop             (self: *Prog) void {
         while (self.working) {
-            self.keyboard.updateKeys();
+            self.updateKeys();
             if(self.need_redraw) self.draw();
             std.time.sleep(std.time.ns_per_ms * 20);
         }
@@ -293,24 +327,28 @@
         } // end draw botton lines
     } // end draw lines
     pub fn save                 (self: *Prog) void {
-        self.console.cursorMove(.{.x = 0, .y = 0});
-        self.console.print("saving...");
-        self.console.fillSpacesToEndLine();
-
+        //{ change status
+            self.console.cursorMove(.{.x = 0, .y = 0});
+            self.console.print("saving...");
+            self.console.fillSpacesToEndLine();
+        //}
         self.unFold(0);
         var file = lib.File {};
         file.open(self.buffer.file_name[0..], .ToWrite) catch unreachable;
         defer file.close() catch unreachable;
-        var next_line_id: ?usize = 0;
-        var count: usize = 0;
+        var line_id: usize = 0;
+        var count:   usize = 0;
         while(true) {
-            if (next_line_id) |id| {
-                const line = self.buffer.lines.get(id);
-                const text = line.getText();
-                file.write(text);
-                next_line_id = line.next;
-                count += 1;
-            } else break;
+            const line = self.buffer.lines.get(line_id);
+            const text = line.getText();
+            file.write(text);
+            count += 1;
+            if (line.next) |next_id|  {
+                file.write("\n");
+                line_id = next_id;
+                continue;
+            } 
+            break;
         } // end while
         self.console.cursorMove(.{.x = 0, .y = 0});
         var buffer: [254]u8 = undefined;
@@ -363,12 +401,65 @@
             break;
         } // end while
     } // end fn
-    pub fn changeModeToEdit     (self: *Prog) void {
-        var last_cursour_pos = self.console.cursor.pos;
-        self.console.cursorMove(.{.x = 0, .y = 0});
-        self.console.print("changed mode to edit");
-        self.console.fillSpacesToEndLine();
-        self.console.cursorMove(last_cursour_pos);
+    pub fn updateKeys           (self: *Prog) void {
+        var count: usize  = undefined;
+        var buffer: [15]u8 = undefined;
+        //{ get count
+            var bytesWaiting: c_int = undefined;
+            const f_stdin = lib.c.fileno(lib.c.stdin);
+            _ = lib.c.ioctl(f_stdin, lib.c.FIONREAD, &bytesWaiting);
+            count = @intCast(usize, bytesWaiting);
+        //}
+        if (count == 0) return;
+        const bytes = buffer[0..count];
+        { // get bytes
+            var pos: usize = 0;
+            while(true) {
+                const char: c_int = lib.c.getchar();
+                bytes[pos] = @ptrCast(*const u8, &char).*;
+                pos += 1;
+                if(pos == count) break;
+            }// end while
+        } // end get chars
+        if (count > 1) {
+            const mk = ansi.MultiKey.fromBytes(bytes);
+            switch (mk) {
+                .ArrowUp    => self.prevLine(),
+                .ArrowDown  => self.nextLine(),
+                else => {},
+                //=> prog.save(),
+            }
+        } else {
+            switch(bytes[0]) {
+                ansi.key.CtrlQ => self.stop(),
+                else => {},
+            } // end switch
+        }
+    } // end fn updateKeys
+    pub fn stop                 (self: *Prog) void {
+        self.working = false;
+    }
+    pub fn prevLine             (self: *Prog) void {
+        const curent_line = self.buffer.lines.get(self.selected_line_id);
+        const prev = curent_line.prev;
+        if (prev) |id| {
+            if (self.amount_drawable_upper_lines > 0) {
+                self.amount_drawable_upper_lines -= 1;
+            }
+            self.selected_line_id = id;
+            self.need_redraw = true;
+        }
+    }
+    pub fn nextLine             (self: *Prog) void {
+        const curent_line = self.buffer.lines.get(self.selected_line_id);
+        const next = curent_line.next;
+        if (next) |id| {
+            self.selected_line_id = id;
+            self.need_redraw = true;
+            if (self.amount_drawable_upper_lines < self.console.size.y) {
+                self.amount_drawable_upper_lines += 1;
+            }
+        }
     }
 //} end methods
 //{ export
