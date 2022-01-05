@@ -115,14 +115,16 @@
     };
     //{ usage text
     pub const usage_text = 
-        \\This is ScalpiEditor - "heirarhy" text editor. (NOT EDITOR YET!)
-        \\Navigate in your code on MC-like style
+        \\This is ScalpiEditor - "heirarhy" text editor.
+        \\Navigate on your code in MC-like style
         \\
         \\basic keys:
-        \\    Esc      - quit
-        \\    ↑        - select upper  line
-        \\    ↓        - select bottom line
-        \\    Enter    - open selected block
+        \\    [Esc]      - quit
+        \\    [↑]        - select upper  line
+        \\    [↓]        - select bottom line
+        \\    [Enter]    - !! NOT WORKING YET !! - open selected block
+        \\    [s]        - !! NOT WORKING YET !! - save file 
+        \\    [e]        - !! NOT WORKING YET !! - edit selected line
         \\
         \\usage examples:
         \\    ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
@@ -174,46 +176,55 @@
     } // end fn loadLinesToBuffer
     pub fn main                 () MainErrors!void {   
         const self = &prog;
-        lib.print("\n");
+        lib.print("\r\n");
         //{ init systems
-        self.console.init(); defer self.console.deInit();
-        self.buffer.init() catch return error.BufferNotInit;
-        lib.print(ansi.control ++ "?25l"); // hide cursor
-        defer lib.print(ansi.control ++ "?25h"); // show cursor
+            self.console.init(); defer self.console.deInit();
+            self.buffer.init() catch return error.BufferNotInit;
+            lib.print(ansi.control ++ "?25l"); // hide cursor
+            defer lib.print(ansi.control ++ "?25h"); // show cursor
         //}
         //{ load text (from argument)
-        if (std.os.argv.len == 1) { // load usage text
-            std.mem.copy(u8, self.buffer.file_name[0..], "usage");
-            self.loadLinesToBuffer(usage_text);
-        } else { // load file
-            //{ get path from arguments
-            var argument = try getTextFromArgument();
-            const parsed_path = try ParsePath.init(argument);
-            //}
-            //{ read file
-            const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-                error.FileNotExist => { // exit
-                    lib.print( // print "File not exist"
-                        \\  File not exist. 
-                        \\  ScalpiEditor does not create files itself. 
-                        \\  You can create file with command: 
-                        \\     touch file_name
-                        \\
-                    );
-                    return;
-                },
-                error.Unexpected => return error.Unexpected,
-            };
-            //}
-            //{ create buffer with this file
-            std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
-            self.loadLinesToBuffer(file_data_allocated);
-            lib.c.free(file_data_allocated.ptr);
-            //}
-        }
+            if (std.os.argv.len == 1) { // load usage text
+                //{ set path
+                    const path = "ScalpiEditor_usage.txt";
+                    std.mem.copy(u8, self.buffer.file_name[0..], path);
+                //}
+                self.loadLinesToBuffer(usage_text);
+            } else { // load file
+                //{ get path from arguments
+                    var   argument    = try getTextFromArgument();
+                    const parsed_path = try ParsePath.init(argument);
+                //}
+                //{ read file
+                    const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
+                        error.FileNotExist => { // exit
+                            lib.print( // print "File not exist"
+                                \\  File not exist. 
+                                \\  ScalpiEditor does not create files itself.
+                                \\  You can create file with "touch" command: 
+                                \\     touch file_name
+                                \\
+                                \\
+                            );
+                            return;
+                        },
+                        error.Unexpected => return error.Unexpected,
+                    };
+                //}
+                //{ create buffer with this file
+                    //{ copy file_name
+                        std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
+                    //}
+                    //{ load lines
+                        self.loadLinesToBuffer(file_data_allocated);
+                        lib.c.free(file_data_allocated.ptr);
+                        self.buffer.file_name[parsed_path.file_name.len] = 0;
+                    //}
+                //} // create buffer with this file
+            } // end if
         //}
         self.mainLoop();
-        std.log.info("{s}:{}: Bye!", .{ @src().file, @src().line });
+        lib.print("\r\n");
     }
     pub fn mainLoop             (self: *Prog) void {
         while (self.working) {
@@ -224,8 +235,8 @@
     }
     pub fn draw                 (self: *Prog) void {
         self.need_redraw = false;
-        self.console.clear();
         const current_line = prog.buffer.lines.get(self.selected_line_id);
+        self.console.updateSize();
         { // draw upper lines
             if (self.amount_drawable_upper_lines > 0) {
                 var pos:          usize  = self.amount_drawable_upper_lines - 1;
@@ -236,6 +247,7 @@
                         const text = line.getText();
                         self.console.cursorMove(.{.x = 0, .y = pos});
                         self.console.print(text);
+                        self.console.fillSpacesToEndLine();
                         if (pos == 0) break;
                         pos -= 1;
                         prev_line_id = line.prev;
@@ -247,16 +259,16 @@
         }
         { // draw selected lines
             self.console.cursorMove(.{.x = 0, .y = self.amount_drawable_upper_lines});
-            self.console.print(Prog.ansi.colors.cyan);
+            lib.print(Prog.ansi.colors.cyan);
             const text = current_line.getText();
             if (text.len == 0) {
                 self.console.print("_");
             } else {
                 self.console.print(text);
             }
-            self.console.print(Prog.ansi.reset);
-            self.console.fillSpaces();
-        }
+            lib.print(Prog.ansi.reset);
+            self.console.fillSpacesToEndLine();
+        } // end draw selected line
         { // draw botton lines
             //~ self.console.print("...");
             const to_end_screen = self.console.size.y - self.amount_drawable_upper_lines;
@@ -269,6 +281,7 @@
                         const text = line.getText();
                         self.console.cursorMove(.{.x = 0, .y = pos});
                         self.console.print(text);
+                        self.console.fillSpacesToEndLine();
                         if (pos == self.console.size.y) break;
                         pos += 1;
                         next_line_id = line.next;
@@ -279,7 +292,85 @@
             } // end if
         } // end draw botton lines
     } // end draw lines
+    pub fn save                 (self: *Prog) void {
+        self.console.cursorMove(.{.x = 0, .y = 0});
+        self.console.print("saving...");
+        self.console.fillSpacesToEndLine();
+
+        self.unFold(0);
+        var file = lib.File {};
+        file.open(self.buffer.file_name[0..], .ToWrite) catch unreachable;
+        defer file.close() catch unreachable;
+        var next_line_id: ?usize = 0;
+        var count: usize = 0;
+        while(true) {
+            if (next_line_id) |id| {
+                const line = self.buffer.lines.get(id);
+                const text = line.getText();
+                file.write(text);
+                next_line_id = line.next;
+                count += 1;
+            } else break;
+        } // end while
+        self.console.cursorMove(.{.x = 0, .y = 0});
+        var buffer: [254]u8 = undefined;
+        // i used sprintf becouse i just find documentation on this. 
+        // i do not found examples/docs to std.fmt :(
+        _ = lib.c.sprintf(&buffer, "file saved. %d lines writed.", count);
+        self.console.print(&buffer);
+        self.console.fillSpacesToEndLine();
+    }
+    pub fn unFold               (self: *Prog, _line_id: usize) void {
+        var current_line_id = _line_id;
+        while(true) {
+            const current_line = self.buffer.lines.get(current_line_id);
+            if (current_line.child) |child_id| {
+                const child = self.buffer.lines.get(child_id);
+                //{ unChild from current
+                    current_line.child = null; 
+                //}
+                //{ set prev
+                    child.prev = current_line_id;
+                //}
+                //{ insert into last and current.next
+                    if (current_line.next) |parent_next_id| {
+                        const Line = Buffer.Lines.Line;
+                        const parent_next: *Line   = self.buffer.lines.get(parent_next_id);
+                        var   last_id:     usize   = child_id;
+                        var   last:        *Line   = self.buffer.lines.get(last_id);
+                        //{ find last
+                            while(true) {
+                                if(last.next) |next| {
+                                    last_id = next;
+                                    last    = prog.buffer.lines.get(last_id);
+                                } else break;
+                            } // end while
+                        //}
+                        //{ set last.next
+                            last.next = parent_next_id;
+                        //}
+                        //{ set parent_next.prev
+                            parent_next.prev = last_id;
+                        //}
+                    } // end if
+                //} end insert into last and current.next
+                current_line.next = child_id;
+            } // end if current_line.child
+            if (current_line.next)  |next_id|  {
+                current_line_id = next_id;
+                continue;
+            }
+            break;
+        } // end while
+    } // end fn
+    pub fn changeModeToEdit     (self: *Prog) void {
+        var last_cursour_pos = self.console.cursor.pos;
+        self.console.cursorMove(.{.x = 0, .y = 0});
+        self.console.print("changed mode to edit");
+        self.console.fillSpacesToEndLine();
+        self.console.cursorMove(last_cursour_pos);
+    }
 //} end methods
-//{ export 
+//{ export
     pub var prog: Prog = .{};
 //} end export

@@ -54,6 +54,8 @@
                     prog.need_redraw = true;
                 }
             },
+            's'           => prog.save(),
+            'e'           => prog.changeModeToEdit(),
             else          => {},
         } // end get chars
     } // end fn updateKeys
