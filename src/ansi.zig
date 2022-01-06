@@ -7,7 +7,7 @@ pub const control = esc ++ "[";
 pub const reset   = control ++ "0m";
 pub const bold    = control ++ "1m";
 pub const dim     = control ++ "2m";
-pub const cyrsor_style =  struct {
+pub const cyrsor_style = struct {
     pub const hide               = control ++ "?25l";
     pub const show               = control ++ "?25h";
 
@@ -38,7 +38,7 @@ pub const color        = struct {
     pub const cyan2     = control ++ "96;1m";
     pub const white2    = control ++ "97;1m";
 };
-pub const bg_color        = struct {
+pub const bg_color     = struct {
     pub const black    = control ++ "40;1m";    
     pub const red      = control ++ "41;1m";
     pub const green    = control ++ "42;1m";
@@ -57,85 +57,57 @@ pub const bg_color        = struct {
     pub const cyan2     = control ++ "106;1m";
     pub const white2    = control ++ "107;1m";
 };
-pub const key          = struct {
-    pub const CtrlA     =  1;
-    pub const CtrlB     =  2;
-    pub const CtrlC     =  3;
-    pub const CtrlD     =  4;
-    pub const CtrlE     =  5;
-    pub const CtrlF     =  6;
-    pub const CtrlG     =  7;
-    pub const CtrlH     =  8;
-    pub const CtrlI     =  9;
-    pub const CtrlJ     = 10; // /n
-    pub const CtrlK     = 11;
-    pub const CtrlL     = 12;
-    pub const CtrlM     = 13; // /r
-    pub const CtrlN     = 14;
-    pub const CtrlO     = 15;
-    pub const CtrlP     = 16;
-    pub const CtrlQ     = 17;
-    pub const CtrlR     = 18;
-    pub const CtrlS     = 19;
-    pub const CtrlT     = 20;
-    pub const CtrlU     = 21;
-    pub const CtrlV     = 22;
-    pub const CtrlW     = 23;
-    pub const CtrlX     = 24;
-    pub const CtrlY     = 25;
-    pub const CtrlZ     = 26;
-
-    pub const esc       = 27;
-    pub const CtrlSlash = 31;
-};
-pub const MultiKey     = enum {
-    Unexpected,
-    ArrowUp,
-    ArrowDown,
-    ArrowLeft,
-    ArrowRight,
-    F1,
-    F2,
-    F3,
-    F4,
-    F5,
-    F6,
-    F7,
-    F8,
-    F9,
-    F10,
-    F11,
-    F12,
-    Insert,
-    Del,
-    Home,
-    End,
-    PgUp,
-    PgDown,
-    
-    pub fn fromBytes(bytes: []u8) MultiKey {
-        if (lib.cmp(bytes, control ++ "A"  ) == .equal) return .ArrowUp;
-        if (lib.cmp(bytes, control ++ "B"  ) == .equal) return .ArrowDown;
-        if (lib.cmp(bytes, control ++ "D"  ) == .equal) return .ArrowLeft;
-        if (lib.cmp(bytes, control ++ "C"  ) == .equal) return .ArrowRight;
-        if (lib.cmp(bytes, esc     ++ "OP" ) == .equal) return .F1;
-        if (lib.cmp(bytes, esc     ++ "OQ" ) == .equal) return .F2;
-        if (lib.cmp(bytes, esc     ++ "OR" ) == .equal) return .F3;
-        if (lib.cmp(bytes, esc     ++ "OS" ) == .equal) return .F4;
-        if (lib.cmp(bytes, control ++ "15~") == .equal) return .F5;
-        if (lib.cmp(bytes, control ++ "17~") == .equal) return .F6;
-        if (lib.cmp(bytes, control ++ "18~") == .equal) return .F7;
-        if (lib.cmp(bytes, control ++ "19~") == .equal) return .F8;
-        if (lib.cmp(bytes, control ++ "20~") == .equal) return .F9;
-        if (lib.cmp(bytes, control ++ "21~") == .equal) return .F10;
-        if (lib.cmp(bytes, control ++ "23~") == .equal) return .F11;
-        if (lib.cmp(bytes, control ++ "24~") == .equal) return .F12;
-        if (lib.cmp(bytes, control ++ "2~" ) == .equal) return .Insert;
-        if (lib.cmp(bytes, control ++ "3~" ) == .equal) return .Del;
-        if (lib.cmp(bytes, control ++ "H"  ) == .equal) return .Home;
-        if (lib.cmp(bytes, control ++ "F"  ) == .equal) return .End;
-        if (lib.cmp(bytes, control ++ "5~" ) == .equal) return .PgUp;
-        if (lib.cmp(bytes, control ++ "6~" ) == .equal) return .PgDown;
-        return .Unexpected;
-    }
+pub const key          = enum(u64) {
+    Ctrl2           =  0,
+    CtrlA           =  1,
+    CtrlB           =  2,
+    CtrlC           =  3,
+    CtrlD           =  4,
+    CtrlE           =  5,
+    CtrlF           =  6,
+    CtrlG           =  7,
+    CtrlH           =  8,
+    CtrlI           =  9,
+    CtrlJ           = 10, // /n
+    CtrlK           = 11,
+    CtrlL           = 12,
+    CtrlM           = 13, // /r
+    CtrlN           = 14,
+    CtrlO           = 15,
+    CtrlP           = 16,
+    CtrlQ           = 17,
+    CtrlR           = 18,
+    CtrlS           = 19,
+    CtrlT           = 20,
+    CtrlU           = 21,
+    CtrlV           = 22,
+    CtrlW           = 23,
+    CtrlX           = 24,
+    CtrlY           = 25,
+    CtrlZ           = 26,
+    esc             = 27,
+    CtrlSlash       = 31,
+    BackSpace       = 0x000000000000007f,
+    F1              = 0x0000000000504f1b,
+    F2              = 0x0000000000514f1b,
+    F3              = 0x0000000000524f1b,
+    F4              = 0x0000000000534f1b,
+    F5              = 0x0000000035315b1b,
+    F6              = 0x0000000037315b1b,
+    F7              = 0x0000000038315b1b,
+    F8              = 0x0000000039315b1b,
+    F9              = 0x0000000030325b1b,
+    F10             = 0x0000000031325b1b,
+    F11             = 0x0000000033325b1b,
+    F12             = 0x0000000034325b1b,
+    Insert          = 0x000000007e325b1b,
+    Del             = 0x000000007e335b1b,
+    Home            = 0x0000000000485b1b,
+    End             = 0x0000000000465b1b,
+    PgUp            = 0x000000007e355b1b,
+    PgDown          = 0x000000007e365b1b,
+    ArrowUp         = 0x0000000000415b1b,
+    ArrowDown       = 0x0000000000425b1b,
+    ArrowLeft       = 0x0000000000445b1b,
+    ArrowRight      = 0x0000000000435b1b,
 };

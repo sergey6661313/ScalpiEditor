@@ -34,32 +34,28 @@
             }
         }
         pub fn shiftLeft   (self: *Cursor, pos: usize) void {
-            const target = self.pos.x - pos;
-            while (self.pos.x > target) {
-                lib.print(ansi.control ++ "1D");
-                self.pos.x -= 1;
-            }
+            var buffer: [254]u8 = undefined;
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dD", pos));
+            lib.print(buffer[0..buffer_count]);
+            self.pos.x -= pos;
         }
         pub fn shiftRight  (self: *Cursor, pos: usize) void {
-            const target = self.pos.x + pos;
-            while (self.pos.x < target) {
-                lib.print(ansi.control ++ "1C");
-                self.pos.x += 1;
-            }
+            var buffer: [254]u8 = undefined;
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos));
+            lib.print(buffer[0..buffer_count]);
+            self.pos.x += pos;
         }
         pub fn shiftUp     (self: *Cursor, pos: usize) void {
-            const target = self.pos.y - pos;
-            while (self.pos.y > target) {
-                lib.print(ansi.control ++ "1A");
-                self.pos.y -= 1;
-            }
+            var buffer: [254]u8 = undefined;
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dA", pos));
+            lib.print(buffer[0..buffer_count]);
+            self.pos.y -= pos;
         }
         pub fn shiftDown   (self: *Cursor, pos: usize) void {
-            const target = self.pos.y + pos;
-            while (self.pos.y < target) {
-                lib.print(ansi.control ++ "1B");
-                self.pos.y += 1;
-            }
+            var buffer: [254]u8 = undefined;
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dB", pos));
+            lib.print(buffer[0..buffer_count]);
+            self.pos.y += pos;
         }
     };
 //}
@@ -136,12 +132,10 @@
             '\r' => {
                 self.cursor.pos.x = 0;
             },
-
             '\n' => {
                 self.cursor.pos.x = 0;
                 self.cursor.pos.y += 1;
             },
-
             else => {
                 self.cursor.pos.x += 1;
             },
@@ -170,6 +164,11 @@
         if (self.cursor.pos.x > self.size.x) unreachable;
         if (self.cursor.pos.y > self.size.y) unreachable;
     }
+    pub fn cursorMoveToNextLine (self: *Console) void {
+        self.cursor.move(0, self.cursor.pos.y + 1);
+        if (self.cursor.pos.x > self.size.x) unreachable;
+        if (self.cursor.pos.y > self.size.y) unreachable;
+    }
     pub fn clear                (self: *Console) void {
         self.cursorMove(.{.x = 0, .y = 0});
         while (true) { 
@@ -180,9 +179,8 @@
         self.cursorMoveToEnd();
     } // end fn clear
     pub fn fillSpacesToEndLine  (self: *Console) void {
-        while (self.cursor.pos.x < self.size.x) {
+        while (self.cursor.pos.x <= self.size.x) {
             self.printRune(' ');
         }
-        self.print("\r\n");
     }
 //}

@@ -1,8 +1,5 @@
 // zig fmt: off
 
-// :( i used sprintf becouse i just find documentation on this. i do not found examples/docs to std.fmt
-// :( moved struct Lines to separated file only for abylity to ambiguous reference max constant 
-
 //{ defines
         const Prog       = @This();
         const std        = @import("std");
@@ -116,8 +113,8 @@
     current_line:                 *Line      = undefined,
     need_redraw:                  bool       = true,
     amount_drawable_upper_lines:  usize      = 0,
+    amount_drawable_left_chars:   usize      = 0,
     terminal_signal_key_pressed:  ?SignalKey = null,
-    left_indent:                  usize      = 0,
 //} end fields
 //{ methods
     pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
@@ -154,53 +151,55 @@
         self.current_line = &self.buffer.lines.array[0];
         lib.print("\r\n");
         //{ init systems
-            self.console.init(); defer self.console.deInit();
+            self.console.init(); defer {
+                self.console.deInit();
+                lib.print(ansi.cyrsor_style.show);
+                lib.print("\r\n");
+            }
             self.buffer.init() catch return error.BufferNotInit;
         //}
-        //~ lib.print(ansi.cyrsor_style.hide);
-        //~ defer lib.print(ansi.cyrsor_style.show);
-        //{ load text (from argument)
-            if (std.os.argv.len == 1) { // load usage text
-                //{ set path
-                    const path = "ScalpiEditor_usage.txt";
-                    std.mem.copy(u8, self.buffer.file_name[0..], path);
+        if (std.os.argv.len == 1) { // check arguments
+            //{ set path
+                const path = "ScalpiEditor_usage.txt";
+                std.mem.copy(u8, self.buffer.file_name[0..], path);
+            //}
+            self.loadLinesToBuffer(usage_text);
+            self.mainLoop();
+            return;
+        }
+        //{ load file
+            //{ get path from arguments
+                var   argument    = try getTextFromArgument();
+                const parsed_path = try ParsePath.init(argument);
+            //}
+            //{ read file
+                const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
+                    error.FileNotExist => { // exit
+                        lib.print( // print "File not exist"
+                            \\  File not exist. 
+                            \\  ScalpiEditor does not create files itself.
+                            \\  You can create file with "touch" command: 
+                            \\     touch file_name
+                            \\
+                            \\
+                        );
+                        return;
+                    },
+                    error.Unexpected => return error.Unexpected,
+                };
+            //}
+            //{ create buffer with this file
+                //{ copy file_name
+                    std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
                 //}
-                self.loadLinesToBuffer(usage_text);
-            } else { // load file
-                //{ get path from arguments
-                    var   argument    = try getTextFromArgument();
-                    const parsed_path = try ParsePath.init(argument);
+                //{ load lines
+                    self.loadLinesToBuffer(file_data_allocated);
+                    lib.c.free(file_data_allocated.ptr);
+                    self.buffer.file_name[parsed_path.file_name.len] = 0;
                 //}
-                //{ read file
-                    const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-                        error.FileNotExist => { // exit
-                            lib.print( // print "File not exist"
-                                \\  File not exist. 
-                                \\  ScalpiEditor does not create files itself.
-                                \\  You can create file with "touch" command: 
-                                \\     touch file_name
-                                \\
-                                \\
-                            );
-                            return;
-                        },
-                        error.Unexpected => return error.Unexpected,
-                    };
-                //}
-                //{ create buffer with this file
-                    //{ copy file_name
-                        std.mem.copy(u8, self.buffer.file_name[0..], parsed_path.file_name);
-                    //}
-                    //{ load lines
-                        self.loadLinesToBuffer(file_data_allocated);
-                        lib.c.free(file_data_allocated.ptr);
-                        self.buffer.file_name[parsed_path.file_name.len] = 0;
-                    //}
-                //} // create buffer with this file
-            } // end if
-        //}
+            //} end create buffer with this file
+        //} end load file
         self.mainLoop();
-        lib.print("\r\n");
     }
     pub fn mainLoop             (self: *Prog) void {
         while (self.working) {
@@ -221,8 +220,8 @@
         self.drawUpperLine();
         self.drawSelectedLine();
         self.drawBottonLines();
-        if (self.left_indent < self.console.size.x) {
-            self.console.cursorMove(.{.x = self.left_indent, .y = self.amount_drawable_upper_lines});
+        if (self.amount_drawable_left_chars < self.console.size.x) {
+            self.cursorMoveToCurrent();
         } else {
             self.console.cursorMove(.{.x = self.console.size.x - 1, .y = self.amount_drawable_upper_lines});
         }
@@ -274,7 +273,7 @@
             self.console.print(text);
             lib.print(Prog.ansi.reset);
         }
-        // left_indent
+        // amount_drawable_left_chars
         // draw current symbol
         // draw right symbols
         self.console.fillSpacesToEndLine();
@@ -384,71 +383,53 @@
     } // end fn
     pub fn updateKeys           (self: *Prog) void {
         var count: usize  = undefined;
-        var buffer: [15]u8 = undefined;
-        //{ get count
+        { // get count
             var bytesWaiting: c_int = undefined;
             const f_stdin = lib.c.fileno(lib.c.stdin);
             _ = lib.c.ioctl(f_stdin, lib.c.FIONREAD, &bytesWaiting);
             count = @intCast(usize, bytesWaiting);
-        //}
+        } // end get count
         if (count == 0) return;
-        const bytes = buffer[0..count];
-        { // get bytes
-            
+        var key: ansi.key = .Ctrl2; // :u64 = 0;
+        const buffer: []u8 = @ptrCast([*]u8, &key)[0..8]; // u64
+        { // read buffered bytes
+            if (count == 0) return;
             var pos: usize = 0;
             while(true) {
                 const char: c_int = lib.c.getchar();
-                bytes[pos] = @ptrCast(*const u8, &char).*;
+                if(pos < 8) {
+                    buffer[pos] = @ptrCast(*const u8, &char).*;
+                }
                 pos += 1;
-                if(pos == count) break;
+                if (pos == count) break;
             }// end while
         } // end get chars
         switch (self.buffer.mode) {
             .Line => {
-                if (count == 1) {
-                    const rune = bytes[0];
-                    switch(rune)  {
-                        ansi.key.CtrlQ => self.stop(),
-                        ansi.key.CtrlS => self.save(),
-                        ansi.key.esc   => self.changeMode(.Line),
-                        else => {
-                            self.changeMode(.Edit);
-                            self.editInsertSymbol(rune);
-                        },
-                    } // end switch
-                } else {
-                    const mk = ansi.MultiKey.fromBytes(bytes);
-                    switch (mk) {
-                        .ArrowUp    => self.lineGoToPrev(),
-                        .ArrowDown  => self.lineGoToNext(),
-                        .ArrowLeft  => self.changeMode(.Edit),
-                        .ArrowRight => self.changeMode(.Edit),
-                        else => {},
-                    }
-                } // end if
+                switch (key) {
+                    .CtrlQ      => self.stop(),
+                    .CtrlS      => self.save(),
+                    .esc        => self.changeMode(.Line),
+                    .ArrowUp    => self.lineGoToPrev(),
+                    .ArrowDown  => self.lineGoToNext(),
+                    .ArrowLeft  => self.changeMode(.Edit),
+                    .ArrowRight => self.changeMode(.Edit),
+                    else        => {},
+                } // end switch
             },
             .Edit => {
-                if (count == 1) {
-                    const rune = bytes[0];
-                    switch(rune)  {
-                        ansi.key.CtrlQ => self.stop(),
-                        ansi.key.CtrlS => self.save(),
-                        ansi.key.esc   => self.changeMode(.Line),
-                        else => {
-                            self.editInsertSymbol(rune);
-                        },
-                    } // end switch
-                } else {
-                    const mk = ansi.MultiKey.fromBytes(bytes);
-                    switch (mk) {
-                        .ArrowUp    => self.lineGoToPrev(),
-                        .ArrowDown  => self.lineGoToNext(),
-                        .ArrowLeft  => self.editGoToPrevSymbol(),
-                        .ArrowRight => self.editGoToNextSymbol(),
-                        else => {},
-                        //=> prog.save(),
-                    }
-                } // end if
+                switch (key) {
+                    .BackSpace     => self.editDeleteLeftChar(),
+                    .CtrlD         => self.editDeleteRightChar(),
+                    .CtrlQ         => self.stop(),
+                    .CtrlS         => self.save(),
+                    .esc           => self.changeMode(.Line),
+                    .ArrowUp       => self.lineGoToPrev(),
+                    .ArrowDown     => self.lineGoToNext(),
+                    .ArrowLeft     => self.editGoToPrevSymbol(),
+                    .ArrowRight    => self.editGoToNextSymbol(),
+                    else           => self.editInsertSymbol(buffer[0]),
+                } // end switch
             },
         }
     } // end fn updateKeys
@@ -470,6 +451,8 @@
         //}
         self.buffer.mode = mode; 
         self.need_redraw = true;
+        self.draw();
+        self.debug();
     }
     pub fn lineGoToPrev         (self: *Prog) void {
         if (self.current_line.prev) |id| {
@@ -492,39 +475,91 @@
         }
     } // end fn
     pub fn editGoToPrevSymbol   (self: *Prog) void {
-        if (self.left_indent == 0) return;
-        if (self.left_indent > self.current_line.len) {
-            self.left_indent = self.current_line.len;
+        if (self.amount_drawable_left_chars == 0) return;
+        if (self.amount_drawable_left_chars > self.current_line.len) {
+            self.amount_drawable_left_chars = self.current_line.len;
             self.need_redraw = true;
             return;
         }
-        self.left_indent -= 1;
+        self.amount_drawable_left_chars -= 1;
         self.need_redraw = true;
+        self.draw();
+        self.debug();
     }
     pub fn editGoToNextSymbol   (self: *Prog) void {
-        if (self.left_indent > self.current_line.len) {
-            self.left_indent = self.current_line.len;
+        if (self.amount_drawable_left_chars >= Line.max) return;
+        if (self.amount_drawable_left_chars >= self.current_line.len) {
+            self.amount_drawable_left_chars = self.current_line.len;
             self.need_redraw = true;
+            self.draw();
+            self.debug();
             return;
         }
-        if (self.left_indent >= Line.max) return;
-        self.left_indent += 1;
+        self.amount_drawable_left_chars += 1;
         self.need_redraw = true;
+        self.draw();
+        self.debug();
     }
     pub fn editInsertSymbol     (self: *Prog, rune: u8) void {
-        if (self.left_indent == Line.max) return;
-        if (self.left_indent > self.current_line.len) self.left_indent = self.current_line.len;
+        self.debug();
+        if (self.amount_drawable_left_chars > self.current_line.len) self.amount_drawable_left_chars = self.current_line.len;
+        if (self.current_line.len == Line.max) return;
         if (self.current_line.len > 0) {
             //{ shift symbols to right (copy)
-                const from = self.current_line.text[self.left_indent     .. self.current_line.len    ];
-                const dest = self.current_line.text[self.left_indent + 1 .. self.current_line.len + 1];
+                const from = self.current_line.text[self.amount_drawable_left_chars     .. self.current_line.len    ];
+                const dest = self.current_line.text[self.amount_drawable_left_chars + 1 .. self.current_line.len + 1];
                 std.mem.copyBackwards(u8, dest, from);
             //}
         }
-        self.current_line.text[self.left_indent] = rune;
+        self.current_line.text[self.amount_drawable_left_chars] = rune;
+        self.current_line.len           += 1;
+        self.amount_drawable_left_chars += 1;
         self.need_redraw = true;
-        self.current_line.len += 1;
-        self.left_indent += 1;
+        self.draw();
+        self.debug();
+    } // end fn
+    pub fn editDeleteLeftChar   (self: *Prog) void {
+        if (self.current_line.len == 0) return;
+        if (self.amount_drawable_left_chars == 0)      return;
+        //{ shift symbols to left (copy)
+            const from = self.current_line.text[self.amount_drawable_left_chars       ..  self.current_line.len];
+            const dest = self.current_line.text[self.amount_drawable_left_chars - 1   ..  self.current_line.len - 1];
+            std.mem.copy(u8, dest, from);
+        //}
+        self.current_line.len           -= 1;
+        self.amount_drawable_left_chars -= 1;
+        self.need_redraw = true;
+        self.draw();
+        self.debug();
+    } // end fn
+    pub fn editDeleteRightChar  (self: *Prog) void {
+        _ = &self;
+    }
+    pub fn cursorMoveToCurrent  (self: *Prog) void {
+        self.console.cursorMove(.{.x = self.amount_drawable_left_chars + 1, .y = self.amount_drawable_upper_lines});
+    }
+    pub fn debug                (self: *Prog) void {
+        var buffer: [254]u8 = undefined;
+        lib.print(ansi.color.magenta);
+        if (self.amount_drawable_upper_lines >= 2) {
+            self.console.cursorMove(.{.x = 0, .y = 0});
+        } else {
+            self.console.cursorMove(.{.x = 0, .y = 2});
+        }
+        { // self.amount_drawable_left_chars
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "self.amount_drawable_left_chars = %d", self.amount_drawable_left_chars));
+            self.console.print(buffer[0..buffer_count]);
+            self.console.fillSpacesToEndLine();
+        }
+        { // self.current_line.len
+            self.console.cursorMoveToNextLine();
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "self.current_line.len = %d", self.current_line.len));
+            self.console.print(buffer[0..buffer_count]);
+            self.console.fillSpacesToEndLine();
+        }
+        lib.print(ansi.reset);
+        self.console.fillSpacesToEndLine();
+        self.cursorMoveToCurrent();
     }
 //} end methods
 //{ export

@@ -1,1 +1,56 @@
-This is ScalpiEditor - "heirarhy" text editor.Navigate on your code in MC-like stylebasic keys:    [Esc]      - quit    [↑]        - select upper  line    [↓]        - select bottom line    [Enter]    - !! NOT WORKING YET !! - open selected block    [s]        - !! NOT WORKING YET !! - save file     [e]        - !! NOT WORKING YET !! - edit selected lineusage examples:    ScalpiEditor ~/.bashrc    - open to edit file "~/.bashrc"
+testThis is ScalpiEditor - "heirarhy" text editor.
+
+utest sage examples:
+    ScalpiEditor ~/.bashrc  => open to edit file "~/.bashrc"
+
+asd
+basic keys in all modes: (basic asdqweasdmode is block)
+              [ctrl] + [q]  =>  exit
+              [Ctrl] + [s]  =>  save
+    [Ctrl] + [Shift] + [d]  =X  duplicate
+           [Alt] + [slash]  =X  create new mark
+              [ctrl] + [↑]  =X  jump to prev mark
+              [ctrl] + [↓]  =X  jump to next mark
+          [Ctrl] + [slash]  =X  swap this block to commentary
+
+
+in line mode:
+                   [Enter]  =X  open selected block
+               [BackSpace]  =X  exit of block
+                       [↑]  =>  go to upper  line
+                       [↓]  =>  go to bottom line
+              [Ctrl] + [↑]  =x  go to first  line
+              [Ctrl] + [↓]  =x  go to last   line
+               [alt] + [↑]  =x  swap with upper  line
+               [alt] + [↓]  =x  swap with bottom line
+                       [←]  =>  Change to edit mode
+                       [→]  =>  Change to edit mode
+              [Ctrl] + [x]  =X  cut    (recursive) 
+              [Ctrl] + [c]  =X  copy   (recursive)
+              [Ctrl] + [v]  =X  paste  (recursive)
+              [Ctrl] + [d]  =X  delete (recursive)
+         [Shift] + [Enter]  =X  create blank line upper current line
+          [Ctrl] + [Enter]  =X  create blank line below current line
+    [shift] + [Ctrl] + [v]  =X  paste inside (create block)
+    [Ctrl] + [Shift] + [d]  =X  delete all lines INSIDE block
+    
+
+in edit mode:
+                     [ESC]  =>  change mode to block navigation
+                     [any]  =X  insert char
+               [BackSpace]  =X  delete char (left  out of cursor)
+              [Ctrl] + [d]  =X  delete char (right out of cursor)
+                       [↑]  =>  move cursour up
+                       [↓]  =>  move cursour down
+                       [←]  =X  move cursour left
+                       [→]  =X  move cursour right
+              [ctrl] + [←]  =X  move cursour to left  around word 
+              [ctrl] + [→]  =X  move cursour to right around word
+              [ctrl] + [1]  =x  to start line
+              [ctrl] + [4]  =x  to end   line
+
+if selected text in line:
+              [Ctrl] + [x]  =X  cut
+              [Ctrl] + [c]  =X  copy
+              [Ctrl] + [v]  =X  paste
+              [Ctrl] + [d]  =X  delete
