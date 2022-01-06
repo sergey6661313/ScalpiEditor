@@ -93,57 +93,6 @@
         BufferNotInit,
         Unexpected,
     };
-    //{ usage text
-        pub const usage_text = 
-            \\This is ScalpiEditor - "heirarhy" text editor.
-            \\
-            \\usage examples:
-            \\    ScalpiEditor ~/.bashrc  => open to edit file "~/.bashrc"
-            \\
-            \\
-            \\basic keys in all modes: (basic mode is block)
-            \\              [ctrl] + [q]  =>  exit
-            \\              [Ctrl] + [s]  =>  save
-            \\              [Ctrl] + [x]  =X  cut
-            \\              [Ctrl] + [c]  =X  copy 
-            \\              [Ctrl] + [v]  =X  paste
-            \\              [Ctrl] + [d]  =X  delete
-            \\    [Ctrl] + [Shift] + [d]  =X  duplicate
-            \\            [Alt] + [slash] =X  create new mark
-            \\               [ctrl] + [↑] =X  jump to prev mark
-            \\               [ctrl] + [↓] =X  jump to next mark
-            \\          [Ctrl] + [slash]  =X  swap this block to commentary
-            \\              [ctrl] + [1]  =x  to start line
-            \\              [ctrl] + [4]  =x  to end   line
-            \\
-            \\
-            \\in line mode:
-            \\                   [Enter]  =X  open selected block
-            \\               [BackSpace]  =X  exit of block
-            \\                       [↑]  =>  go to upper  line
-            \\                       [↓]  =>  go to bottom line
-            \\              [Ctrl] + [↑]  =x  go to first  line
-            \\              [Ctrl] + [↓]  =x  go to last   line
-            \\               [alt] + [↑]  =x  swap with upper  line
-            \\               [alt] + [↓]  =x  swap with bottom line
-            \\                       [←]  =>  Change to edit mode
-            \\                       [→]  =>  Change to edit mode
-            \\         [Shift] + [Enter]  =X  create blank line upper current line
-            \\          [Ctrl] + [Enter]  =X  create blank line below current line
-            \\    [shift] + [Ctrl] + [v]  =X  paste inside (create block)
-            \\
-            \\
-            \\in edit mode:
-            \\                     [ESC]  =>  change mode to block navigation
-            \\                       [↑]  =>  go to upper  line
-            \\                       [↓]  =>  go to bottom line
-            \\                       [←]  =X  move cursour left
-            \\                       [→]  =X  move cursour right
-            \\                     [any]  =X  insert char
-            \\
-            \\
-        ;
-    //} // end usage text
     const SignalKey      = enum {
             CtrlQ,
             CtrlS,
@@ -157,6 +106,7 @@
             _ = lib.c.signal(lib.c.SIGINT, SignalKey.ctrlCHandler);
         }
     };
+    pub const usage_text = @embedFile("ScalpiEditor_usage.txt");
 //} // end defines
 //{ fields
     console:                      Console    = .{},
