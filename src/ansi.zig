@@ -19,16 +19,43 @@ pub const cyrsor_style =  struct {
     pub const blinking_I_beam    = control ++ "5 q";
     pub const steady_I_beam      = control ++ "6 q";
 };
-pub const colors       = struct {
-    pub const red    = control ++ "31;1m";
-    pub const green  = control ++ "32;1m";
-    pub const yellow = control ++ "33;1m";
-    pub const __c34  = control ++ "34;1m";
-    pub const __c35  = control ++ "35;1m";
-    pub const cyan   = control ++ "36;1m";
-    pub const white  = control ++ "37;1m";
-    pub const __c38  = control ++ "38;1m";
-    pub const __c39  = control ++ "39;1m";
+pub const color        = struct {
+    pub const black    = control ++ "30;1m";    
+    pub const red      = control ++ "31;1m";
+    pub const green    = control ++ "32;1m";
+    pub const yellow   = control ++ "33;1m";
+    pub const blue     = control ++ "34;1m";
+    pub const magenta  = control ++ "35;1m";
+    pub const cyan     = control ++ "36;1m";
+    pub const white    = control ++ "37;1m";
+    
+    pub const black2    = control ++ "90;1m";    
+    pub const red2      = control ++ "91;1m";
+    pub const green2    = control ++ "92;1m";
+    pub const yellow2   = control ++ "93;1m";
+    pub const blue2     = control ++ "94;1m";
+    pub const magenta2  = control ++ "95;1m";
+    pub const cyan2     = control ++ "96;1m";
+    pub const white2    = control ++ "97;1m";
+};
+pub const bg_color        = struct {
+    pub const black    = control ++ "40;1m";    
+    pub const red      = control ++ "41;1m";
+    pub const green    = control ++ "42;1m";
+    pub const yellow   = control ++ "43;1m";
+    pub const blue     = control ++ "44;1m";
+    pub const magenta  = control ++ "45;1m";
+    pub const cyan     = control ++ "46;1m";
+    pub const white    = control ++ "47;1m";
+    
+    pub const black2    = control ++ "100;1m";
+    pub const red2      = control ++ "101;1m";
+    pub const green2    = control ++ "102;1m";
+    pub const yellow2   = control ++ "103;1m";
+    pub const blue2     = control ++ "104;1m";
+    pub const magenta2  = control ++ "105;1m";
+    pub const cyan2     = control ++ "106;1m";
+    pub const white2    = control ++ "107;1m";
 };
 pub const key          = struct {
     pub const CtrlA     =  1;
@@ -60,10 +87,6 @@ pub const key          = struct {
 
     pub const esc       = 27;
     pub const CtrlSlash = 31;
-    pub const up        = 65;
-    pub const down      = 66;
-    pub const right     = 67;
-    pub const left      = 68;
 };
 pub const MultiKey     = enum {
     Unexpected,

@@ -153,7 +153,7 @@
             for (text[0..self.size.x - 1]) |rune| {
                 self.printRune(rune);
             }
-            lib.print(ansi.colors.yellow);
+            lib.print(ansi.color.yellow);
             self.printRune('>');
             lib.print(ansi.reset);
         } else {
