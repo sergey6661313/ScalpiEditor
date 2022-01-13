@@ -4,13 +4,20 @@ usage examples:
     ScalpiEditor ~/.bashrc  => open to edit file "~/.bashrc"
 
 
-basic keys in all modes: (basic mode is block)
-              [ctrl] + [q]  =>  exit
+basic keys:
+              [Ctrl] + [q]  =>  exit
               [Ctrl] + [s]  =>  save
+                       [↑]  =>  go to upper  line
+                       [↓]  =>  go to bottom line
+                   [Enter]  =X  open selected block
+               [BackSpace]  =X  exit of block
+
+
+keys in all modes:
     [Ctrl] + [Shift] + [d]  =X  duplicate
            [Alt] + [slash]  =X  create new mark
-              [ctrl] + [↑]  =X  jump to prev mark
-              [ctrl] + [↓]  =X  jump to next mark
+              [Ctrl] + [↑]  =X  jump to prev mark
+              [Ctrl] + [↓]  =X  jump to next mark
           [Ctrl] + [slash]  =X  swap this block to commentary
 
 
@@ -25,12 +32,13 @@ in line mode:
                [alt] + [↓]  =x  swap with bottom line
                        [←]  =>  Change to edit mode
                        [→]  =>  Change to edit mode
-              [Ctrl] + [x]  =X  cut    (recursive) 
-              [Ctrl] + [c]  =X  copy   (recursive)
-              [Ctrl] + [v]  =X  paste  (recursive)
-              [Ctrl] + [d]  =X  delete (recursive)
-         [Shift] + [Enter]  =X  create blank line upper current line
-          [Ctrl] + [Enter]  =X  create blank line below current line
+              [Ctrl] + [x]  =X  cut
+              [Ctrl] + [c]  =X  copy
+              [Ctrl] + [v]  =X  paste
+              [Ctrl] + [d]  =X  delete
+               [alt] + [s]  =x  set selected
+         [Shift] + [Enter]  =>  create blank line upper current line
+          [Alt] + [Enter]   =>  create blank line below current line // TODO change to Ctrl+Enter
     [shift] + [Ctrl] + [v]  =X  paste inside (create block)
     [Ctrl] + [Shift] + [d]  =X  delete all lines INSIDE block
     
@@ -44,10 +52,11 @@ in edit mode:
                        [↓]  =>  move cursour down
                        [←]  =X  move cursour left
                        [→]  =X  move cursour right
-              [ctrl] + [←]  =X  move cursour to left  around word 
-              [ctrl] + [→]  =X  move cursour to right around word
-              [ctrl] + [1]  =x  to start line
-              [ctrl] + [4]  =x  to end   line
+              [Ctrl] + [←]  =X  move cursour to left  around word 
+              [Ctrl] + [→]  =X  move cursour to right around word
+              [Ctrl] + [1]  =x  to start line
+              [Ctrl] + [4]  =x  to end   line
+
 
 if selected text in line:
               [Ctrl] + [x]  =X  cut

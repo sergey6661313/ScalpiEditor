@@ -17,19 +17,21 @@
                 .pos = pos
             };
         }
-        pub fn move        (self: *Cursor, x: usize, y: usize) void {
-            if (x != self.pos.x) {
-                if (x > self.pos.x) {
-                    self.shiftRight(x - self.pos.x);
+        pub fn move        (self: *Cursor, new_pos: Coor2u) void {
+            move_from_x: {
+                if (new_pos.x == self.pos.x) break :move_from_x;
+                if (new_pos.x > self.pos.x) {
+                    self.shiftRight(new_pos.x - self.pos.x);
                 } else {
-                    self.shiftLeft(self.pos.x - x);
+                    self.shiftLeft(self.pos.x - new_pos.x);
                 }
             }
-            if (y != self.pos.y) {
-                if (y > self.pos.y) {
-                    self.shiftDown(y - self.pos.y);
+            move_from_y: {
+                if (new_pos.y == self.pos.y) break :move_from_y; 
+                if (new_pos.y > self.pos.y) {
+                    self.shiftDown(new_pos.y - self.pos.y);
                 } else {
-                    self.shiftUp(self.pos.y - y);
+                    self.shiftUp(self.pos.y - new_pos.y);
                 }
             }
         }
@@ -41,7 +43,7 @@
         }
         pub fn shiftRight  (self: *Cursor, pos: usize) void {
             var buffer: [254]u8 = undefined;
-            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos));
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos)); // ^ESC[6C
             lib.print(buffer[0..buffer_count]);
             self.pos.x += pos;
         }
@@ -73,36 +75,47 @@
             _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
             _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
         //}
-        //{ turn off line buffering
-            c.setbuf(c.stdin,  null);
-            c.setbuf(c.stdout, null);
-        //}
         //{ set special flags
             var flags: c.struct_termios = undefined;
             //{ for stdin
                 _ = c.tcgetattr(f_stdin, &flags);
 
-                flags.c_iflag |= lib.c.IGNBRK;
-                flags.c_iflag &= ~(
-                  @as(c_uint, lib.c.INLCR) | 
-                  @as(c_uint, lib.c.ICRNL) | 
-                  @as(c_uint, lib.c.IXON)  | 
-                  @as(c_uint, lib.c.IXOFF)
+                flags.c_oflag &= ~(
+                  @as(c_uint, lib.c.OPOST)   | // add \r after \n
+                  0
                 );
-                flags.c_lflag &= ~(
-                  @as(c_uint, lib.c.ICANON) | 
-                  @as(c_uint, lib.c.ECHO)   | 
-                  @as(c_uint, lib.c.ECHOK)  | 
-                  @as(c_uint, lib.c.ECHOE)  | 
-                  @as(c_uint, lib.c.ECHONL) | 
-                  @as(c_uint, lib.c.ISIG)   | 
-                  @as(c_uint, lib.c.IEXTEN)
+                flags.c_cflag |=
+                  @as(c_uint, lib.c.CS8)     |
+                  0
+                ;
+                flags.c_iflag &= ~(
+                  @as(c_uint, lib.c.IGNBRK)  |
+                  @as(c_uint, lib.c.BRKINT)  |
+                  @as(c_uint, lib.c.IXON)    | // catch Ctrl+s and Ctrl+q
+                  @as(c_uint, lib.c.ICRNL)   | // fix Ctrl+m
+                  @as(c_uint, lib.c.IXOFF)   |
+                  @as(c_uint, lib.c.INPCK)   | 
+                  @as(c_uint, lib.c.ISTRIP)  |
+                  0
+                );
+                flags.c_lflag &= ~( // disable flags
+                  @as(c_uint, lib.c.ISIG)    | // catch Ctrl+c and Ctrl+z
+                  @as(c_uint, lib.c.ICANON)  |
+                  @as(c_uint, lib.c.ECHO)    |
+                  @as(c_uint, lib.c.ECHOE)   |
+                  @as(c_uint, lib.c.TOSTOP)  |
+                  @as(c_uint, lib.c.IEXTEN)  | // catch Ctrl+v
+                  0
+                );
+                flags.c_lflag |= (// enable flags
+                  //~ @as(c_uint, lib.c.ECHO) |
+                  @as(c_uint, lib.c.ECHOCTL) |
+                  0
                 );
                 flags.c_cc[lib.c.VMIN]  = 1;
                 flags.c_cc[lib.c.VTIME] = 0;
-                flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
 
-                _ = c.tcsetattr(f_stdin, c.TCSANOW, &flags);
+                _ = c.tcsetattr(f_stdin, c.TCSAFLUSH, &flags);
             //}
             //{ for std out
                 _ = c.tcgetattr(f_stdout, &flags);
@@ -111,6 +124,7 @@
             //}
         //}
         self.updateSize();
+        self.initBlankLines();
         self.clear();
     }
     pub fn deInit               (self: *Console) void {
@@ -125,22 +139,24 @@
         var w: c.winsize = undefined;
         _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
         self.size.x = w.ws_col - 1;
-        self.size.y = w.ws_row - 4;
+        self.size.y = w.ws_row - 3;
     }
     pub fn printRune            (self: *Console, rune: u8) void {
         switch (rune) {
-            '\r' => {
-                self.cursor.pos.x = 0;
-            },
-            '\n' => {
-                self.cursor.pos.x = 0;
-                self.cursor.pos.y += 1;
+            0...31,
+            127...255
+            =>  {
+                lib.print(ansi.bg_color.red2);
+                lib.printRune(' ');
+                lib.print(ansi.reset);
             },
             else => {
-                self.cursor.pos.x += 1;
+                lib.printRune(rune);
             },
         }
-        lib.printRune(rune);
+        if (self.cursor.pos.x < self.size.x) {
+            self.cursor.pos.x += 1;
+        }
     }
     pub fn print                (self: *Console, text: []const u8) void {
         if (text.len > self.size.x) {
@@ -157,30 +173,39 @@
         }
     }
     pub fn cursorMoveToEnd      (self: *Console) void {
-        self.cursor.move(0, self.size.y);
+        self.cursor.move(.{.x = 0, .y = self.size.y});
     }
     pub fn cursorMove           (self: *Console, pos: Coor2u) void {
-        self.cursor.move(pos.x, pos.y);
-        if (self.cursor.pos.x > self.size.x) unreachable;
-        if (self.cursor.pos.y > self.size.y) unreachable;
+        if (pos.x > self.size.x) unreachable;
+        if (pos.y > self.size.y) unreachable;
+        self.cursor.move(pos);
     }
     pub fn cursorMoveToNextLine (self: *Console) void {
-        self.cursor.move(0, self.cursor.pos.y + 1);
+        self.cursor.move(.{.x = 0, .y = self.cursor.pos.y + 1});
         if (self.cursor.pos.x > self.size.x) unreachable;
         if (self.cursor.pos.y > self.size.y) unreachable;
     }
     pub fn clear                (self: *Console) void {
-        self.cursorMove(.{.x = 0, .y = 0});
-        while (true) { 
+        var pos_y: usize = 0; 
+        while (pos_y < self.size.y) {
+            self.cursorMove(.{.x = 0, .y = pos_y});
             self.fillSpacesToEndLine();
-            self.print("\r\n");
-            if (self.cursor.pos.y > self.size.y) break;
+            pos_y += 1;
         } // end while
-        self.cursorMoveToEnd();
+    } // end fn clear
+    pub fn initBlankLines       (self: *Console) void {
+        self.cursorMove(.{.x = 0, .y = 0});
+        var pos_y: usize = 0; 
+        while (pos_y < self.size.y) {
+            lib.printRune('\n');
+            pos_y += 1;
+            self.cursor.pos.y += 1;
+        } // end while
     } // end fn clear
     pub fn fillSpacesToEndLine  (self: *Console) void {
-        while (self.cursor.pos.x <= self.size.x) {
-            self.printRune(' ');
+        while (self.cursor.pos.x < self.size.x) {
+            lib.printRune(' ');
+            self.cursor.pos.x += 1;
         }
     }
 //}

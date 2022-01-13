@@ -1,7 +1,6 @@
 //{ defines
     const std = @import("std");
-    const expect = std.testing.expect;
-    pub const c = @cImport({
+    pub const c          = @cImport({
         // canonical c
         @cInclude("stdio.h");
         @cInclude("stdlib.h");
@@ -17,7 +16,7 @@
         @cInclude("unistd.h");
         @cInclude("signal.h");
     });
-    pub const Coor2u = struct {
+    pub const Coor2u     = struct {
         x: usize = 0,
         y: usize = 0,
 
@@ -32,7 +31,7 @@
             return false;
         }
     };
-    pub const File = struct {
+    pub const File       = struct {
         //{ defines
             const Method = enum {
                 ToRead,
@@ -80,6 +79,7 @@
         //}
     
     };
+    pub const CmpResult  = enum { equal, various };
 //}
 //{ methods
     pub fn printRune       (rune: u8) void {
@@ -91,7 +91,7 @@
             printRune(ch);
         }
     }
-    pub fn cmp             (a: []const u8, b: []const u8) enum { equal, various } {
+    pub fn cmp             (a: []const u8, b: []const u8) CmpResult {
         if (a.len != b.len) return .various;
         var pos: usize = 0;
         const last = a.len - 1;
@@ -114,10 +114,7 @@
         }
         return count;
     }
-    pub fn u64FromCharsDec (data: []const u8) error{
-        NotNumber,
-        Unexpected,
-    }!u64 {
+    pub fn u64FromCharsDec (data: []const u8) error{NotNumber, Unexpected,}!u64 {
         const MAX_LEN = "18446744073709551615".len; // UINT64_MAX
         if (data.len > MAX_LEN) return error.Unexpected;
         var result: u64 = 0;
