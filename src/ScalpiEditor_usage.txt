@@ -1,65 +1,46 @@
 This is ScalpiEditor - "heirarhy" text editor.
 
-usage examples:
-    ScalpiEditor ~/.bashrc  => open to edit file "~/.bashrc"
+for open existing file just write file name as argument:
+$ ScalpiEditor "~/.config/ScalpiEditor/binds"
 
+key bindings:
+exit                   [Ctrl] + [q]
+save                   [Ctrl] + [s]
 
-basic keys:
-              [Ctrl] + [q]  =>  exit
-              [Ctrl] + [s]  =>  save
-                       [↑]  =>  go to upper  line
-                       [↓]  =>  go to bottom line
-                   [Enter]  =X  open selected block
-               [BackSpace]  =X  exit of block
+[navigation]
+up                     [Up]
+down                   [Down]
+left                   [Left]
+right                  [Right]
+enter  block           [Enter]
+escape block           [Esc]
+go to left   word      [Ctrl]  + [←]
+go to right  word      [Ctrl]  + [→]
+go to start  line      [Ctrl]  + [1]
+go to end    line      [Ctrl]  + [4]
+go to line from number [Ctrl]  + [g]
 
+[edit]
+insert char            [any]
+delete prev char       [BackSpace]
+delete next char       [Del]
+create upper line      [Shift] + [Enter]
+create below line      [Alt]   + [Enter]
+cut                    [Ctrl]  + [x]
+copy                   [Ctrl]  + [c]
+paste                  [Ctrl]  + [v]
+paste inside block     [Alt]   + [Ctrl] + [v]
+swap with upper  line  [alt]   + [↑]
+swap with bottom line  [alt]   + [↓]
+swap to commentary     [Alt]   + [Slash]       
 
-keys in all modes:
-    [Ctrl] + [Shift] + [d]  =X  duplicate
-           [Alt] + [slash]  =X  create new mark
-              [Ctrl] + [↑]  =X  jump to prev mark
-              [Ctrl] + [↓]  =X  jump to next mark
-          [Ctrl] + [slash]  =X  swap this block to commentary
+[marks]
+create new mark        [Ctrl]  + [slash]
+jump to prev mark      [Ctrl]  + [↑]
+jump to next mark      [Ctrl]  + [↓]
 
+[selection]
+set block selected     [Ctrl]  + [a]
+select left  symbol    [Shift] + [←]
+select right symbol    [Shift] + [→]
 
-in line mode:
-                   [Enter]  =X  open selected block
-               [BackSpace]  =X  exit of block
-                       [↑]  =>  go to upper  line
-                       [↓]  =>  go to bottom line
-              [Ctrl] + [↑]  =x  go to first  line
-              [Ctrl] + [↓]  =x  go to last   line
-               [alt] + [↑]  =x  swap with upper  line
-               [alt] + [↓]  =x  swap with bottom line
-                       [←]  =>  Change to edit mode
-                       [→]  =>  Change to edit mode
-              [Ctrl] + [x]  =X  cut
-              [Ctrl] + [c]  =X  copy
-              [Ctrl] + [v]  =X  paste
-              [Ctrl] + [d]  =X  delete
-               [alt] + [s]  =x  set selected
-         [Shift] + [Enter]  =>  create blank line upper current line
-          [Alt] + [Enter]   =>  create blank line below current line // TODO change to Ctrl+Enter
-    [shift] + [Ctrl] + [v]  =X  paste inside (create block)
-    [Ctrl] + [Shift] + [d]  =X  delete all lines INSIDE block
-    
-
-in edit mode:
-                     [ESC]  =>  change mode to block navigation
-                     [any]  =X  insert char
-               [BackSpace]  =X  delete char (left  out of cursor)
-              [Ctrl] + [d]  =X  delete char (right out of cursor)
-                       [↑]  =>  move cursour up
-                       [↓]  =>  move cursour down
-                       [←]  =X  move cursour left
-                       [→]  =X  move cursour right
-              [Ctrl] + [←]  =X  move cursour to left  around word 
-              [Ctrl] + [→]  =X  move cursour to right around word
-              [Ctrl] + [1]  =x  to start line
-              [Ctrl] + [4]  =x  to end   line
-
-
-if selected text in line:
-              [Ctrl] + [x]  =X  cut
-              [Ctrl] + [c]  =X  copy
-              [Ctrl] + [v]  =X  paste
-              [Ctrl] + [d]  =X  delete

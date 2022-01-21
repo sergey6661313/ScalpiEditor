@@ -1,603 +1,550 @@
 // zig fmt: off
-//{ defines
-    const     Prog       = @This();
-    const     std        = @import("std");
-    pub const ansi       = @import("ansi.zig");
-    pub const lib        = @import("lib.zig");
-    pub const ParsePath  = @import("ParsePath.zig");
-    pub const Line       = @import("Line.zig");
-    pub const Console    = @import("Console.zig");
-    pub const usage_text = @embedFile("ScalpiEditor_usage.txt");
-    pub const Buffer     = struct {
-        //{ defines
-            pub const size = 25000; // about 10 mb...
-        //}
-        //{ fields
-            lines:  [size]Line   = .{.{}} ** size, // OwO syntax ¯\_(O.o)_/¯
-            free:   ?*Line       = undefined,
-        //}
-        //{ methods
-            pub fn init     (self: *Buffer) !void {
-                //{ tie all lines to "free" chain 
-                    const first = &self.lines[0];
-                    const last  = &self.lines[size - 1];
+const     Prog           = @This();
+const     std            = @import("std");
+pub const ansi           = @import("ansi.zig");
+pub const lib            = @import("lib.zig");
+pub const ParsePath      = @import("ParsePath.zig");
+pub const Line           = @import("Line.zig");
+pub const Console        = @import("Console.zig");
+pub const Buffer         = struct {
+    pub const size = 25000; // about 10 mb...
+    lines:  [size]Line   = .{.{}} ** size, // OwO syntax ¯\_(O.o)_/¯
+    free:   ?*Line       = undefined,
+    pub fn init     (self: *Buffer) !void {
+        //{ tie all lines to "free" chain 
+            const first = &self.lines[0];
+            const last  = &self.lines[size - 1];
 
-                    // update ends of range
-                    first.next  = &self.lines[1];
-                    last. prev  = &self.lines[size - 2];
+            // update ends of range
+            first.next  = &self.lines[1];
+            last. prev  = &self.lines[size - 2];
 
-                    { // update others everything in between first and last
-                        var pos: usize = 1;
-                        while (true) {
-                            const current = &self.lines[pos];
-                            current.prev  = &self.lines[pos - 1];
-                            current.next  = &self.lines[pos + 1];
-                            pos += 1;
-                            if (pos == size - 1) break;
-                        }
-                    }
-                //}
-                self.free = &self.lines[0];
-            } // end fn init
-            pub fn create   (self: *Buffer) !*Line {
-                if (self.free) |free| {
-                    self.free = free.next; // update self.free
-                    const line = free;
-                    try line.init();
-                    return line;
-                } else {
-                    return error.NoFreeSlots;
-                }
-            }
-        //}
-    };
-    pub const View       = struct {
-        //{ defines
-            pub const Current = struct {
-                line:   *Line = undefined,
-                symbol: usize = 0,
-            };
-            pub const Mode    = enum {
-                Line,
-                Symbol,
-            };
-        //}
-        //{ fields
-            file_name:    [1024]u8    = undefined,
-            mode:         Mode        = .Line,
-            first:        *Line       = undefined,
-            current:      Current     = .{},
-            offset:       lib.Coor2u  = .{},
-            need_redraw:  bool        = true,
-            focus:        bool        = false,
-        //}
-        //{ methods
-            pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
-                self.* = .{};
-                self.setFileName(file_name);
-                self.first = try prog.buffer.create();
-                parse_text_to_lines: { // parse_text_to_lines
-                    if (text.len == 0) break :parse_text_to_lines;
-                    self.current.line = self.first;
-                    var pos: usize = 0;
-                    while (true) {
-                        if (pos == text.len) break;
-                        const symbol = text[pos];
-                        if (symbol == '\n') {
-                            const new_line = try prog.buffer.create();
-                            self.current.line.pushNext(new_line);
-                            self.current.symbol = 0;
-                            self.goToNextLine();
-                            pos += 1;
-                            continue;
-                        }
-                        try self.current.line.insert(self.current.symbol, symbol);
-                        self.current.symbol += 1;
-                        pos += 1;
-                    } // end while
-                }
-                self.current.line = self.first;
-                self.current.symbol = 0;
-                self.offset.y = 0;
-                self.offset.x = 0;
-                self.need_redraw = true;
-                self.draw();
-            } // end fn loadLines
-            pub fn draw                 (self: *View) void {
-                if(self.need_redraw == false) return;
-                self.need_redraw = false;
-                self.drawUpperLines();
-                self.drawSelectedLine();
-                self.drawBottonLines();
-                prog.debug();
-                self.cursorMoveToCurrent();
-            } // end draw lines
-            pub fn redraw               (self: *View) void {
-                self.need_redraw = true;
-                self.draw();
-                //~ std.time.sleep(std.time.ns_per_ms * 1);
-            }
-            pub fn cursorMoveToCurrent  (self: *View) void {
-                prog.console.cursorMove(.{.x = self.offset.x, .y = self.offset.y});
-            }
-            pub fn drawUpperLines       (self: *View) void {
-                if (self.offset.y > 0) {
-                    var pos:  usize  = self.offset.y - 1;
-                    var prev: ?*Line = self.current.line.prev;
-                    while(true) {
-                        if (prev) |line| {
-                            prog.console.cursorMove(.{.x = 0, .y = pos});
-                            if (pos == 0) {
-                                if (line.prev) |_| {
-                                    lib.print(ansi.color.yellow2);
-                                    prog.console.print("^^^");
-                                    lib.print(ansi.reset);
-                                    prog.console.fillSpacesToEndLine();
-                                    break;
-                                } else {
-                                    prog.console.print(line.getText());
-                                    prog.console.fillSpacesToEndLine();
-                                    prev = line.prev;
-                                }
-                            } else {
-                                prog.console.print(line.getText());
-                                prog.console.fillSpacesToEndLine();
-                                pos -= 1;
-                                prev = line.prev;
-                            }
-                        } else {
-                            break;
-                        }
-                    } // end while
-                } // end if
-            }
-            pub fn drawSelectedLine     (self: *View) void {
-                const text = self.current.line.getText();
-                switch(self.mode) {
-                    .Line   => {
-                        prog.console.cursorMove(.{.x = 0, .y = self.offset.y});
-                        lib.print(ansi.color.cyan);
-                        prog.console.print(text);
-                        lib.print(ansi.reset);
-                        prog.console.fillSpacesToEndLine();
-                    },
-                    .Symbol => {
-                        if (self.current.symbol >= text.len) {
-                            self.offset.x = text.len;
-                            self.current.symbol = self.offset.x;
-                        }
-                        prog.console.cursorMove(.{.x = 0, .y = self.offset.y});
-                        prog.console.fillSpacesToEndLine();
-                        if (self.offset.x > self.current.line.used) self.offset.x = self.current.line.used;
-                        self.drawLeftSymbols();
-                        self.drawCurrentSymbol();
-                        self.drawRightSymbols();
-                        self.cursorMoveToCurrent();
-                    },
-                }
-            } // end draw selected line
-            pub fn drawBottonLines      (self: *View) void {
-                const lines_to_end_screen = prog.console.size.y - self.offset.y;
-                if (lines_to_end_screen == 0) return;
-                var pos:   usize  = self.offset.y + 1; 
-                var next:  ?*Line = self.current.line.next;
+            { // update others everything in between first and last
+                var pos: usize = 1;
                 while (true) {
-                    if (next) |line| {
-                        prog.console.cursorMove(.{.x = 0, .y = pos});
-                        prog.console.print(line.getText());
-                        prog.console.fillSpacesToEndLine();
-                        if (pos == prog.console.size.y) break;
-                        pos += 1;
-                        next = line.next;
-                    } else {
-                        break;
-                    }
-                } // end while
-            } // end draw botton lines
-            pub fn drawLeftSymbols      (self: *View) void {
-                if (self.offset.x       == 0) return;
-                if (self.current.symbol == 0) return;
-                const text  = self.current.line.getText();
-                var pos     = self.offset.x - 1;
-                var symbol  = self.current.symbol - 1;
-                while(true) {
-                    prog.console.cursorMove(.{.x = pos, .y = self.offset.y});
-                    lib.print(ansi.color.green);
-                    prog.console.printRune(text[symbol]);
-                    if (symbol == 0) break;
-                    if (pos == 0) {
-                        lib.print(ansi.color.magenta2);
-                        prog.console.printRune('<');
-                        lib.print(ansi.reset);
-                        break;
-                    }
-                    pos    -= 1;
-                    symbol -= 1;
-                } // end while
-                lib.print(ansi.reset);
-            } // end fn drawLeftSymbols
-            pub fn drawCurrentSymbol    (self: *View) void {
-                const text  = self.current.line.getText(); 
-                prog.console.cursorMove(.{.x = self.offset.x, .y = self.offset.y});
-                if (self.current.symbol >= text.len) {
-                    lib.print(ansi.bg_color.yellow2);
-                    prog.console.printRune(' ');
-                    lib.print(ansi.reset);
-                } else {
-                    lib.print(ansi.color.yellow);
-                    prog.console.printRune(text[self.current.symbol]);
-                    lib.print(ansi.reset);
+                    const current = &self.lines[pos];
+                    current.prev  = &self.lines[pos - 1];
+                    current.next  = &self.lines[pos + 1];
+                    pos += 1;
+                    if (pos == size - 1) break;
                 }
             }
-            pub fn drawRightSymbols     (self: *View) void {
+        //}
+        self.free = &self.lines[0];
+    } // end fn init
+    pub fn create   (self: *Buffer) !*Line {
+        if (self.free) |free| {
+            self.free = free.next; // update self.free
+            const line = free;
+            try line.init();
+            return line;
+        } else {
+            return error.NoFreeSlots;
+        }
+    }
+    pub fn delete   (self: *Buffer, line: *Line) void {
+        // change links
+        if (line.prev) |prev| {
+          prev.next = line.next;
+        }
+        if (line.next) |next| {
+          next.prev = line.prev;
+        }
+        if (line.parent) |parent| {
+          parent.child = line.next;
+          if (line.next) |next| {
+            next.parent = parent;
+          }
+        }
+        line.prev = null;
+        line.next = null;
+        line.parent = null;
+        // TODO unfold this line and delete ewery lines
 
+        line.next = self.free;
+        self.free = line;
 
-
-
-                const line = self.current.line;
-                const text = line.getText();
-                if (text.len == 0)  return;
-                if (self.offset.x > prog.console.size.x)  unreachable;
-                if (self.current.symbol >= text.len - 1)  return;
-                if (self.offset.x == prog.console.size.x) return;
-                var pos     = self.offset.x       + 1;
-                var current = self.current.symbol + 1;
-                lib.print(ansi.color.green);
-                while(true) {
-                    if (current == text.len) break;
-                    if (pos == prog.console.size.x - 1) {
-                        if (pos < text.len) {
-                            prog.console.cursorMove(.{.x = pos, .y = self.offset.y});
-                            lib.print(ansi.color.magenta2);
-                            prog.console.printRune('>');
-                            break;
-                        }
-                        prog.console.cursorMove(.{.x = pos, .y = self.offset.y});
-                        prog.console.printRune(text[current]);
-                        break;
-                    }
-                    prog.console.cursorMove(.{.x = pos, .y = self.offset.y});
-                    prog.console.printRune(text[current]);
-                    pos     += 1;
-                    current += 1;
-                } // end while
-                lib.print(ansi.reset);
-                prog.console.fillSpacesToEndLine();
-            } // end fn drawLeftSymbols
-            pub fn save                 (self: *View) void {
-                { // change status
-                    prog.console.cursorMove(.{.x = 0, .y = 0});
-                    lib.print(ansi.color.magenta);
-                    prog.console.print("saving...");
-                    prog.console.fillSpacesToEndLine();
-                    lib.print(ansi.reset);
+    } // end fn delete
+};
+pub const View           = struct {
+    file_name:    [1024]u8    = undefined,
+    first:        *Line       = undefined, // need only for saving file...
+    line:         *Line       = undefined,
+    symbol:       usize       = 0,
+    offset:       lib.Coor2u  = .{},
+    need_redraw:  bool        = true,
+    focus:        bool        = false,
+    pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
+        self.* = .{};
+        self.setFileName(file_name);
+        self.first = try prog.buffer.create();
+        parse_text_to_lines: { // parse_text_to_lines
+            if (text.len == 0) break :parse_text_to_lines;
+            var line = self.first;
+            var data_pos:   usize = 0;
+            var symbol_pos: usize = 0;
+            while (true) {
+                if (data_pos == text.len) break;
+                const symbol = text[data_pos];
+                if (symbol == '\n') {
+                    const new_line = try prog.buffer.create();
+                    line.pushNext(new_line);
+                    line = new_line;
+                    data_pos += 1;
+                    symbol_pos = 0;
+                    continue;
                 }
-                self.first.unFold();
-                //{ create file
-                    var file = lib.File {};
-                    file.open(self.file_name[0..], .ToWrite) catch unreachable;
-                    defer file.close() catch unreachable;
-                //}
-                //{ write
-                    var line:   *Line = self.first;
-                    var count:  usize = 0;
-                    while(true) {
-                        const text = line.getText();
-                        file.write(text);
-                        count += 1;
-                        { // change status
-                            prog.console.cursorMove(.{.x = 0, .y = 0});
-                            var buffer: [254]u8 = undefined;
-                            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "            %d lines writed.", count));
-                            lib.print(ansi.color.magenta);
-                            prog.console.print(buffer[0..buffer_count]);
-                            lib.print(ansi.reset);
-                            prog.console.fillSpacesToEndLine();
-                            prog.console.cursorMoveToEnd();
-                        }
-                        if (line.next) |next|  {
-                            file.write("\n");
-                            line = next;
-                            continue;
-                        } 
-                        break;
-                    } // end while
-                //}
+                
+                line.text.insert(symbol_pos, symbol) catch {
+                    std.log.info("\n\ndata_pos: {}, symbol_pos: {}\n\n",.{data_pos, symbol_pos});
+                    return error.NotInit;
+                };
+                data_pos   += 1;
+                symbol_pos += 1;
+            } // end while
+        }
+        self.line     = self.first;
+        self.offset.y = 0;
+        self.offset.x = 0;
+        self.need_redraw = true;
+    } // end fn loadLines
+    pub fn draw                 (self: *View) void {
+        if(self.need_redraw == false) return;
+        self.need_redraw = false;
+        prog.console.clear();
+        lib.print(ansi.reset);
+        self.drawLineEditedLine(self.line, self.offset.y);
+        var line:  *Line = undefined;
+        var pos_y: usize = undefined;
+
+        //{ draw upper lines
+        line  = self.line;
+        pos_y = self.offset.y;
+        while(true) {
+          if (pos_y > 0) {
+            if (line.prev) |prev| {
+              pos_y -= 1;
+              line = prev;
+              self.drawLine(line, pos_y);
+              continue;
+            }
+          }
+          break;
+        }
+        //}
+        //{ draw downer lines
+        line  = self.line;
+        pos_y = self.offset.y;
+        while(true) {
+          if (pos_y < prog.console.size.y - 1) {
+            if (line.next) |next| {
+              pos_y += 1;
+              line = next;
+              self.drawLine(line, pos_y);
+              continue;
+            }
+          }
+          break;
+        }
+        //}
+        //~ prog.debug();
+        self.cursorMoveToCurrent();
+    } // end draw lines
+    pub fn cursorMoveToCurrent  (self: *View) void {
+        prog.console.cursorMove(.{.x = self.offset.x, .y = self.offset.y});
+    }
+    pub fn drawLine             (self: *View, line: *Line, offset_y: usize) void {
+        const text = line.text.get();
+        // draw left-to-right from first visible rune
+        prog.console.cursorMove(.{.x = 0, .y = offset_y});
+        var pos:      usize = self.symbol - self.offset.x; 
+        var offset_x: usize = 0;
+        while(offset_x < prog.console.size.x){
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+        }
+    }
+    pub fn drawLineEditedLine   (self: *View, line: *Line, offset_y: usize) void {
+        const text = line.text.get();
+        
+        // draw left-to-right from first visible rune
+        prog.console.cursorMove(.{.x = 0, .y = offset_y});
+        var pos:      usize = self.symbol - self.offset.x; 
+        var offset_x: usize = 0;
+
+        if (pos > 0) {
+            lib.print(ansi.color.magenta);
+            prog.console.printRune('<');
+            pos += 1;
+            offset_x += 1;
+        }
+
+        // left symbols
+        lib.print(ansi.color.cyan);
+        while(offset_x < self.offset.x) {
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+        }
+        
+        // current symbol. maybe inverse cursour?
+            lib.print(ansi.color.yellow);
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+        
+        // right symbols
+        lib.print(ansi.color.cyan);
+        while(offset_x < prog.console.size.x - 1){
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+        }
+        if (text.len > pos) {
+            lib.print(ansi.color.magenta);
+            prog.console.printRune('>');
+        }
+        lib.print(ansi.reset);
+    }
+    pub fn drawSymbol           (text: []u8, pos: usize) void {
+        if (pos >= text.len) {
+            prog.console.printRune(' ');
+        } else {
+            prog.console.printRune(text[pos]);
+        }
+    }
+    pub fn save                 (self: *View) void {
+        self.need_redraw = false;
+        { // change status
+            prog.console.cursorMove(.{.x = 0, .y = 0});
+            lib.print(ansi.color.magenta);
+            prog.console.print("saving...");
+            prog.console.fillSpacesToEndLine();
+            lib.print(ansi.reset);
+        }
+        self.first.unFold();
+        //{ create file
+            var file = lib.File {};
+            file.open(self.file_name[0..], .ToWrite) catch unreachable;
+            defer file.close() catch unreachable;
+        //}
+        //{ write
+            var line:   *Line = self.first;
+            var count:  usize = 0;
+            while(true) {
+                const text = line.text.get();
+                file.write(text);
+                count += 1;
                 { // change status
                     prog.console.cursorMove(.{.x = 0, .y = 0});
                     var buffer: [254]u8 = undefined;
-                    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
+                    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "            %d lines writed.", count));
                     lib.print(ansi.color.magenta);
                     prog.console.print(buffer[0..buffer_count]);
                     lib.print(ansi.reset);
                     prog.console.fillSpacesToEndLine();
                     prog.console.cursorMoveToEnd();
                 }
-            }
-            pub fn changeMode           (self: *View, mode: Mode) void {
-                self.mode = mode;
-                self.redraw();
-            }
-            pub fn goToPrevLine         (self: *View) void {
-                if (self.current.line.prev) |prev| {
-                    self.current.line = prev;
-                    if (self.offset.y > 0) self.offset.y -= 1;
-                    self.redraw();
-                } // end if
-            } // end fn
-            pub fn goToNextLine         (self: *View) void {
-                if (self.current.line.next) |next| {
-                    self.current.line = next;
-                    if (self.offset.y != prog.console.size.y) self.offset.y += 1;
-                    self.redraw();
-                }
-            } // end fn
-            pub fn goToPrevSymbol       (self: *View) void {
-                // self.current.symbol
-                if (self.current.symbol == 0) return;
-                self.current.symbol -= 1;
-
-                // self.ofset
-                if (self.offset.x > 0) self.offset.x -= 1;
-                self.redraw();
-            }
-            pub fn goToNextSymbol       (self: *View) void {
-                // self.current.symbol
-                if (self.current.symbol >= Line.size - 1) unreachable;
-                if (self.current.symbol >= self.current.line.used) {
-                    self.current.symbol =  self.current.line.used;
-                    return;
-                } else {
-                    self.current.symbol += 1;
-                }
-
-                // self.offset
-                if (self.offset.x != prog.console.size.x-10) self.offset.x += 1;
-                self.redraw();
-            }
-            pub fn insertSymbol         (self: *View, rune: u8) void {
-                self.current.line.insert(self.current.symbol, rune) catch return;
-                self.goToNextSymbol();
-                self.redraw();
-            } // end fn
-            pub fn popSymbol            (self: *View, pos: usize) void {
-                _ = self.current.line.pop(pos) catch return;
-                self.redraw();
-            } // end fn
-            pub fn addPrevLine          (self: *View) !void {
-                const new_line = try prog.buffer.create();
-                self.current.line.pushPrev(new_line);
-                if (self.first == self.current.line) self.first = new_line;
-                self.current.line = new_line;
-                self.redraw();
-            }
-            pub fn addNextLine          (self: *View) !void {
-                const new_line = try prog.buffer.create();
-                self.current.line.pushNext(new_line);
-                self.current.line = new_line;
-                self.redraw();
-            }
-            pub fn setFileName          (self: *View, name: []const u8) void {
-                std.mem.copy(u8, self.file_name[0..], name);
-                self.file_name[name.len] = 0;
-            }
+                if (line.next) |next|  {
+                    file.write("\n");
+                    line = next;
+                    continue;
+                } 
+                break;
+            } // end while
         //}
-    };
-    const MainErrors     = error  {
-        BufferNotInit,
-        ViewNotInit,
-        Unexpected,
-    };
-//} end defines
-//{ fields
-    working:       bool      = true,
-    console:       Console   = .{},
-    buffer:        Buffer    = .{},
-    view:          View      = .{},
-//} end fields
-//{ methods
-    pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
-        var argIterator_packed = std.process.ArgIterator.init();
-        var argIterator = &argIterator_packed.inner;
-        _ = argIterator.skip(); // skip name of programm
-        var arg = argIterator.next() orelse return error.Unexpected;
-        return arg;
-    }
-    pub fn main                 () MainErrors!void {
-        const self = &prog;
-        //~ const prog_size: usize = @sizeOf(Prog) / 1024;
-        //~ _ = lib.c.printf("static size = %d kb\r\n", prog_size);
-        //~ lib.print("\r\n");
-        self.console.init(); defer {
-            self.console.deInit();
-            lib.print(ansi.cyrsor_style.show);
-            lib.print("\r\n");
-        }
-        self.buffer.init() catch return error.BufferNotInit;
-        switch (std.os.argv.len) { // check arguments
-            1    => { // use usage text
-                const path = "ScalpiEditor_usage.txt";
-                self.view.init(path, usage_text) catch return error.ViewNotInit;
-            },
-            else => { // load file
-                var   argument    = try getTextFromArgument();
-                const parsed_path = try ParsePath.init(argument);
-                const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-                    error.FileNotExist => { // exit
-                        lib.print( // print "File not exist"
-                            \\  File not exist. 
-                            \\  ScalpiEditor does not create files itself.
-                            \\  You can create file with "touch" command: 
-                            \\     touch file_name
-                            \\
-                            \\
-                        );
-                        return;
-                    },
-                    error.Unexpected => return error.Unexpected,
-                };
-                defer lib.c.free(file_data_allocated.ptr);
-                self.view.init(parsed_path.file_name, file_data_allocated) catch return error.ViewNotInit;
-            }, // end load file
-        } // end switch
-        self.mainLoop();
-    } // end fn main
-    pub fn mainLoop             (self: *Prog) void {
-        while (true) {
-            self.console.updateSize();
-            self.updateKeys();
-            if (self.working == false) return; 
-            self.view.draw();
-            std.time.sleep(std.time.ns_per_ms * 20);
+        { // change status
+            prog.console.cursorMove(.{.x = 0, .y = 0});
+            var buffer: [254]u8 = undefined;
+            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
+            lib.print(ansi.color.magenta);
+            prog.console.print(buffer[0..buffer_count]);
+            lib.print(ansi.reset);
+            prog.console.fillSpacesToEndLine();
+            prog.console.cursorMoveToEnd();
         }
     }
-    pub fn stop                 (self: *Prog) void {
-        self.view.need_redraw = false;
-        self.working = false;
-        self.console.cursorMoveToEnd();
+    pub fn goToPrevLine         (self: *View) void {
+        if (self.line.prev) |prev| {
+            self.line = prev;
+        } // end if
+
+        // correct offset_y:
+        if (self.offset.y > 0) self.offset.y -= 1;
+        var count_to_upperest_line: usize = 0;
+        var line: *Line = self.line;
+        while (count_to_upperest_line < 5) {
+          if (line.prev) |prev| {
+            count_to_upperest_line += 1;
+            line = prev;
+          } else {
+            break;
+          }
+        }
+        if (self.offset.y < count_to_upperest_line) self.offset.y = count_to_upperest_line;
+    } // end fn
+    pub fn goToNextLine         (self: *View) void {
+        if (self.line.next) |next| {
+            self.line = next;
+        }
+
+        // correct offset_y:
+        if (self.offset.y < prog.console.size.y - 1) self.offset.y += 1;
+        var count_to_downest_line: usize = 0;
+        var line: *Line = self.line;
+        while (count_to_downest_line < 5) {
+          if (line.next) |next| {
+            count_to_downest_line += 1;
+            line = next;
+          } else {
+            break;
+          }
+        }
+        if (prog.console.size.y - self.offset.y < count_to_downest_line) self.offset.y = prog.console.size.y - count_to_downest_line;
+    } // end fn
+    pub fn goToPrevSymbol       (self: *View) void {
+        const used = self.line.text.used;
+        if (self.symbol > used) {
+            self.symbol = used;
+            if (used < prog.console.size.x - 1) self.offset.x = self.line.text.used;
+            return;
+        }
+        if (self.symbol   > 0) self.symbol   -= 1;
+        if (self.symbol >= 10) {
+            if (self.offset.x > 10) self.offset.x -= 1;
+        } else {
+            if (self.offset.x > 0) self.offset.x -= 1;
+        }
     }
-    pub fn debug                (self: *Prog) void {
-        if (true) return;
-        var buffer: [254]u8 = undefined;
-        lib.print(ansi.color.magenta);
-        const debug_lines  = 7;
-        var print_offset: usize = self.console.size.y - debug_lines + 1;
-        self.console.cursorMove(.{.x = 0, .y = print_offset});
-        { // current line
-            const as_num :usize = (@ptrToInt(self.view.current.line) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
-            const sprintf_result = lib.c.sprintf(&buffer, "current line = %d", as_num);
-            const buffer_count   = @intCast(usize, sprintf_result);
-            self.console.print(buffer[0..buffer_count]);
-            self.console.fillSpacesToEndLine();
+    pub fn goToNextSymbol       (self: *View) void {
+        const used = self.line.text.used;
+        if (self.symbol >= used) {
+            self.symbol   = used;
+            if (used < prog.console.size.x - 1) self.offset.x = self.line.text.used;
+            return;
         }
-        { // current line prev
-            self.console.cursorMoveToNextLine();
-            if (self.view.current.line.prev) |prev| {
-                const as_num :usize  = (@ptrToInt(prev) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
-                const sprintf_result = lib.c.sprintf(&buffer, "line.prev = %d", as_num);
-                const buffer_count   = @intCast(usize, sprintf_result);
-                self.console.print(buffer[0..buffer_count]);
-            } else {
-                self.console.print("line.prev = null");
-            }
-            self.console.fillSpacesToEndLine();
+        if (self.symbol   < Line.Text.size - 1)      self.symbol   += 1;
+        if (used - self.symbol >= 10) {
+            if (self.offset.x < prog.console.size.x - 12) self.offset.x += 1;
+        } else {
+            if (self.offset.x < prog.console.size.x - 2) self.offset.x += 1;
         }
-        { // current line next
-            self.console.cursorMoveToNextLine();
-            if (self.view.current.line.next) |next| {
-                const as_num :usize  = (@ptrToInt(next) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
-                const sprintf_result = lib.c.sprintf(&buffer, "line.next = %d", as_num);
-                const buffer_count   = @intCast(usize, sprintf_result);
-                self.console.print(buffer[0..buffer_count]);
-            } else {
-                self.console.print("line.next = null");
-            }
-            self.console.fillSpacesToEndLine();
+    }
+    pub fn insertSymbol         (self: *View, rune: u8) void {
+        self.line.text.insert(self.symbol, rune) catch return;
+        self.goToNextSymbol();
+    } // end fn
+    pub fn addPrevLine          (self: *View) void {
+        const new_line = prog.buffer.create() catch return;
+        self.line.pushPrev(new_line);
+        if (self.first == self.line) self.first = new_line;
+        self.line = new_line;
+    }
+    pub fn addNextLine          (self: *View) void {
+        const new_line = prog.buffer.create() catch return;
+        self.line.pushNext(new_line);
+        self.line = new_line;
+    }
+    pub fn setFileName          (self: *View, name: []const u8) void {
+        std.mem.copy(u8, self.file_name[0..], name);
+        self.file_name[name.len] = 0;
+    }
+    pub fn deleteSymbol         (self: *View) void {
+        if (self.line.text.used == 0) return;
+        self.line.text.delete(self.symbol) catch return;
+    }
+    pub fn deletePrevSymbol     (self: *View) void {
+        if (self.line.text.used == 0) return;
+        if (self.symbol         == 0) return;
+        self.goToPrevSymbol();
+        self.deleteSymbol();
+    }
+    pub fn deleteLine           (self: *View) void {
+        var next_selected_line: *Line = undefined;
+        if (self.line.next)          |next| {
+            next_selected_line = next;
+        } else if (self.line.prev)   |prev| {
+            next_selected_line = prev;
+        } else if (self.line.parent) |parent| {
+            next_selected_line = parent;
+        } else {
+            self.line.text.set("");
+            return;
         }
-        { // self.view.mode
-            self.console.cursorMoveToNextLine();
-            switch (self.view.mode) {
-                .Line    => {
-                    self.console.print("mode = Line");
+        prog.buffer.delete(self.line);
+        self.line = next_selected_line;
+    }
+    pub fn clearLine            (self: *View) void {
+      self.line.text.used = 0;
+    }
+};
+const     MainErrors     = error  {
+    BufferNotInit,
+    ViewNotInit,
+    Unexpected,
+};
+pub var   prog: Prog = .{};
+working:  bool     = true,
+console:  Console  = .{},
+buffer:   Buffer   = .{},
+view:     View     = .{},
+pub fn main                 () MainErrors!void {
+    const self = &prog;
+    self.buffer.init() catch return error.BufferNotInit;
+    switch (std.os.argv.len) { // check arguments
+        1    => { // show usage text
+            const path = "ScalpiEditor_usage.txt";
+            const text = @embedFile("ScalpiEditor_usage.txt");
+            self.view.init(path, text) catch return error.ViewNotInit;
+        },
+        else => { // load file
+            var   argument    = try lib.getTextFromArgument();
+            const parsed_path = try ParsePath.init(argument);
+            const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
+                error.FileNotExist => { // exit
+                    lib.print( // print "File not exist"
+                        \\  File not exist. 
+                        \\  ScalpiEditor does not create files itself.
+                        \\  You can create file with "touch" command: 
+                        \\     touch file_name
+                        \\
+                        \\
+                    );
+                    return;
                 },
-                .Symbol  => {
-                    self.console.print("mode = Symbol");
-                },
-            }
-            self.console.fillSpacesToEndLine();
-        }
-        { // view.offset.x
-            self.console.cursorMoveToNextLine();
-            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "view.offset .x = %d, .y = %d", self.view.offset.x, self.view.offset.y));
-            self.console.print(buffer[0..buffer_count]);
-            self.console.fillSpacesToEndLine();
-        }
-        { // line.used
-            self.console.cursorMoveToNextLine();
-            const used           = self.view.current.line.used;
-            const sprintf_result = lib.c.sprintf(&buffer, "line.len = %d", used);
-            const buffer_count   = @intCast(usize, sprintf_result);
-            self.console.print(buffer[0..buffer_count]);
-            self.console.fillSpacesToEndLine();
-        }
-        { // current_symbol
-            self.console.cursorMoveToNextLine();
-            const used           = self.view.current.symbol;
-            const sprintf_result = lib.c.sprintf(&buffer, "symbol = %d", used);
-            const buffer_count   = @intCast(usize, sprintf_result);
-            self.console.print(buffer[0..buffer_count]);
-            self.console.fillSpacesToEndLine();
-        }
-        lib.print(ansi.reset);
+                error.Unexpected => return error.Unexpected,
+            };
+            defer lib.c.free(file_data_allocated.ptr);
+            self.view.init(parsed_path.file_name, file_data_allocated) catch return error.ViewNotInit;
+        }, // end load file
+    } // end switch
+    self.console.init(); defer {
+        self.console.deInit();
+        lib.print(ansi.cyrsor_style.show);
+        lib.print("\r\n");
+    }
+    self.mainLoop();
+} // end fn main
+pub fn mainLoop             (self: *Prog) void {
+    while (true) {
+        self.console.updateSize();
+        self.updateKeys();
+        if (self.working == false) return; 
+        self.view.draw();
+        std.time.sleep(std.time.ns_per_ms * 20);
+    }
+}
+pub fn stop                 (self: *Prog) void {
+    self.view.need_redraw = false;
+    self.working = false;
+    self.console.cursorMoveToEnd();
+}
+pub fn debug                (self: *Prog) void {
+    //~ if (true) return;
+    var buffer: [254]u8 = undefined;
+    lib.print(ansi.color.magenta);
+    const debug_lines  = 6;
+    var print_offset: usize = self.console.size.y - debug_lines;
+    self.console.cursorMove(.{.x = 0, .y = print_offset});
+    { // line
+        const as_num :usize  = (@ptrToInt(self.view.line) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
+        const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
+        const buffer_count   = @intCast(usize, sprintf_result);
+        self.console.print(buffer[0..buffer_count]);
         self.console.fillSpacesToEndLine();
     }
-    pub fn updateKeys           (self: *Prog) void {
-        _ = self;
-        var count: usize  = undefined;
-        { // get count
-            var bytesWaiting: c_int = undefined;
-            const f_stdin = lib.c.fileno(lib.c.stdin);
-            _ = lib.c.ioctl(f_stdin, lib.c.FIONREAD, &bytesWaiting);
-            count = @intCast(usize, bytesWaiting);
-        } // end get count
-        if (count == 0) return;
-        var   key:    ansi.key = .Ctrl2; // :u64 = 0;
-        const buffer: []u8     = @ptrCast([*]u8, &key)[0..8]; // u64
-        { // read buffered bytes
-            if (count == 0) return;
-            var pos: usize = 0;
-            while(true) {
-                const char: c_int = lib.c.getchar();
-                if(pos < 8) {
-                    buffer[pos] = @ptrCast(*const u8, &char).*;
-                }
-                pos += 1;
-                if (pos == count) break;
-            }// end while
-        } // end get chars
-        switch (self.view.mode) {
-            .Line   => {
-                switch (key) {
-                    .CtrlQ           => self.stop(),
-                    .CtrlS           => self.view.save(),
-                    .H               => self.view.goToPrevSymbol(),
-                    .L               => self.view.goToNextSymbol(),
-                    .ArrowUp,   .K   => self.view.goToPrevLine(),
-                    .ArrowDown, .J   => self.view.goToNextLine(),
-                    .I               => self.view.changeMode(.Symbol),
-                    .ArrowLeft       => self.view.changeMode(.Symbol),
-                    .ArrowRight      => self.view.changeMode(.Symbol),
-                    .ShiftEnter      => {_ = self.view.addPrevLine() catch return;},
-                    .AltEnter        => {_ = self.view.addNextLine() catch return;},
-                    else             => {},
-                } // end switch(key)
-            }, // end .Line =>
-            .Symbol => {
-                switch (key) {
-                    .CtrlQ      => self.stop(),
-                    .CtrlS      => self.view.save(),
-                    .CtrlD      => {if (self.view.current.line.used > 0) self.view.popSymbol(self.view.current.symbol);     self.view.goToPrevSymbol();},
-                    .BS         => {if (self.view.current.symbol > 0)    self.view.popSymbol(self.view.current.symbol - 1); self.view.goToPrevSymbol();},
-                    .Del        => self.view.popSymbol(self.view.current.symbol),
-                    .esc        => self.view.changeMode(.Line),
-                    .ArrowUp    => self.view.goToPrevLine(),
-                    .ArrowDown  => self.view.goToNextLine(),
-                    .ArrowLeft  => self.view.goToPrevSymbol(),
-                    .ArrowRight => self.view.goToNextSymbol(),
-                    .ShiftEnter => {_ = self.view.addPrevLine() catch return;},
-                    .AltEnter   => {_ = self.view.addNextLine() catch return;},
-                    else        => {
-                        const rune = buffer[0]; 
-                        switch(rune) {
-                            0    => {},
-                            else => self.view.insertSymbol(rune),
-                        }
-                    }
-                } // end switch(key)
-            }, // end .Symbol
-        } // end switch(mode)
-    } // end fn updateKeys
-//} end methods
-//{ export
-    pub var prog: Prog = .{};
-//} end export
+    { // current line prev
+        self.console.cursorMoveToNextLine();
+        if (self.view.line.prev) |prev| {
+            const as_num :usize  = (@ptrToInt(prev) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
+            const sprintf_result = lib.c.sprintf(&buffer, "line.prev = %d", as_num);
+            const buffer_count   = @intCast(usize, sprintf_result);
+            self.console.print(buffer[0..buffer_count]);
+        } else {
+            self.console.print("line.prev = null");
+        }
+        self.console.fillSpacesToEndLine();
+    }
+    { // current line next
+        self.console.cursorMoveToNextLine();
+        if (self.view.line.next) |next| {
+            const as_num :usize  = (@ptrToInt(next) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
+            const sprintf_result = lib.c.sprintf(&buffer, "line.next = %d", as_num);
+            const buffer_count   = @intCast(usize, sprintf_result);
+            self.console.print(buffer[0..buffer_count]);
+        } else {
+            self.console.print("line.next = null");
+        }
+        self.console.fillSpacesToEndLine();
+    }
+    { // view.offset
+        self.console.cursorMoveToNextLine();
+        const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "view.offset .x = %d, .y = %d", self.view.offset.x, self.view.offset.y));
+        self.console.print(buffer[0..buffer_count]);
+        self.console.fillSpacesToEndLine();
+    }
+    { // line.used
+        self.console.cursorMoveToNextLine();
+        const used           = self.view.line.text.used;
+        const sprintf_result = lib.c.sprintf(&buffer, "line.len = %d", used);
+        const buffer_count   = @intCast(usize, sprintf_result);
+        self.console.print(buffer[0..buffer_count]);
+        self.console.fillSpacesToEndLine();
+    }
+    { // symbol
+        self.console.cursorMoveToNextLine();
+        const used = self.view.line.text.used;
+        var   sprintf_result: c_int = 0;
+        if (self.view.symbol >= used) {
+            sprintf_result = lib.c.sprintf(&buffer, "symbol = %d (null)", self.view.symbol);
+        } else {
+            sprintf_result = lib.c.sprintf(&buffer, "symbol = %d (%c)",   self.view.symbol, self.view.line.text.get()[self.view.symbol]);
+        }
+        const buffer_count   = @intCast(usize, sprintf_result);
+        self.console.print(buffer[0..buffer_count]);
+        self.console.fillSpacesToEndLine();
+    }
+    lib.print(ansi.reset);
+    self.console.fillSpacesToEndLine();
+}
+pub fn updateKeys           (self: *Prog) void {
+    _ = self;
+    var count: usize  = undefined;
+    { // get count
+        var bytesWaiting: c_int = undefined;
+        const f_stdin = lib.c.fileno(lib.c.stdin);
+        _ = lib.c.ioctl(f_stdin, lib.c.FIONREAD, &bytesWaiting);
+        count = @intCast(usize, bytesWaiting);
+    } // end get count
+    if (count == 0) return;
+    self.view.need_redraw = true;
+    var   key:    ansi.key = .Ctrl2; // :u64 = 0;
+    const buffer: []u8     = @ptrCast([*]u8, &key)[0..8]; // u64
+    { // read buffered bytes
+        var pos: usize = 0;
+        while(true) {
+            const char: c_int = lib.c.getchar();
+            if(pos < 8) {
+                buffer[pos] = @ptrCast(*const u8, &char).*;
+            }
+            pos += 1;
+            if (pos == count) break;
+        }// end while
+    } // end get chars
+    switch (key) {
+        .CtrlQ           => self.stop(),
+        .CtrlS           => self.view.save(),
+        .ArrowRight,     => self.view.goToNextSymbol(),
+        .ArrowLeft,      => self.view.goToPrevSymbol(),
+        .ArrowUp,        => self.view.goToPrevLine(),
+        .ArrowDown,      => self.view.goToNextLine(),
+        .ShiftEnter      => self.view.addPrevLine(),
+        .AltEnter        => self.view.addNextLine(),
+        .BS              => self.view.deletePrevSymbol(),
+        .Del             => self.view.deleteSymbol(),
+        .CtrlX           => self.view.deleteLine(),
+        .CtrlD           => self.view.clearLine(),
+        else             => self.view.insertSymbol(buffer[0]),
+    } // end switch(mode)
+} // end fn updateKeys
