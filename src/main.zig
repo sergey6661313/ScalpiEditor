@@ -268,10 +268,12 @@ pub const View           = struct {
     pub fn goToPrevLine         (self: *View) void {
         if (self.line.prev) |prev| {
             self.line = prev;
-        } // end if
+        } else {
+            return;
+        }
 
         // correct offset_y:
-        if (self.offset.y > 0) self.offset.y -= 1;
+        if (self.offset.y != 0) self.offset.y -= 1;
         var count_to_upperest_line: usize = 0;
         var line: *Line = self.line;
         while (count_to_upperest_line < 5) {
@@ -287,6 +289,8 @@ pub const View           = struct {
     pub fn goToNextLine         (self: *View) void {
         if (self.line.next) |next| {
             self.line = next;
+        } else {
+            return;
         }
 
         // correct offset_y:
@@ -339,12 +343,12 @@ pub const View           = struct {
         const new_line = prog.buffer.create() catch return;
         self.line.pushPrev(new_line);
         if (self.first == self.line) self.first = new_line;
-        self.line = new_line;
+        self.goToPrevLine();
     }
     pub fn addNextLine          (self: *View) void {
         const new_line = prog.buffer.create() catch return;
         self.line.pushNext(new_line);
-        self.line = new_line;
+        self.goToNextLine();
     }
     pub fn setFileName          (self: *View, name: []const u8) void {
         std.mem.copy(u8, self.file_name[0..], name);
@@ -360,7 +364,7 @@ pub const View           = struct {
         self.goToPrevSymbol();
         self.deleteSymbol();
     }
-    pub fn deleteLine           (self: *View) void {
+    pub fn cutLine              (self: *View) void {
         var next_selected_line: *Line = undefined;
         if (self.line.next)          |next| {
             next_selected_line = next;
@@ -378,7 +382,62 @@ pub const View           = struct {
     pub fn clearLine            (self: *View) void {
       self.line.text.used = 0;
     }
+    pub fn goToInside           (self: *View) void {
+      if (self.line.child) |child| {
+        self.line = child;
+      }
+    }
+    pub fn goToOutside          (self: *View) void {
+      if (self.line.parent) |parent| {
+        self.line = parent;
+      }
+    }
+    pub fn divide               (self: *View) void {
+        var parent = self.line;
+        var pos    = self.symbol;
+        self.addNextLine();
+        self.line.text.set(parent.text.get()[pos ..]);
+        parent.text.used = pos;
+        self.goToStartOfLine();
+    }
+    pub fn goToStartOfLine      (self: *View) void {
+      self.symbol   = 0;
+      self.offset.x = 0;
+    }
+    pub fn goToEndOfLine        (self: *View) void {
+      self.symbol   = self.line.text.used;
+      if (self.symbol > prog.console.size.x - 1) {
+          self.offset.x = prog.console.size.x - 1;
+      } else {
+          self.offset.x = self.symbol;
+      }
+    }
+    pub fn duplicateLine        (self: *View) void {
+      var prev = self.line;
+      self.addNextLine();
+      self.line.text.set(prev.text.get());
+    }
+    pub fn swapWithUpper        (self: *View) void {
+        self.cutLine();
+        self.goToPrevLine();
+        self.addPrevLine();
+        if (self.offset.y != 0) self.offset.y += 1;
+    }
+    pub fn swapWithBottom       (self: *View) void {
+        self.cutLine();
+        self.addNextLine();
+    }
+    pub fn goToRoot             (self: *View) void {
+      self.line     = self.first;
+      self.offset.y = 0;
+      self.goToStartOfLine();
+    }
+    //~ pub fn parseAndFold         (self: *View) void {
+      //~ var line = self.first;
+      
+    //~ }
 };
+
 const     MainErrors     = error  {
     BufferNotInit,
     ViewNotInit,
@@ -539,12 +598,21 @@ pub fn updateKeys           (self: *Prog) void {
         .ArrowLeft,      => self.view.goToPrevSymbol(),
         .ArrowUp,        => self.view.goToPrevLine(),
         .ArrowDown,      => self.view.goToNextLine(),
+        .Ctrl8           => self.view.deletePrevSymbol(),
+        .Del             => self.view.deleteSymbol(),
+        .CtrlX           => self.view.cutLine(),
+        .CtrlC           => self.view.clearLine(),
+        .CtrlM           => self.view.divide(),
+        .Home            => self.view.goToStartOfLine(),
+        .End             => self.view.goToEndOfLine(),
+        .CtrlO           => self.view.goToOutside(),
+        .CtrlI           => self.view.goToInside(),
         .ShiftEnter      => self.view.addPrevLine(),
         .AltEnter        => self.view.addNextLine(),
-        .BS              => self.view.deletePrevSymbol(),
-        .Del             => self.view.deleteSymbol(),
-        .CtrlX           => self.view.deleteLine(),
-        .CtrlD           => self.view.clearLine(),
+        .CtrlD           => self.view.duplicateLine(),
+        .CtrlJ           => self.view.swapWithBottom(),
+        .CtrlK           => self.view.swapWithUpper(),
+        .Ctrl7           => self.view.goToRoot(),
         else             => self.view.insertSymbol(buffer[0]),
     } // end switch(mode)
 } // end fn updateKeys

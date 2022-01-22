@@ -75,14 +75,14 @@ pub fn init                 (self: *Console) void {
         //{ for stdin
             _ = c.tcgetattr(f_stdin, &flags);
 
-            flags.c_oflag &= ~( // disable iflags
+            flags.c_oflag &= ~(  // disable iflags
               @as(c_uint, lib.c.OPOST)   | // add \r after \n
               0
             );
-            flags.c_cflag |=
+            flags.c_cflag |=  (  // enable  cflags
               @as(c_uint, lib.c.CS8)     |
               0
-            ;
+            );
             flags.c_iflag &= ~(  // disable iflags
               @as(c_uint, lib.c.IGNBRK)  |
               @as(c_uint, lib.c.BRKINT)  |
@@ -93,7 +93,7 @@ pub fn init                 (self: *Console) void {
               @as(c_uint, lib.c.ISTRIP)  |
               0
             );
-            flags.c_lflag &= ~( // disable lflags
+            flags.c_lflag &= ~(  // disable lflags
               @as(c_uint, lib.c.ISIG)    | // catch Ctrl+c and Ctrl+z
               @as(c_uint, lib.c.ICANON)  |
               @as(c_uint, lib.c.ECHO)    |
@@ -102,8 +102,7 @@ pub fn init                 (self: *Console) void {
               @as(c_uint, lib.c.IEXTEN)  | // catch Ctrl+v
               0
             );
-            flags.c_lflag |= (  // enable lflags
-              //~ @as(c_uint, lib.c.ECHO) |
+            flags.c_lflag |=  (  // enable  lflags
               @as(c_uint, lib.c.ECHOCTL) |
               0
             );
