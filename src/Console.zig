@@ -150,6 +150,7 @@ pub fn printRune            (self: *Console, rune: u8) void {
             lib.printRune(rune);
         },
     }
+    //~ lib.printRune(rune);
     self.cursor.pos.x += 1;
 }
 pub fn print                (self: *Console, text: []const u8) void {

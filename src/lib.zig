@@ -159,3 +159,24 @@ pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var arg = argIterator.next() orelse return error.Unexpected;
     return arg;
 }
+pub fn findRune(_rune: u8, text: []u8, _pos: usize) ?usize {
+  var pos = _pos;
+  while(true) {
+    const rune = text[pos];
+    if (rune == _rune) return pos;
+    if (pos == text.len - 1) break;
+    pos += 1;
+  }
+  return null;
+}
+pub fn findRuneReversed(_rune: u8, text: []u8, _pos: usize) ?usize {
+  var pos = _pos;
+  while(true) {
+    const rune = text[pos];
+    if (rune == _rune) return pos;
+    if (pos == 0) break;
+    pos -= 1;
+  }
+  return null;
+}
+

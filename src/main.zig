@@ -111,7 +111,7 @@ pub const View           = struct {
     pub fn draw                 (self: *View) void {
         if(self.need_redraw == false) return;
         self.need_redraw = false;
-        prog.console.clear();
+        //~ prog.console.clear();
         lib.print(ansi.reset);
         self.drawLineEditedLine(self.line, self.offset.y);
         var line:  *Line = undefined;
@@ -204,6 +204,8 @@ pub const View           = struct {
         if (text.len > pos) {
             lib.print(ansi.color.magenta);
             prog.console.printRune('>');
+        } else {
+            prog.console.printRune(' ');          
         }
         lib.print(ansi.reset);
     }
@@ -309,12 +311,19 @@ pub const View           = struct {
     } // end fn
     pub fn goToPrevSymbol       (self: *View) void {
         const used = self.line.text.used;
+        if (self.symbol == 0) {
+          if (self.line.prev) |_| {
+            self.goToPrevLine();
+            self.goToEndOfLine();
+          }
+          return;
+        }
         if (self.symbol > used) {
             self.symbol = used;
             if (used < prog.console.size.x - 1) self.offset.x = self.line.text.used;
             return;
         }
-        if (self.symbol   > 0) self.symbol   -= 1;
+        if (self.symbol > 0) self.symbol   -= 1;
         if (self.symbol >= 10) {
             if (self.offset.x > 10) self.offset.x -= 1;
         } else {
@@ -324,8 +333,8 @@ pub const View           = struct {
     pub fn goToNextSymbol       (self: *View) void {
         const used = self.line.text.used;
         if (self.symbol >= used) {
-            self.symbol   = used;
-            if (used < prog.console.size.x - 1) self.offset.x = self.line.text.used;
+            self.goToNextLine();
+            self.goToStartOfLine();
             return;
         }
         if (self.symbol   < Line.Text.size - 1)      self.symbol   += 1;
@@ -359,8 +368,26 @@ pub const View           = struct {
         self.line.text.delete(self.symbol) catch return;
     }
     pub fn deletePrevSymbol     (self: *View) void {
+        if (self.symbol         == 0) {
+          var next = self.line;
+          if (next.prev) |prev| {
+            const next_used = next.text.used;
+            const prev_used = prev.text.used;
+            if (prev_used + next_used > 252) return;
+            std.mem.copy(u8, prev.text.buffer[prev.text.used..], next.text.get());
+            prev.text.used += next_used;
+            self.cutLine();
+            self.goToPrevLine();
+            self.symbol = prev_used;
+            if (prev_used > prog.console.size.x - 5) {
+                self.offset.x = prog.console.size.x - 5;
+            } else {
+                self.offset.x = prev_used;
+            }
+          }
+          return;
+        }
         if (self.line.text.used == 0) return;
-        if (self.symbol         == 0) return;
         self.goToPrevSymbol();
         self.deleteSymbol();
     }
@@ -382,12 +409,12 @@ pub const View           = struct {
     pub fn clearLine            (self: *View) void {
       self.line.text.used = 0;
     }
-    pub fn goToInside           (self: *View) void {
+    pub fn goToIn               (self: *View) void {
       if (self.line.child) |child| {
         self.line = child;
       }
     }
-    pub fn goToOutside          (self: *View) void {
+    pub fn goToOut              (self: *View) void {
       if (self.line.parent) |parent| {
         self.line = parent;
       }
@@ -432,12 +459,7 @@ pub const View           = struct {
       self.offset.y = 0;
       self.goToStartOfLine();
     }
-    //~ pub fn parseAndFold         (self: *View) void {
-      //~ var line = self.first;
-      
-    //~ }
 };
-
 const     MainErrors     = error  {
     BufferNotInit,
     ViewNotInit,
@@ -605,8 +627,8 @@ pub fn updateKeys           (self: *Prog) void {
         .CtrlM           => self.view.divide(),
         .Home            => self.view.goToStartOfLine(),
         .End             => self.view.goToEndOfLine(),
-        .CtrlO           => self.view.goToOutside(),
-        .CtrlI           => self.view.goToInside(),
+        .CtrlI           => self.view.goToIn(),
+        .CtrlO           => self.view.goToOut(),
         .ShiftEnter      => self.view.addPrevLine(),
         .AltEnter        => self.view.addNextLine(),
         .CtrlD           => self.view.duplicateLine(),
