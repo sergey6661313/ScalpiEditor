@@ -1,57 +1,23 @@
-const Line = @This();
-const std  = @import("std");
-const Prog = @import("root");
-const prog = &Prog.prog;
-pub const Text = struct {
-    pub const size      = 254;
-    buffer:   [size]u8  = undefined,
-    used:     usize     = 0,
-    pub fn insert (self: *Text, pos: usize, rune: u8) !void {
-        if (self.used > size) unreachable;
-        if (pos       > size) unreachable;
-        if (self.used == size - 1) return error.LineIsFull;
-        if (pos > self.used)   return error.UnexpectedPos;
-        if (pos < self.used)   { // shiftSymbolsToRight
-            const from = self.buffer[pos      ..  self.used    ];
-            const dest = self.buffer[pos + 1  ..  self.used + 1];
-            std.mem.copyBackwards(u8, dest, from);
-        }
-        self.buffer[pos] = rune;
-        self.used += 1;
-    }
-    pub fn delete (self: *Text, pos: usize) !void {
-        if (self.used >  size)    unreachable;
-        if (self.used == 0)       return error.LineIsEmpty;
-        if (pos >  size - 1)      unreachable;
-        if (pos >  self.used - 1) return error.UnexpectedPos;
-        if (pos != self.used - 1) { // shiftSymbolsToLeft
-            const from = self.buffer[pos + 1  ..  self.used    ];
-            const dest = self.buffer[pos      ..  self.used - 1];
-            std.mem.copy(u8, dest, from);
-        }
-        self.used -= 1;
-    } // end fn
-    pub fn get    (self: *Text) []u8 {
-        return self.buffer[0 .. self.used];
-    }
-    pub fn set    (self: *Text, text: []const u8) void {
-        if (text.len > size) unreachable;
-        std.mem.copy(u8, self.buffer[0..], text);
-        self.used = text.len;
-    }
+const Line        = @This();
+const std         = @import("std");
+const Prog        = @import("root");
+const prog        = &Prog.prog;
+pub const Text    = @import("Text.zig");
+pub const RuneIteratorUtf8 = struct {
+  
 };
 text:   Text      = .{},
 next:   ?*Line    = null,
 prev:   ?*Line    = null,
 parent: ?*Line    = null,
 child:  ?*Line    = null,
-pub fn init     (self: *Line) !void {
+pub fn init       (self: *Line) !void {
   self.next   = null;
   self.prev   = null;
   self.parent = null;
   self.child  = null;
 }
-pub fn pushPrev (self: *Line, new_line: *Line) void {
+pub fn pushPrev   (self: *Line, new_line: *Line) void {
     { // update chain
         if (self.prev) |prev| {
             prev.next = new_line;
@@ -68,7 +34,7 @@ pub fn pushPrev (self: *Line, new_line: *Line) void {
         }
     }
 } // end fn 
-pub fn pushNext (self: *Line, new_line: *Line) void {
+pub fn pushNext   (self: *Line, new_line: *Line) void {
     { // update chain
         if (self.next) |next| {
             next.prev = new_line;
@@ -78,11 +44,20 @@ pub fn pushNext (self: *Line, new_line: *Line) void {
         new_line.prev = self;
     } // update chain
 } // end fn add
-pub fn unFold   (self: *Line) void {
+pub fn getParent  (self: *Line) ?*Line {
+  var current: ?*Line = self;
+  while(current) |line| {
+    if (line.parent) |parent| {return parent;}
+    current = line.prev;
+  }
+  return null;
+}
+pub fn unFold     (self: *Line) void {
     var current = self;
     while(true) {
         if (current.child) |child| {
             current.child = null;
+            child.parent  = null;
             //{ insert range child..last into current and current.next
                 if (current.next) |current_next| { // tie last_child <-> current_next
                     var last_child: *Line = child;
@@ -107,3 +82,38 @@ pub fn unFold   (self: *Line) void {
         break;
     } // end while
 } // end fn
+pub fn fold       (self: *Line) void {
+  self.unFold();
+  var current: ?*Line = self;
+  while (current) |line| {
+    var close_count = line.text.getRuneCount('}');
+    var open_count  = line.text.getRuneCount('{');
+    if   (open_count == close_count) {
+      current = line.next;
+    } 
+    else if (open_count > close_count) {
+      if (line.next) |next| {
+        next.parent = line;
+        line.child = next;
+        line.next = null;
+        next.prev = null;
+      }
+      current = line.child;
+    }
+    else { // for close_count > open_count 
+      if (line.getParent()) |parent| {
+        if (line.next) |next| {
+          next.prev = parent;
+        }
+        parent.next = line.next;
+        current = line.next;
+        line.next = null;
+      } 
+      else { // unexpected
+        current = line.next;
+        continue;
+      } 
+    }
+  }
+}
+

@@ -43,7 +43,8 @@ pub const Buffer         = struct {
         }
     }
     pub fn delete   (self: *Buffer, line: *Line) void {
-        // change links
+        // TODO unfold this line and delete every lines
+        //{ change links
         if (line.prev) |prev| {
           prev.next = line.next;
         }
@@ -59,14 +60,19 @@ pub const Buffer         = struct {
         line.prev = null;
         line.next = null;
         line.parent = null;
-        // TODO unfold this line and delete ewery lines
-
+        //}
+        // add to free
         line.next = self.free;
         self.free = line;
-
     } // end fn delete
 };
 pub const View           = struct {
+    pub const Mode = enum {
+      Edit,
+      GoToLine,
+      History,
+    };
+    mode:         Mode        = .Edit,
     file_name:    [1024]u8    = undefined,
     first:        *Line       = undefined, // need only for saving file...
     line:         *Line       = undefined,
@@ -74,6 +80,7 @@ pub const View           = struct {
     offset:       lib.Coor2u  = .{},
     need_redraw:  bool        = true,
     focus:        bool        = false,
+    cutted:       ?*Line      = null,
     pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
         self.* = .{};
         self.setFileName(file_name);
@@ -111,12 +118,11 @@ pub const View           = struct {
     pub fn draw                 (self: *View) void {
         if(self.need_redraw == false) return;
         self.need_redraw = false;
-        //~ prog.console.clear();
+        prog.console.clear();
         lib.print(ansi.reset);
         self.drawLineEditedLine(self.line, self.offset.y);
         var line:  *Line = undefined;
         var pos_y: usize = undefined;
-
         //{ draw upper lines
         line  = self.line;
         pos_y = self.offset.y;
@@ -333,8 +339,10 @@ pub const View           = struct {
     pub fn goToNextSymbol       (self: *View) void {
         const used = self.line.text.used;
         if (self.symbol >= used) {
-            self.goToNextLine();
-            self.goToStartOfLine();
+            if (self.line.next) |_| {
+              self.goToNextLine();
+              self.goToStartOfLine();
+            }
             return;
         }
         if (self.symbol   < Line.Text.size - 1)      self.symbol   += 1;
@@ -412,16 +420,19 @@ pub const View           = struct {
     pub fn goToIn               (self: *View) void {
       if (self.line.child) |child| {
         self.line = child;
+        self.offset.y = 0;
       }
     }
     pub fn goToOut              (self: *View) void {
-      if (self.line.parent) |parent| {
+      if (self.line.getParent()) |parent| {
         self.line = parent;
+        self.offset.y = 5;
       }
     }
     pub fn divide               (self: *View) void {
         var parent = self.line;
         var pos    = self.symbol;
+        if (pos > self.line.text.used) pos = self.line.text.used;
         self.addNextLine();
         self.line.text.set(parent.text.get()[pos ..]);
         parent.text.used = pos;
@@ -459,6 +470,33 @@ pub const View           = struct {
       self.offset.y = 0;
       self.goToStartOfLine();
     }
+    pub fn deleteLine           (self: *View) void {
+        var next_selected_line: *Line = undefined;
+        if (self.line.next)          |next| {
+            next_selected_line = next;
+        } else if (self.line.prev)   |prev| {
+            next_selected_line = prev;
+        } else if (self.line.parent) |parent| {
+            next_selected_line = parent;
+        } else {
+            self.line.text.set("");
+            return;
+        }
+        prog.buffer.delete(self.line);
+        self.line = next_selected_line;      
+    }
+    pub fn pasteLine            (self: *View) void {
+        const new_line = prog.buffer.create() catch return;
+        self.line.pushPrev(new_line);
+        if (self.first == self.line) self.first = new_line;
+        self.offset.y += 1;
+        self.goToPrevLine();
+    }
+};
+pub const CommandLine    = struct {
+  text: [254]u8 = undefined,
+  used: usize   = 0,
+   
 };
 const     MainErrors     = error  {
     BufferNotInit,
@@ -470,7 +508,7 @@ working:  bool     = true,
 console:  Console  = .{},
 buffer:   Buffer   = .{},
 view:     View     = .{},
-pub fn main                 () MainErrors!void {
+pub fn main                 ()            MainErrors!void {
     const self = &prog;
     self.buffer.init() catch return error.BufferNotInit;
     switch (std.os.argv.len) { // check arguments
@@ -616,25 +654,26 @@ pub fn updateKeys           (self: *Prog) void {
     switch (key) {
         .CtrlQ           => self.stop(),
         .CtrlS           => self.view.save(),
+        .CtrlP           => self.view.first.fold(),
+        .CtrlU           => self.view.first.unFold(),
         .ArrowRight,     => self.view.goToNextSymbol(),
         .ArrowLeft,      => self.view.goToPrevSymbol(),
         .ArrowUp,        => self.view.goToPrevLine(),
         .ArrowDown,      => self.view.goToNextLine(),
         .Ctrl8           => self.view.deletePrevSymbol(),
         .Del             => self.view.deleteSymbol(),
-        .CtrlX           => self.view.cutLine(),
-        .CtrlC           => self.view.clearLine(),
-        .CtrlM           => self.view.divide(),
         .Home            => self.view.goToStartOfLine(),
         .End             => self.view.goToEndOfLine(),
+        .CtrlX           => self.view.cutLine(),
+        .CtrlC           => self.view.duplicateLine(),
+        .CtrlV           => self.view.pasteLine(),
+        .CtrlM           => self.view.divide(), // enter
         .CtrlI           => self.view.goToIn(),
         .CtrlO           => self.view.goToOut(),
-        .ShiftEnter      => self.view.addPrevLine(),
-        .AltEnter        => self.view.addNextLine(),
-        .CtrlD           => self.view.duplicateLine(),
+        .CtrlD           => self.view.deleteLine(),
         .CtrlJ           => self.view.swapWithBottom(),
         .CtrlK           => self.view.swapWithUpper(),
-        .Ctrl7           => self.view.goToRoot(),
+        .Ctrl7           => self.view.goToRoot(), // slash
         else             => self.view.insertSymbol(buffer[0]),
     } // end switch(mode)
 } // end fn updateKeys

@@ -5,6 +5,7 @@ pub const c          = @cImport({
     @cInclude("stdlib.h");
 
     // linux
+    @cInclude("locale.h");
     @cInclude("arpa/inet.h");
     @cInclude("fcntl.h");
     @cInclude("netinet/in.h");

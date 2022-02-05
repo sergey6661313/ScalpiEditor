@@ -1,2 +1,18 @@
-22.01.2022 Реализовано: перенос строки при нажатии enter, команды перемещения в начало и конец строки. Дублирование строки. Обмен строками. Переход в ачало документа.
-13.01.2022 добавлена возможность создавать и удалять строки. (shift+enter и alt+enter)
+05.02.2022 { 
+  added: fold/unfold. NOT READY FOR USE.
+  Fixed: {
+    Enter behavior on out of line.
+  }
+}
+22.01.2022 {
+  realized: {
+    The [Enter] key splits a line 
+    keys to go end and startof line
+    Duplicating line
+    swaps lines
+    Key for goto to root line of file
+  }
+}
+13.01.2022 {
+  realized: create and delete lines
+}

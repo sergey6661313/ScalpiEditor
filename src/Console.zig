@@ -139,10 +139,17 @@ pub fn printRune            (self: *Console, rune: u8) void {
     if (self.cursor.pos.x >= self.size.x) unreachable;
     if (self.cursor.pos.y >= self.size.y) unreachable;
     switch (rune) {
-        0...31,
+        10, 13 => {
+            lib.print(ansi.bg_color.red2);
+            lib.printRune(' ');
+            lib.print(ansi.reset);
+        },
+        0...9, 
+        11...12,
+        14...31,
         127...255
         =>  {
-            lib.print(ansi.bg_color.red2);
+            lib.print(ansi.bg_color.black2);
             lib.printRune(' ');
             lib.print(ansi.reset);
         },
