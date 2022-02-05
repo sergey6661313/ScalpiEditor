@@ -444,8 +444,8 @@ pub const View           = struct {
     }
     pub fn goToEndOfLine        (self: *View) void {
       self.symbol   = self.line.text.used;
-      if (self.symbol > prog.console.size.x - 1) {
-          self.offset.x = prog.console.size.x - 1;
+      if (self.symbol > prog.console.size.x - 2) {
+          self.offset.x = prog.console.size.x - 2;
       } else {
           self.offset.x = self.symbol;
       }
@@ -654,7 +654,10 @@ pub fn updateKeys           (self: *Prog) void {
     switch (key) {
         .CtrlQ           => self.stop(),
         .CtrlS           => self.view.save(),
-        .CtrlP           => self.view.first.fold(),
+        .CtrlY           => self.view.line.moveAllNextLinesToUpperLineAsChild(),
+        .CtrlR           => self.view.first.foldFromSpaces(),
+        .CtrlT           => self.view.first.foldFromTabs(),
+        .CtrlP           => self.view.first.foldFromBrackets(),
         .CtrlU           => self.view.first.unFold(),
         .ArrowRight,     => self.view.goToNextSymbol(),
         .ArrowLeft,      => self.view.goToPrevSymbol(),
