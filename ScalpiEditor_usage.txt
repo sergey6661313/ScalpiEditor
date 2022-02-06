@@ -1,4 +1,4 @@
-This is ScalpiEditor - "heirarhy" text editor.
+This is ScalpiEditor - "heirarhy" text editor. ver: 0.0.1 Alpha
 
 for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
@@ -10,9 +10,7 @@ up                     [Up]
 down                   [Down]
 enter block            [Ctrl]  +  [i]
 leave block            [Ctrl]  +  [o] 
-parse brackets         [Ctrl]  +  [p]
-parse tabs             [Ctrl]  +  [t]
-parse spaces           [Ctrl]  +  [r]
+parse                  [Ctrl]  +  [p]
 unparse                [Ctrl]  +  [u]
 go to root             [Ctrl]  +  [Slash]
 

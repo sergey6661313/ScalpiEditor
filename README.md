@@ -10,7 +10,7 @@ ScalpiEditor - Simple console text editor.
    - folding by spaces/tabs not work...
    - folded lines behave incorreclty when splitting and moving...
    - not ability to select text/lines
-   - not ability to copy/paste text
+   - not ability to copy/paste selected text
    - not ability to paste from external buffer
    - no undo/redo
    - does not offer to save the file on exit (until it stabilizes)
@@ -21,5 +21,6 @@ for compile - use:
     $ zig build
 </pre>
 
-[![asciicast](https://asciinema.org/a/466813.svg)](https://asciinema.org/a/466813)
+[![asciicast](https://asciinema.org/a/466962.svg)](https://asciinema.org/a/466962)
 [![asciicast](https://asciinema.org/a/466820.svg)](https://asciinema.org/a/466820)
+[![asciicast](https://asciinema.org/a/466813.svg)](https://asciinema.org/a/466813)

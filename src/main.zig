@@ -67,7 +67,7 @@ pub const Buffer         = struct {
     } // end fn delete
 };
 pub const View           = struct {
-    pub const Mode = enum {
+    pub const Mode            = enum {
       Edit,
       GoToLine,
       History,
@@ -77,7 +77,7 @@ pub const View           = struct {
     first:        *Line       = undefined, // need only for saving file...
     line:         *Line       = undefined,
     symbol:       usize       = 0,
-    offset:       lib.Coor2u  = .{},
+    offset:       lib.Coor2u  = .{.y = 1},
     need_redraw:  bool        = true,
     focus:        bool        = false,
     cutted:       ?*Line      = null,
@@ -115,44 +115,54 @@ pub const View           = struct {
         self.offset.x = 0;
         self.need_redraw = true;
     } // end fn loadLines
+    pub fn drawUpperLines       (self: *View) void {
+      if (self.offset.y == 0) return;
+      var pos_y:     usize  = self.offset.y - 1;
+      var last_line: *Line  = self.line;
+
+      // draw lines
+      var current:   ?*Line = self.line.prev;
+      while (current) |line| {
+        self.drawLine(line, pos_y);
+        if (pos_y == 0) return;
+        pos_y     -= 1;
+        current   = line.prev;
+        last_line = line;
+      }
+
+      // draw parents
+      lib.print(ansi.color.blue);
+      while (last_line.getParent()) |parent| {
+        self.drawLine(parent, pos_y);
+        if (pos_y == 0) break;
+        pos_y     -= 1;
+        last_line = parent;
+      }
+      lib.print(ansi.reset);
+    }
+    pub fn drawDownerLines      (self: *View) void {
+      var line  = self.line;
+      var pos_y = self.offset.y;
+      while(true) {
+        if (pos_y < prog.console.size.y - 1) {
+          if (line.next) |next| {
+            pos_y += 1;
+            line = next;
+            self.drawLine(line, pos_y);
+            continue;
+          }
+        }
+        break;
+      }
+    }
     pub fn draw                 (self: *View) void {
         if(self.need_redraw == false) return;
         self.need_redraw = false;
         prog.console.clear();
         lib.print(ansi.reset);
-        self.drawLineEditedLine(self.line, self.offset.y);
-        var line:  *Line = undefined;
-        var pos_y: usize = undefined;
-        //{ draw upper lines
-        line  = self.line;
-        pos_y = self.offset.y;
-        while(true) {
-          if (pos_y > 0) {
-            if (line.prev) |prev| {
-              pos_y -= 1;
-              line = prev;
-              self.drawLine(line, pos_y);
-              continue;
-            }
-          }
-          break;
-        }
-        //}
-        //{ draw downer lines
-        line  = self.line;
-        pos_y = self.offset.y;
-        while(true) {
-          if (pos_y < prog.console.size.y - 1) {
-            if (line.next) |next| {
-              pos_y += 1;
-              line = next;
-              self.drawLine(line, pos_y);
-              continue;
-            }
-          }
-          break;
-        }
-        //}
+        self.drawEditedLine(self.line, self.offset.y);
+        self.drawUpperLines();
+        self.drawDownerLines();
         //~ prog.debug();
         self.cursorMoveToCurrent();
     } // end draw lines
@@ -171,7 +181,7 @@ pub const View           = struct {
             offset_x += 1;
         }
     }
-    pub fn drawLineEditedLine   (self: *View, line: *Line, offset_y: usize) void {
+    pub fn drawEditedLine       (self: *View, line: *Line, offset_y: usize) void {
         const text = line.text.get();
         
         // draw left-to-right from first visible rune
@@ -276,12 +286,13 @@ pub const View           = struct {
     pub fn goToPrevLine         (self: *View) void {
         if (self.line.prev) |prev| {
             self.line = prev;
-        } else {
+        } 
+        else {
             return;
         }
 
         // correct offset_y:
-        if (self.offset.y != 0) self.offset.y -= 1;
+        if (self.offset.y > 1) self.offset.y -= 1;
         var count_to_upperest_line: usize = 0;
         var line: *Line = self.line;
         while (count_to_upperest_line < 5) {
@@ -292,7 +303,8 @@ pub const View           = struct {
             break;
           }
         }
-        if (self.offset.y < count_to_upperest_line) self.offset.y = count_to_upperest_line;
+        if (self.offset.y < count_to_upperest_line + 1) self.offset.y = count_to_upperest_line + 1;
+
     } // end fn
     pub fn goToNextLine         (self: *View) void {
         if (self.line.next) |next| {
@@ -420,13 +432,13 @@ pub const View           = struct {
     pub fn goToIn               (self: *View) void {
       if (self.line.child) |child| {
         self.line = child;
-        self.offset.y = 0;
+        self.offset.y = 1;
       }
     }
     pub fn goToOut              (self: *View) void {
       if (self.line.getParent()) |parent| {
         self.line = parent;
-        self.offset.y = 5;
+        self.offset.y = 6;
       }
     }
     pub fn divide               (self: *View) void {
@@ -467,7 +479,7 @@ pub const View           = struct {
     }
     pub fn goToRoot             (self: *View) void {
       self.line     = self.first;
-      self.offset.y = 0;
+      self.offset.y = 1;
       self.goToStartOfLine();
     }
     pub fn deleteLine           (self: *View) void {
@@ -654,9 +666,8 @@ pub fn updateKeys           (self: *Prog) void {
     switch (key) {
         .CtrlQ           => self.stop(),
         .CtrlS           => self.view.save(),
-        .CtrlY           => self.view.line.moveAllNextLinesToUpperLineAsChild(),
-        .CtrlR           => self.view.first.foldFromSpaces(),
-        .CtrlT           => self.view.first.foldFromTabs(),
+        //.CtrlR           => self.view.first.foldFromIndent(' '),
+        //.CtrlT           => self.view.first.foldFromIndent('\t'),
         .CtrlP           => self.view.first.foldFromBrackets(),
         .CtrlU           => self.view.first.unFold(),
         .ArrowRight,     => self.view.goToNextSymbol(),
