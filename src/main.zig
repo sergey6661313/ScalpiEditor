@@ -640,29 +640,9 @@ pub fn debug                (self: *Prog) void {
     self.console.fillSpacesToEndLine();
 }
 pub fn updateKeys           (self: *Prog) void {
-    _ = self;
-    var count: usize  = undefined;
-    { // get count
-        var bytesWaiting: c_int = undefined;
-        const f_stdin = lib.c.fileno(lib.c.stdin);
-        _ = lib.c.ioctl(f_stdin, lib.c.FIONREAD, &bytesWaiting);
-        count = @intCast(usize, bytesWaiting);
-    } // end get count
-    if (count == 0) return;
+  var key: ansi.key = self.getKey();
+  if (key != .Ctrl2) { // not null
     self.view.need_redraw = true;
-    var   key:    ansi.key = .Ctrl2; // :u64 = 0;
-    const buffer: []u8     = @ptrCast([*]u8, &key)[0..8]; // u64
-    { // read buffered bytes
-        var pos: usize = 0;
-        while(true) {
-            const char: c_int = lib.c.getchar();
-            if(pos < 8) {
-                buffer[pos] = @ptrCast(*const u8, &char).*;
-            }
-            pos += 1;
-            if (pos == count) break;
-        }// end while
-    } // end get chars
     switch (key) {
         .CtrlQ           => self.stop(),
         .CtrlS           => self.view.save(),
@@ -688,6 +668,23 @@ pub fn updateKeys           (self: *Prog) void {
         .CtrlJ           => self.view.swapWithBottom(),
         .CtrlK           => self.view.swapWithUpper(),
         .Ctrl7           => self.view.goToRoot(), // slash
-        else             => self.view.insertSymbol(buffer[0]),
+        else             => {
+          var i = @enumToInt(key);
+          if (i < 254) self.view.insertSymbol(@intCast(u8, i % 254));
+        },
     } // end switch(mode)
+  }
 } // end fn updateKeys
+pub fn getKey               (self: *Prog) ansi.key { // read buffered bytes
+  var   key:     ansi.key = .Ctrl2; // :u64 = 0;
+  const buffer:  []u8     = @ptrCast([*]u8, &key)[0..8]; // u64
+  var   bytes:   usize    = self.console.getBytesWaiting();
+  var   pos:     usize    = 0;
+  while(pos < bytes) {
+    const char: c_int = lib.c.getchar();
+    buffer[pos] = @ptrCast(*const u8, &char).*;
+    pos += 1;
+    if (pos == 8) break;
+  }// end while
+  return key;
+} // end get chars

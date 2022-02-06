@@ -60,20 +60,23 @@ pub const Cursor = struct {
     }
 };
 size:                Coor2u           = .{ .x = 0, .y = 0 },
+cursor:              Cursor           = .{},
+f_stdin:             c_int = undefined,
+f_stdout:            c_int = undefined,
 stdin_system_flags:  c.struct_termios = undefined,
 stdout_system_flags: c.struct_termios = undefined,
-cursor:              Cursor           = .{},
 pub fn init                 (self: *Console) void {
+    self.f_stdin = c.fileno(c.stdin);
+    self.f_stdout = c.fileno(c.stdout);
+
     //{ save std in/out settings
-        const f_stdin = c.fileno(c.stdin);
-        const f_stdout = c.fileno(c.stdout);
-        _ = c.tcgetattr(f_stdin, &self.stdin_system_flags);
-        _ = c.tcgetattr(f_stdout, &self.stdout_system_flags);
+        _ = c.tcgetattr(self.f_stdin, &self.stdin_system_flags);
+        _ = c.tcgetattr(self.f_stdout, &self.stdout_system_flags);
     //}
     //{ set special flags
         var flags: c.struct_termios = undefined;
         //{ for stdin
-            _ = c.tcgetattr(f_stdin, &flags);
+            _ = c.tcgetattr(self.f_stdin, &flags);
 
             flags.c_oflag &= ~(  // disable iflags
               @as(c_uint, lib.c.OPOST)   | // add \r after \n
@@ -109,12 +112,12 @@ pub fn init                 (self: *Console) void {
             flags.c_cc[lib.c.VMIN]  = 0;
             flags.c_cc[lib.c.VTIME] = 0;
 
-            _ = c.tcsetattr(f_stdin, c.TCSAFLUSH, &flags);
+            _ = c.tcsetattr(self.f_stdin, c.TCSAFLUSH, &flags);
         //}
         //{ for std out
-            _ = c.tcgetattr(f_stdout, &flags);
+            _ = c.tcgetattr(self.f_stdout, &flags);
             flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
-            _ = c.tcsetattr(f_stdout, c.TCSANOW, &flags);
+            _ = c.tcsetattr(self.f_stdout, c.TCSANOW, &flags);
         //}
     //}
     self.updateSize();
@@ -123,11 +126,8 @@ pub fn init                 (self: *Console) void {
 }
 pub fn deInit               (self: *Console) void {
     // restore buffer settings
-    const f_stdin = c.fileno(c.stdin);
-    _ = c.tcsetattr(f_stdin, c.TCSANOW, &self.stdin_system_flags);
-
-    const f_stdout = c.fileno(c.stdout);
-    _ = c.tcsetattr(f_stdout, c.TCSANOW, &self.stdout_system_flags);
+    _ = c.tcsetattr(self.f_stdin,  c.TCSANOW, &self.stdin_system_flags);
+    _ = c.tcsetattr(self.f_stdout, c.TCSANOW, &self.stdout_system_flags);
 }
 pub fn updateSize           (self: *Console) void {
     var w: c.winsize = undefined;
@@ -215,3 +215,9 @@ pub fn printLine            (self: *Console, text: []u8, pos_y: usize) void {
     self.print(text);
     self.fillSpacesToEndLine();
 } 
+pub fn getBytesWaiting      (self: *Console) usize {
+  var bytesWaiting: c_int = undefined;
+  _ = lib.c.ioctl(self.f_stdin, lib.c.FIONREAD, &bytesWaiting);
+  var count = @intCast(usize, bytesWaiting);
+  return count;
+}
