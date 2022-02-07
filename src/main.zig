@@ -74,7 +74,7 @@ pub const View           = struct {
     };
     mode:         Mode        = .Edit,
     file_name:    [1024]u8    = undefined,
-    first:        *Line       = undefined, // need only for saving file...
+    first:        *Line       = undefined,
     line:         *Line       = undefined,
     symbol:       usize       = 0,
     offset:       lib.Coor2u  = .{.y = 1},
@@ -111,9 +111,6 @@ pub const View           = struct {
             } // end while
         }
         self.line     = self.first;
-        self.offset.y = 0;
-        self.offset.x = 0;
-        self.need_redraw = true;
     } // end fn loadLines
     pub fn drawUpperLines       (self: *View) void {
       if (self.offset.y == 0) return;
@@ -492,14 +489,19 @@ pub const View           = struct {
         self.deleteSymbol();
     }
     pub fn cutLine              (self: *View) void {
+        if (self.line.parent)     |_| {self.first.unFold();}
+        else if (self.line.child) |_| {self.first.unFold();}
         var next_selected_line: *Line = undefined;
-        if (self.line.next)          |next| {
+        if (self.line.next)        |next| {
             next_selected_line = next;
-        } else if (self.line.prev)   |prev| {
+        } 
+        else if (self.line.prev)   |prev| {
             next_selected_line = prev;
-        } else if (self.line.parent) |parent| {
+        } 
+        else if (self.line.parent) |parent| {
             next_selected_line = parent;
-        } else {
+        } 
+        else {
             self.line.text.set("");
             return;
         }
@@ -538,6 +540,8 @@ pub const View           = struct {
       }
     }
     pub fn divide               (self: *View) void {
+        if (self.line.parent) |_| {self.first.unFold();}
+        else if (self.line.child) |_| {self.first.unFold();}
         var parent = self.line;
         var pos    = self.symbol;
         if (pos > self.line.text.used) pos = self.line.text.used;
