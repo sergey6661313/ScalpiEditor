@@ -119,25 +119,26 @@ pub const View           = struct {
       if (self.offset.y == 0) return;
       var pos_y:     usize  = self.offset.y - 1;
       var last_line: *Line  = self.line;
-
-      // draw lines
-      var current:   ?*Line = self.line.prev;
-      while (current) |line| {
-        self.drawLine(line, pos_y);
-        if (pos_y == 0) return;
-        pos_y     -= 1;
-        current   = line.prev;
-        last_line = line;
-      }
-
-      // draw parents
-      lib.print(ansi.color.blue);
-      while (last_line.getParent()) |parent| {
-        self.drawLine(parent, pos_y);
-        if (pos_y == 0) break;
-        pos_y     -= 1;
-        last_line = parent;
-      }
+      //{ draw lines
+        var current:   ?*Line = self.line.prev;
+        while (current) |line| {
+          if (line.child) |_| self.drawFoldedLine(line, pos_y)
+          else self.drawLine(line, pos_y);
+          if (pos_y == 0) return;
+          pos_y     -= 1;
+          current   = line.prev;
+          last_line = line;
+        }
+      //}
+      //{ draw parents
+        lib.print(ansi.color.blue);
+        while (last_line.getParent()) |parent| {
+          self.drawLine(parent, pos_y);
+          if (pos_y == 0) break;
+          pos_y     -= 1;
+          last_line = parent;
+        }
+      //}
       lib.print(ansi.reset);
     }
     pub fn drawDownerLines      (self: *View) void {
@@ -148,7 +149,8 @@ pub const View           = struct {
           if (line.next) |next| {
             pos_y += 1;
             line = next;
-            self.drawLine(line, pos_y);
+            if (line.child) |_| self.drawFoldedLine(line, pos_y)
+            else self.drawLine(line, pos_y);
             continue;
           }
         }
@@ -160,20 +162,32 @@ pub const View           = struct {
         self.need_redraw = false;
         prog.console.clear();
         lib.print(ansi.reset);
-        self.drawEditedLine(self.line, self.offset.y);
+        if (self.line.child) |_| self.drawEditedFoldedLine(self.offset.y)
+        else self.drawEditedLine(self.offset.y);
         self.drawUpperLines();
         self.drawDownerLines();
-        //~ prog.debug();
+        //prog.debug();
         self.cursorMoveToCurrent();
     } // end draw lines
     pub fn cursorMoveToCurrent  (self: *View) void {
         prog.console.cursorMove(.{.x = self.offset.x, .y = self.offset.y});
     }
+    pub fn drawFoldedLine       (self: *View, line: *Line, offset_y: usize) void {
+        lib.print(ansi.bg_color.black);
+        self.drawLine(line, offset_y);
+        lib.print(ansi.reset);
+    }
     pub fn drawLine             (self: *View, line: *Line, offset_y: usize) void {
         const text = line.text.get();
         // draw left-to-right from first visible rune
         prog.console.cursorMove(.{.x = 0, .y = offset_y});
-        var pos:      usize = self.symbol - self.offset.x; 
+        if (self.symbol < self.offset.x) { // unexpected
+          self.offset.x = 0;
+          self.symbol = 0;
+          self.need_redraw = true;
+          return;
+        }
+        var pos:      usize = self.symbol - self.offset.x; // first visible rune
         var offset_x: usize = 0;
         while(offset_x < prog.console.size.x){
             drawSymbol(text, pos);
@@ -181,56 +195,110 @@ pub const View           = struct {
             offset_x += 1;
         }
     }
-    pub fn drawEditedLine       (self: *View, line: *Line, offset_y: usize) void {
-        const text = line.text.get();
-        
+    pub fn drawEditedLine       (self: *View, offset_y: usize) void {
         // draw left-to-right from first visible rune
+        const text       = self.line.text.get();
+        const text_color = ansi.color.cyan;
         prog.console.cursorMove(.{.x = 0, .y = offset_y});
+        if (self.symbol < self.offset.x) { // unexpected
+          self.offset.x = 0;
+          self.symbol = 0;
+          self.need_redraw = true;
+          return;
+        }
+        lib.print(ansi.reset);
         var pos:      usize = self.symbol - self.offset.x; 
         var offset_x: usize = 0;
-
-        if (pos > 0) {
+        if (pos > 0) { // draw '<'
             lib.print(ansi.color.magenta);
             prog.console.printRune('<');
             pos += 1;
             offset_x += 1;
         }
-
-        // left symbols
-        lib.print(ansi.color.cyan);
-        while(offset_x < self.offset.x) {
+        //{ left symbols
+          lib.print(text_color);
+          while(offset_x < self.offset.x) {
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
-        }
-        
-        // current symbol. maybe inverse cursour?
+          }
+        //}
+        //{ current symbol. maybe inverse cursour?
             lib.print(ansi.color.yellow);
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
-        
-        // right symbols
-        lib.print(ansi.color.cyan);
-        while(offset_x < prog.console.size.x - 1){
+        //}
+        //{ right symbols
+          lib.print(text_color);
+          while(offset_x < prog.console.size.x - 1){
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
-        }
-        if (text.len > pos) {
+          }
+        //}
+        if (text.len > pos) { // draw '>'
             lib.print(ansi.color.magenta);
             prog.console.printRune('>');
-        } else {
+        } 
+        else { // draw ' '
+            prog.console.printRune(' ');          
+        }
+        lib.print(ansi.reset);
+    }
+    pub fn drawEditedFoldedLine (self: *View, offset_y: usize) void {
+        // draw left-to-right from first visible rune
+        const text       = self.line.text.get();
+        const text_color = ansi.color.green2;
+        prog.console.cursorMove(.{.x = 0, .y = offset_y});
+        if (self.symbol < self.offset.x) { // unexpected
+          self.offset.x = 0;
+          self.symbol = 0;
+          self.need_redraw = true;
+          return;
+        }
+        var pos:      usize = self.symbol - self.offset.x; 
+        var offset_x: usize = 0;
+        if (pos > 0) { // draw '<'
+            lib.print(ansi.color.magenta);
+            prog.console.printRune('<');
+            pos += 1;
+            offset_x += 1;
+        }
+        //{ left symbols
+          lib.print(text_color);
+          while(offset_x < self.offset.x) {
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+          }
+        //}
+        //{ current symbol. maybe inverse cursour?
+            lib.print(ansi.color.yellow);
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+        //}
+        //{ right symbols
+          lib.print(text_color);
+          while(offset_x < prog.console.size.x - 1){
+            drawSymbol(text, pos);
+            pos += 1;
+            offset_x += 1;
+          }
+        //}
+        if (text.len > pos) { // draw '>'
+            lib.print(ansi.color.magenta);
+            prog.console.printRune('>');
+        } 
+        else { // draw ' '
             prog.console.printRune(' ');          
         }
         lib.print(ansi.reset);
     }
     pub fn drawSymbol           (text: []u8, pos: usize) void {
-        if (pos >= text.len) {
-            prog.console.printRune(' ');
-        } else {
-            prog.console.printRune(text[pos]);
-        }
+        if (pos >= text.len) prog.console.printRune(' ')
+        else prog.console.printRune(text[pos]);
     }
     pub fn save                 (self: *View) void {
         self.need_redraw = false;
@@ -431,14 +499,30 @@ pub const View           = struct {
     }
     pub fn goToIn               (self: *View) void {
       if (self.line.child) |child| {
-        self.line = child;
+        const line_indent  = self.line.text.countIndent();
+        const child_indent = child.text.countIndent();
+        if (line_indent <= child_indent) {
+          self.offset.x =  child_indent - line_indent;
+        }
+        self.symbol   = child.text.countIndent();
+        self.line     = child;
         self.offset.y = 1;
       }
     }
     pub fn goToOut              (self: *View) void {
       if (self.line.getParent()) |parent| {
-        self.line = parent;
+        self.symbol   = parent.text.countIndent();
+        self.line     = parent;
         self.offset.y = 6;
+        if (parent.getParent()) |grand_parent| {
+          const parent_indent       = parent.text.countIndent();
+          const grand_parent_indent = grand_parent.text.countIndent();
+          if (grand_parent_indent <= parent_indent) {
+            self.offset.x = parent_indent - grand_parent_indent;
+          }
+          else self.offset.x = self.symbol;
+        } 
+        else self.offset.x = self.symbol;
       }
     }
     pub fn divide               (self: *View) void {
@@ -572,7 +656,6 @@ pub fn stop                 (self: *Prog) void {
     self.console.cursorMoveToEnd();
 }
 pub fn debug                (self: *Prog) void {
-    //~ if (true) return;
     var buffer: [254]u8 = undefined;
     lib.print(ansi.color.magenta);
     const debug_lines  = 6;
@@ -641,39 +724,38 @@ pub fn debug                (self: *Prog) void {
 }
 pub fn updateKeys           (self: *Prog) void {
   var key: ansi.key = self.getKey();
-  if (key != .Ctrl2) { // not null
-    self.view.need_redraw = true;
-    switch (key) {
-        .CtrlQ           => self.stop(),
-        .CtrlS           => self.view.save(),
-        //.CtrlR           => self.view.first.foldFromIndent(' '),
-        //.CtrlT           => self.view.first.foldFromIndent('\t'),
-        .CtrlP           => self.view.first.foldFromBrackets(),
-        .CtrlU           => self.view.first.unFold(),
-        .ArrowRight,     => self.view.goToNextSymbol(),
-        .ArrowLeft,      => self.view.goToPrevSymbol(),
-        .ArrowUp,        => self.view.goToPrevLine(),
-        .ArrowDown,      => self.view.goToNextLine(),
-        .Ctrl8           => self.view.deletePrevSymbol(),
-        .Del             => self.view.deleteSymbol(),
-        .Home            => self.view.goToStartOfLine(),
-        .End             => self.view.goToEndOfLine(),
-        .CtrlX           => self.view.cutLine(),
-        .CtrlC           => self.view.duplicateLine(),
-        .CtrlV           => self.view.pasteLine(),
-        .CtrlM           => self.view.divide(), // enter
-        .CtrlI           => self.view.goToIn(),
-        .CtrlO           => self.view.goToOut(),
-        .CtrlD           => self.view.deleteLine(),
-        .CtrlJ           => self.view.swapWithBottom(),
-        .CtrlK           => self.view.swapWithUpper(),
-        .Ctrl7           => self.view.goToRoot(), // slash
-        else             => {
-          var i = @enumToInt(key);
-          if (i < 254) self.view.insertSymbol(@intCast(u8, i % 254));
-        },
-    } // end switch(mode)
-  }
+  if (key == .Ctrl2) return;
+  self.view.need_redraw = true;
+  switch (key) {
+    .CtrlQ           => self.stop(),
+    .CtrlS           => self.view.save(),
+    .CtrlE           => self.view.first.foldFromIndent(' '),
+    .CtrlR           => self.view.first.foldFromIndent('\t'),
+    .CtrlP           => self.view.first.foldFromBrackets(),
+    .CtrlU           => self.view.first.unFold(),
+    .Right,          => self.view.goToNextSymbol(),
+    .Left,           => self.view.goToPrevSymbol(),
+    .Up,             => self.view.goToPrevLine(),
+    .Down,           => self.view.goToNextLine(),
+    .BackSpace       => self.view.deletePrevSymbol(),
+    .Del             => self.view.deleteSymbol(),
+    .Home            => self.view.goToStartOfLine(),
+    .End             => self.view.goToEndOfLine(),
+    .CtrlX           => self.view.cutLine(),
+    .CtrlC           => self.view.duplicateLine(),
+    .CtrlV           => self.view.pasteLine(),
+    .Enter           => self.view.divide(),
+    .CtrlD           => self.view.divide(), // if Enter not working...
+    .Tab             => self.view.goToIn(), // same as CtrlI
+    .CtrlO           => self.view.goToOut(),
+    .CtrlB           => self.view.swapWithBottom(),
+    .CtrlN           => self.view.swapWithUpper(),
+    .CtrlSlash       => self.view.goToRoot(),
+    else             => {
+      var i = @enumToInt(key);
+      if (i < 254) self.view.insertSymbol(@intCast(u8, i % 254));
+    },
+  } // end switch(mode)
 } // end fn updateKeys
 pub fn getKey               (self: *Prog) ansi.key { // read buffered bytes
   var   key:     ansi.key = .Ctrl2; // :u64 = 0;

@@ -131,6 +131,7 @@ pub fn findParentWithRuneCount(self: *Line, count: usize, rune: u8) ?*Line {
     while (current) |line| {
         if (line.getParent()) |parent| {
             if (parent.text.getFirstRunesCount(rune) <= count) return parent;
+            current = parent;
         } else break;
     }
     return null;
@@ -142,42 +143,24 @@ pub fn foldFromIndent    (self: *Line, rune: u8) void {
     var count:      usize = 0;
     while (current) |line| {
         count = line.text.getFirstRunesCount(rune);
-        { // debug
-        var last_used: usize   = line.text.used;
-        var buffer:    [200]u8 = undefined;
-        var sprintf_result     = Prog.lib.c.sprintf(&buffer, "%d", count);
-        var buffer_len         = @intCast(usize, sprintf_result);
-        line.text.set(buffer[0..buffer_len]);
-        line.text.used         = last_used;
-        } // end debug
         if       (count == last_count) {
             current = line.next;
         } 
         else if  (count >  last_count) {
             if (line.prev) |prev| line.moveToAsChild(prev);
-            line.text.set("moved as child");
         } 
         else { // count <  last_count
-            prog.view.line = line;
-            prog.view.need_redraw = true;
-            prog.view.draw();
-            prog.view.line.text.set("spaces < last_spaces");
-            std.time.sleep(std.time.ns_per_ms * 200);
-            
-            var maybe_parent = self.findParentWithRuneCount(count, rune);
-            if (maybe_parent) |parent| {
-              if (parent.text.getFirstRunesCount(rune) == count) {
-                if (parent.getLastChild()) |last| {
-                  last.next      = line;
-                  line.prev      = last;
-                  line.parent    = null;
-                  parent.text.set("parent of line with spaces < last...");
-                  last.text.set("last child of line with spaces < last...");
-                }
-              }
-              else {
-                self.moveToAsChild(parent);
-              }
+            if (self.findParentWithRuneCount(count, rune)) |parent| {
+              if (line.prev) |prev| prev.next = null;
+              parent.next = line;
+              line.prev   = parent;
+              line.parent = null;
+            } 
+            else if (line.getParent()) |parent| {
+              if (line.prev) |prev| prev.next = null;
+              parent.next = line;
+              line.prev   = parent;
+              line.parent = null;
             }
         }
         last_count  = count;
