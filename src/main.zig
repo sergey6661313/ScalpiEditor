@@ -122,8 +122,15 @@ pub const View           = struct {
       //{ draw lines
         var current:   ?*Line = self.line.prev;
         while (current) |line| {
-          if (line.child) |_| self.drawFoldedLine(line, pos_y)
-          else self.drawLine(line, pos_y);
+          if (line.child) |_| {
+            lib.print(ansi.reset);
+            lib.print(ansi.bg_color.black2);
+            self.drawLine(line, pos_y);
+          }
+          else {
+            lib.print(ansi.reset);
+            self.drawLine(line, pos_y);
+          }
           if (pos_y == 0) return;
           pos_y     -= 1;
           current   = line.prev;
@@ -131,17 +138,18 @@ pub const View           = struct {
         }
       //}
       //{ draw parents
-        lib.print(ansi.color.blue);
         while (last_line.getParent()) |parent| {
+          lib.print(ansi.reset);
+          lib.print(ansi.color.blue);
           self.drawLine(parent, pos_y);
           if (pos_y == 0) break;
           pos_y     -= 1;
           last_line = parent;
         }
       //}
-      lib.print(ansi.reset);
     }
     pub fn drawDownerLines      (self: *View) void {
+      lib.print(ansi.reset);
       var line  = self.line;
       var pos_y = self.offset.y;
       while(true) {
@@ -149,8 +157,15 @@ pub const View           = struct {
           if (line.next) |next| {
             pos_y += 1;
             line = next;
-            if (line.child) |_| self.drawFoldedLine(line, pos_y)
-            else self.drawLine(line, pos_y);
+            if (line.child) |_| {
+              lib.print(ansi.reset);
+              lib.print(ansi.bg_color.black2);
+              self.drawLine(line, pos_y);
+            }
+            else {
+              lib.print(ansi.reset);
+              self.drawLine(line, pos_y);
+            }
             continue;
           }
         }
@@ -159,6 +174,11 @@ pub const View           = struct {
     }
     pub fn draw                 (self: *View) void {
         if(self.need_redraw == false) return;
+        if (self.symbol < self.offset.x) { // unexpected
+          self.offset.x = 0;
+          self.symbol = 0;
+          return;
+        }
         self.need_redraw = false;
         prog.console.clear();
         lib.print(ansi.reset);
@@ -172,14 +192,9 @@ pub const View           = struct {
     pub fn cursorMoveToCurrent  (self: *View) void {
         prog.console.cursorMove(.{.x = self.offset.x, .y = self.offset.y});
     }
-    pub fn drawFoldedLine       (self: *View, line: *Line, offset_y: usize) void {
-        lib.print(ansi.bg_color.black);
-        self.drawLine(line, offset_y);
-        lib.print(ansi.reset);
-    }
     pub fn drawLine             (self: *View, line: *Line, offset_y: usize) void {
-        const text = line.text.get();
         // draw left-to-right from first visible rune
+        const text = line.text.get();
         prog.console.cursorMove(.{.x = 0, .y = offset_y});
         if (self.symbol < self.offset.x) { // unexpected
           self.offset.x = 0;
@@ -198,24 +213,19 @@ pub const View           = struct {
     pub fn drawEditedLine       (self: *View, offset_y: usize) void {
         // draw left-to-right from first visible rune
         const text       = self.line.text.get();
-        const text_color = ansi.color.cyan;
+        const text_color = ansi.color.green2;
         prog.console.cursorMove(.{.x = 0, .y = offset_y});
-        if (self.symbol < self.offset.x) { // unexpected
-          self.offset.x = 0;
-          self.symbol = 0;
-          self.need_redraw = true;
-          return;
-        }
-        lib.print(ansi.reset);
         var pos:      usize = self.symbol - self.offset.x; 
         var offset_x: usize = 0;
         if (pos > 0) { // draw '<'
+            lib.print(ansi.reset);
             lib.print(ansi.color.magenta);
             prog.console.printRune('<');
             pos += 1;
             offset_x += 1;
         }
         //{ left symbols
+          lib.print(ansi.reset);
           lib.print(text_color);
           while(offset_x < self.offset.x) {
             drawSymbol(text, pos);
@@ -224,12 +234,14 @@ pub const View           = struct {
           }
         //}
         //{ current symbol. maybe inverse cursour?
+            lib.print(ansi.reset);
             lib.print(ansi.color.yellow);
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
         //}
         //{ right symbols
+          lib.print(ansi.reset);
           lib.print(text_color);
           while(offset_x < prog.console.size.x - 1){
             drawSymbol(text, pos);
@@ -244,42 +256,42 @@ pub const View           = struct {
         else { // draw ' '
             prog.console.printRune(' ');          
         }
-        lib.print(ansi.reset);
     }
     pub fn drawEditedFoldedLine (self: *View, offset_y: usize) void {
         // draw left-to-right from first visible rune
         const text       = self.line.text.get();
         const text_color = ansi.color.green2;
+        const bg_color   = ansi.bg_color.black2;
         prog.console.cursorMove(.{.x = 0, .y = offset_y});
-        if (self.symbol < self.offset.x) { // unexpected
-          self.offset.x = 0;
-          self.symbol = 0;
-          self.need_redraw = true;
-          return;
-        }
         var pos:      usize = self.symbol - self.offset.x; 
         var offset_x: usize = 0;
         if (pos > 0) { // draw '<'
+            lib.print(ansi.reset);
             lib.print(ansi.color.magenta);
             prog.console.printRune('<');
             pos += 1;
             offset_x += 1;
         }
         //{ left symbols
-          lib.print(text_color);
-          while(offset_x < self.offset.x) {
-            drawSymbol(text, pos);
-            pos += 1;
-            offset_x += 1;
-          }
+            lib.print(ansi.reset);
+            lib.print(bg_color);
+            lib.print(text_color);
+            while(offset_x < self.offset.x) {
+                drawSymbol(text, pos);
+                pos += 1;
+                offset_x += 1;
+            }
         //}
         //{ current symbol. maybe inverse cursour?
+            lib.print(ansi.reset);
             lib.print(ansi.color.yellow);
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
         //}
         //{ right symbols
+          lib.print(ansi.reset);
+          lib.print(bg_color);
           lib.print(text_color);
           while(offset_x < prog.console.size.x - 1){
             drawSymbol(text, pos);
@@ -288,13 +300,13 @@ pub const View           = struct {
           }
         //}
         if (text.len > pos) { // draw '>'
+            lib.print(ansi.reset);
             lib.print(ansi.color.magenta);
             prog.console.printRune('>');
         } 
         else { // draw ' '
             prog.console.printRune(' ');          
         }
-        lib.print(ansi.reset);
     }
     pub fn drawSymbol           (text: []u8, pos: usize) void {
         if (pos >= text.len) prog.console.printRune(' ')
