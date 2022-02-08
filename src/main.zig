@@ -8,9 +8,10 @@ pub const Line           = @import("Line.zig");
 pub const Console        = @import("Console.zig");
 pub const Buffer         = struct {
     pub const size = 25000; // about 10 mb...
-    lines:  [size]Line   = .{.{}} ** size, // OwO syntax ¯\_(O.o)_/¯
-    free:   ?*Line       = undefined,
-    pub fn init     (self: *Buffer) !void {
+    lines:  [size]Line   = .{.{}} ** size,
+    free:   ?*Line       = null,
+    cutted: ?*Line       = null,
+    pub fn init         (self: *Buffer) !void {
         //{ tie all lines to "free" chain 
             const first = &self.lines[0];
             const last  = &self.lines[size - 1];
@@ -32,39 +33,76 @@ pub const Buffer         = struct {
         //}
         self.free = &self.lines[0];
     } // end fn init
-    pub fn create   (self: *Buffer) !*Line {
+    pub fn create       (self: *Buffer) !*Line {
         if (self.free) |free| {
             self.free = free.next; // update self.free
             const line = free;
             try line.init();
             return line;
-        } else {
-            return error.NoFreeSlots;
-        }
+        } 
+        else return error.NoFreeSlots;
     }
-    pub fn delete   (self: *Buffer, line: *Line) void {
-        // TODO unfold this line and delete every lines
-        //{ change links
-        if (line.prev) |prev| {
-          prev.next = line.next;
-        }
-        if (line.next) |next| {
-          next.prev = line.prev;
-        }
-        if (line.parent) |parent| {
-          parent.child = line.next;
-          if (line.next) |next| {
-            next.parent = parent;
-          }
-        }
-        line.prev = null;
-        line.next = null;
-        line.parent = null;
-        //}
-        // add to free
-        line.next = self.free;
-        self.free = line;
+    pub fn delete       (self: *Buffer, line: *Line) void {
+        if (line.child) |_| self.deleteBlock(line)
+        else self.deleteLine(line);
     } // end fn delete
+    pub fn deleteBlock  (self: *Buffer, line: *Line) void {
+        const start_line = line;
+        const end_line   = start_line.next;
+        prog.view.unFold();
+        var current: ?*Line = start_line;
+        while(current) |cur_line| { 
+          if (current == end_line) break;
+          current = cur_line.next;
+          self.deleteLine(cur_line);
+        } 
+    } // end fn deleteBlock
+    pub fn deleteLine   (self: *Buffer, line: *Line) void {
+        //{ change links
+            if (line.prev) |prev| {
+                prev.next = line.next;
+            }
+            if (line.next) |next| {
+                next.prev = line.prev;
+            }
+            if (line.parent) |parent| {
+                parent.child = line.next;
+                if (line.next) |next| {
+                    next.parent = parent;
+                }
+            }
+            line.prev   = null;
+            line.next   = null;
+            line.parent = null;
+        //}
+        //{ add to free
+            line.next = self.free;
+            self.free = line;
+        //}
+    } // end fn deleteLine
+    pub fn cut          (self: *Buffer, line: *Line) void {
+        //{ change links
+            if (line.prev) |prev| {
+                prev.next = line.next;
+            }
+            if (line.next) |next| {
+                next.prev = line.prev;
+            }
+            if (line.parent) |parent| {
+                parent.child = line.next;
+                if (line.next) |next| {
+                    next.parent = parent;
+                }
+            }
+            line.prev   = null;
+            line.next   = null;
+            line.parent = null;
+        //}
+        //{ add to cutted
+            line.next   = self.cutted;
+            self.cutted = line;
+        //}
+    }
 };
 pub const View           = struct {
     pub const Mode            = enum {
@@ -80,7 +118,6 @@ pub const View           = struct {
     offset:       lib.Coor2u  = .{.y = 1},
     need_redraw:  bool        = true,
     focus:        bool        = false,
-    cutted:       ?*Line      = null,
     pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
         self.* = .{};
         self.setFileName(file_name);
@@ -314,7 +351,8 @@ pub const View           = struct {
         self.need_redraw = false;
         { // change status
             prog.console.cursorMove(.{.x = 0, .y = 0});
-            lib.print(ansi.color.magenta);
+            lib.print(ansi.reset);
+            lib.print(ansi.color.blue2);
             prog.console.print("saving...");
             prog.console.fillSpacesToEndLine();
             lib.print(ansi.reset);
@@ -354,9 +392,9 @@ pub const View           = struct {
             prog.console.cursorMove(.{.x = 0, .y = 0});
             var buffer: [254]u8 = undefined;
             const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
-            lib.print(ansi.color.magenta);
-            prog.console.print(buffer[0..buffer_count]);
             lib.print(ansi.reset);
+            lib.print(ansi.color.blue2);
+            prog.console.print(buffer[0..buffer_count]);
             prog.console.fillSpacesToEndLine();
             prog.console.cursorMoveToEnd();
         }
@@ -467,6 +505,9 @@ pub const View           = struct {
     }
     pub fn deletePrevSymbol     (self: *View) void {
         if (self.symbol         == 0) {
+          if (self.line.child) |_| {
+             self.unFold();
+          }
           var next = self.line;
           if (next.prev) |prev| {
             const next_used = next.text.used;
@@ -474,14 +515,9 @@ pub const View           = struct {
             if (prev_used + next_used > 252) return;
             std.mem.copy(u8, prev.text.buffer[prev.text.used..], next.text.get());
             prev.text.used += next_used;
-            self.cutLine();
+            self.goToEndOfLine();
+            self.deleteLine();
             self.goToPrevLine();
-            self.symbol = prev_used;
-            if (prev_used > prog.console.size.x - 5) {
-                self.offset.x = prog.console.size.x - 5;
-            } else {
-                self.offset.x = prev_used;
-            }
           }
           return;
         }
@@ -489,10 +525,12 @@ pub const View           = struct {
         self.goToPrevSymbol();
         self.deleteSymbol();
     }
-    pub fn cutLine              (self: *View) void {
-        if (self.line.parent)     |_| {self.first.unFold();}
-        else if (self.line.child) |_| {self.first.unFold();}
+    pub fn cut                  (self: *View) void {
+        if (self.line.parent)      |parent| {
+            parent.child = self.line.next;
+        }
         var next_selected_line: *Line = undefined;
+        // { select next selected line
         if (self.line.next)        |next| {
             next_selected_line = next;
         } 
@@ -506,7 +544,8 @@ pub const View           = struct {
             self.line.text.set("");
             return;
         }
-        prog.buffer.delete(self.line);
+        // }
+        prog.buffer.cut(self.line);
         self.line = next_selected_line;
     }
     pub fn clearLine            (self: *View) void {
@@ -539,6 +578,7 @@ pub const View           = struct {
         } 
         else self.offset.x = self.symbol;
       }
+      else self.goToRoot();
     }
     pub fn divide               (self: *View) void {
         if (self.line.parent) |_| {self.first.unFold();}
@@ -569,14 +609,15 @@ pub const View           = struct {
       self.line.text.set(prev.text.get());
     }
     pub fn swapWithUpper        (self: *View) void {
-        self.cutLine();
+        self.cut();
         self.goToPrevLine();
-        self.addPrevLine();
-        if (self.offset.y != 0) self.offset.y += 1;
+        self.pasteLine();
+        if (self.offset.y > 1) self.offset.y += 1;
     }
     pub fn swapWithBottom       (self: *View) void {
-        self.cutLine();
-        self.addNextLine();
+        self.cut();
+        self.goToNextLine();
+        self.pasteLine();
     }
     pub fn goToRoot             (self: *View) void {
       self.line     = self.first;
@@ -585,13 +626,16 @@ pub const View           = struct {
     }
     pub fn deleteLine           (self: *View) void {
         var next_selected_line: *Line = undefined;
-        if (self.line.next)          |next| {
+        if (self.line.next)        |next| {
             next_selected_line = next;
-        } else if (self.line.prev)   |prev| {
+        } 
+        else if (self.line.prev)   |prev| {
             next_selected_line = prev;
-        } else if (self.line.parent) |parent| {
+        } 
+        else if (self.line.parent) |parent| {
             next_selected_line = parent;
-        } else {
+        } 
+        else {
             self.line.text.set("");
             return;
         }
@@ -599,11 +643,14 @@ pub const View           = struct {
         self.line = next_selected_line;      
     }
     pub fn pasteLine            (self: *View) void {
-        const new_line = prog.buffer.create() catch return;
-        self.line.pushPrev(new_line);
-        if (self.first == self.line) self.first = new_line;
-        self.offset.y += 1;
-        self.goToPrevLine();
+        if (prog.buffer.cutted) |cutted| {
+            prog.buffer.cutted = cutted.next;
+            cutted.next = null;
+            self.line.pushPrev(cutted);
+            if (self.first == self.line) self.first = cutted;
+            self.offset.y += 1;
+            self.goToPrevLine();
+        }
     }
     pub fn foldFromIndent       (self: *View, rune: u8) void {
       self.unFold();
@@ -622,6 +669,26 @@ pub const View           = struct {
     }
     pub fn unFold               (self: *View) void {
       self.first.unFold();
+    }
+    pub fn goToLastLine         (self: *View) void {
+        while(self.line.next) |_| self.goToNextLine();
+    }
+    pub fn duplicateBlock       (self: *View) void {
+        const start_line = self.line;
+        const end_line   = start_line.next;
+        self.unFold();
+        var current: ?*Line = start_line;
+        while(current) |line| { 
+          if (current == end_line) break;
+          const line_copy = prog.buffer.create() catch return;
+          line_copy.text.set(line.text.get());
+          start_line.pushPrev(line_copy);
+          current = line.next;
+        } 
+    }
+    pub fn duplicate            (self: *View) void {
+      if (self.line.child) |_| self.duplicateBlock()
+      else self.duplicateLine();
     }
 }; // end view
 pub const CommandLine    = struct {
@@ -675,6 +742,8 @@ pub fn main                 ()            MainErrors!void {
         lib.print("\r\n");
     }
     self.mainLoop();
+    self.console.cursorMoveToEnd();
+    lib.print(ansi.reset);
 } // end fn main
 pub fn mainLoop             (self: *Prog) void {
     while (true) {
@@ -682,13 +751,12 @@ pub fn mainLoop             (self: *Prog) void {
         self.updateKeys();
         if (self.working == false) return; 
         self.view.draw();
-        std.time.sleep(std.time.ns_per_ms * 20);
+        std.time.sleep(std.time.ns_per_ms * 10);
     }
 }
 pub fn stop                 (self: *Prog) void {
     self.view.need_redraw = false;
     self.working = false;
-    self.console.cursorMoveToEnd();
 }
 pub fn debug                (self: *Prog) void {
     var buffer: [254]u8 = undefined;
@@ -764,28 +832,28 @@ pub fn updateKeys           (self: *Prog) void {
   switch (key) {
     .CtrlQ           => self.stop(),
     .CtrlS           => self.view.save(),
-    .CtrlE           => self.view.foldFromIndent(' '),
-    .CtrlR           => self.view.foldFromIndent('\t'),
-    .CtrlP           => self.view.foldFromBrackets(),
-    .CtrlU           => self.view.unFold(),
     .Right,          => self.view.goToNextSymbol(),
     .Left,           => self.view.goToPrevSymbol(),
     .Up,             => self.view.goToPrevLine(),
     .Down,           => self.view.goToNextLine(),
     .BackSpace       => self.view.deletePrevSymbol(),
     .Del             => self.view.deleteSymbol(),
-    .Home            => self.view.goToStartOfLine(),
-    .End             => self.view.goToEndOfLine(),
-    .CtrlX           => self.view.cutLine(),
-    .CtrlC           => self.view.duplicateLine(),
-    .CtrlV           => self.view.pasteLine(),
     .Enter           => self.view.divide(),
     .CtrlD           => self.view.divide(), // if Enter not working...
+    .Home            => self.view.goToStartOfLine(),
+    .End             => self.view.goToEndOfLine(),
+    .CtrlE           => self.view.foldFromBrackets(),
+    .CtrlR           => self.view.foldFromIndent(' '),
+    .CtrlT           => self.view.foldFromIndent('\t'),
+    .CtrlU           => self.view.unFold(),
     .Tab             => self.view.goToIn(), // same as CtrlI
     .Esc             => self.view.goToOut(),
+    .CtrlX           => self.view.cut(),
+    .CtrlC           => self.view.duplicate(),
+    .CtrlV           => self.view.pasteLine(),
     .CtrlB           => self.view.swapWithBottom(),
     .CtrlN           => self.view.swapWithUpper(),
-    .CtrlSlash       => self.view.goToRoot(),
+    .CtrlL           => self.view.goToLastLine(),
     else             => {
       var i = @enumToInt(key);
       if (i < 254) self.view.insertSymbol(@intCast(u8, i % 254));

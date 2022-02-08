@@ -8,13 +8,12 @@ tip: use arrows for navigation.
 main key bindings:
 exit                   [Ctrl]  +  [q]
 save                   [Ctrl]  +  [s]
-parse with brackets    [Ctrl]  +  [p]
-parse with spaces      [Ctrl]  +  [e]
-parse with tabs        [Ctrl]  +  [r]
+parse with brackets    [Ctrl]  +  [e]
+parse with spaces      [Ctrl]  +  [r]
+parse with tabs        [Ctrl]  +  [t]
 unparse                [Ctrl]  +  [u]
 enter block            [Tab]
 leave block            [Esc] 
-go to root             [Ctrl]  +  [Slash]
 
 navigation {
   go to start  line      [Home]
@@ -32,13 +31,11 @@ edit {
   swap with upper  line  [Ctrl]  +  [N]
 }
 unrealized {
-  clear/delete line      [Ctrl]  +  [d]
-  fold/unfold all        [Ctrl]  +  [Shift]  +  [Slash]
+  select left  symbol    [Shift] +  [Left]
+  select right symbol    [Shift] +  [Right]
   go to left   word      [Ctrl]  +  [Left]
   go to right  word      [Ctrl]  +  [Right]
   set block selected     [Ctrl]  +  [a]
-  select left  symbol    [Shift] +  [Left]
-  select right symbol    [Shift] +  [Right]
   create new mark        [Ctrl]  +  [slash]
   jump to prev mark      [Ctrl]  +  [Up]
   jump to next mark      [Ctrl]  +  [Down]
