@@ -87,9 +87,10 @@ pub const View           = struct {
         self.first = try prog.buffer.create();
         parse_text_to_lines: { // parse_text_to_lines
             if (text.len == 0) break :parse_text_to_lines;
-            var line = self.first;
-            var data_pos:   usize = 0;
-            var symbol_pos: usize = 0;
+            var line_num:   usize   = 0;
+            var line:       *Line   = self.first;
+            var data_pos:   usize   = 0;
+            var symbol_pos: usize   = 0;
             while (true) {
                 if (data_pos == text.len) break;
                 const symbol = text[data_pos];
@@ -101,13 +102,13 @@ pub const View           = struct {
                     symbol_pos = 0;
                     continue;
                 }
-                
                 line.text.insert(symbol_pos, symbol) catch {
-                    std.log.info("\n\ndata_pos: {}, symbol_pos: {}\n\n",.{data_pos, symbol_pos});
+                    std.log.info("\nerror in: line = {}, data_pos: {}, symbol_pos: {}\n",.{line_num, data_pos, symbol_pos});
                     return error.NotInit;
                 };
                 data_pos   += 1;
                 symbol_pos += 1;
+                line_num   += 1;
             } // end while
         }
         self.line     = self.first;
@@ -604,7 +605,25 @@ pub const View           = struct {
         self.offset.y += 1;
         self.goToPrevLine();
     }
-};
+    pub fn foldFromIndent       (self: *View, rune: u8) void {
+      self.unFold();
+      if (self.line.getParent()) |parent| {
+        parent.child.?.foldFromIndent(rune);
+      } 
+      else self.first.foldFromIndent(rune);
+    }
+    pub fn foldFromBrackets     (self: *View) void {
+      self.unFold();
+      if (self.line.getParent()) |parent| {
+        const first_line = parent.child.?;
+        first_line.foldFromBrackets();
+      } 
+      else self.first.foldFromBrackets();
+    }
+    pub fn unFold               (self: *View) void {
+      self.first.unFold();
+    }
+}; // end view
 pub const CommandLine    = struct {
   text: [254]u8 = undefined,
   used: usize   = 0,
@@ -745,10 +764,10 @@ pub fn updateKeys           (self: *Prog) void {
   switch (key) {
     .CtrlQ           => self.stop(),
     .CtrlS           => self.view.save(),
-    .CtrlE           => self.view.first.foldFromIndent(' '),
-    .CtrlR           => self.view.first.foldFromIndent('\t'),
-    .CtrlP           => self.view.first.foldFromBrackets(),
-    .CtrlU           => self.view.first.unFold(),
+    .CtrlE           => self.view.foldFromIndent(' '),
+    .CtrlR           => self.view.foldFromIndent('\t'),
+    .CtrlP           => self.view.foldFromBrackets(),
+    .CtrlU           => self.view.unFold(),
     .Right,          => self.view.goToNextSymbol(),
     .Left,           => self.view.goToPrevSymbol(),
     .Up,             => self.view.goToPrevLine(),
@@ -763,7 +782,7 @@ pub fn updateKeys           (self: *Prog) void {
     .Enter           => self.view.divide(),
     .CtrlD           => self.view.divide(), // if Enter not working...
     .Tab             => self.view.goToIn(), // same as CtrlI
-    .CtrlO           => self.view.goToOut(),
+    .Esc             => self.view.goToOut(),
     .CtrlB           => self.view.swapWithBottom(),
     .CtrlN           => self.view.swapWithUpper(),
     .CtrlSlash       => self.view.goToRoot(),

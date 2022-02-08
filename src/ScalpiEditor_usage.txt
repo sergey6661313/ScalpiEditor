@@ -12,8 +12,8 @@ parse with brackets    [Ctrl]  +  [p]
 parse with spaces      [Ctrl]  +  [e]
 parse with tabs        [Ctrl]  +  [r]
 unparse                [Ctrl]  +  [u]
-enter block            [Ctrl]  +  [i]
-leave block            [Ctrl]  +  [o] 
+enter block            [Tab]
+leave block            [Esc] 
 go to root             [Ctrl]  +  [Slash]
 
 navigation {

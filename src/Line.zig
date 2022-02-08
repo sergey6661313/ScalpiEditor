@@ -90,7 +90,6 @@ pub fn unFold            (self: *Line) void {
     } // end while
 } // end fn
 pub fn foldFromBrackets  (self: *Line) void {
-    self.unFold();
     var current: ?*Line = self;
     while (current) |line| {
         var close_count = line.text.getRunesCount('}'); // **{
@@ -137,7 +136,6 @@ pub fn findParentWithRuneCount(self: *Line, count: usize, rune: u8) ?*Line {
     return null;
 }
 pub fn foldFromIndent    (self: *Line, rune: u8) void {
-    self.unFold();
     var current:    ?*Line = self;
     var last_count: usize = 0;
     var count:      usize = 0;
