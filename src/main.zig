@@ -1,4 +1,3 @@
-// zig fmt: off
 const     Prog           = @This();
 const     std            = @import("std");
 pub const ansi           = @import("ansi.zig");
@@ -251,7 +250,9 @@ self.line.text.delete(self.symbol) catch return;
 }
 pub fn deletePrevSymbol     (self: *View) void {
 if (self.symbol         == 0) {
-if (self.line.child) |_| self.unFold();
+if (self.first == self.line) return;
+if (self.line.parent) |_| return;
+if (self.line.child)  |_| self.unFold();
 var next = self.line;
 if (next.prev) |prev| {
 const next_used = next.text.used;
@@ -283,10 +284,10 @@ if (self.first == self.line) self.first = new_line;
 self.goToPrevLine();
 }
 pub fn addNextLine          (self: *View) void {
-        const new_line = prog.buffer.create() catch return;
-        self.line.pushNext(new_line);
-        self.goToNextLine();
-    }
+const new_line = prog.buffer.create() catch return;
+self.line.pushNext(new_line);
+self.goToNextLine();
+}
 pub fn divide               (self: *View) void {
 if (self.symbol == 0) { 
 const new_line = prog.buffer.create() catch return;
@@ -323,19 +324,20 @@ pub fn swapWithBottom       (self: *View) void {
 pub fn deleteLine           (self: *View) void {
 var next_selected_line: *Line = undefined;
 if (self.line.next)        |next| {
-            next_selected_line = next;
-        } 
+next_selected_line = next;
+} 
 else if (self.line.prev)   |prev| {
-            next_selected_line = prev;
-        } 
+next_selected_line = prev;
+} 
 else if (self.line.parent) |parent| {
-            next_selected_line = parent;
-        } 
+next_selected_line = parent;
+} 
 else {
-            self.line.text.set("");
-            return;
-        }
+self.line.text.set("");
+return;
+}
 self.clearLine();
+if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.delete(self.line);
 self.line = next_selected_line;      
 }
@@ -722,39 +724,40 @@ pub fn unFold               (self: *View) void {
     }
 //}
 //{ clipboard
-    pub fn cut                  (self: *View) void {
-        if (self.line.parent)      |parent| {
-            parent.child = self.line.next;
-        }
-        var next_selected_line: *Line = undefined;
-        // { select next selected line
-        if (self.line.next)        |next| {
-            next_selected_line = next;
-        } 
-        else if (self.line.prev)   |prev| {
-            next_selected_line = prev;
-        } 
-        else if (self.line.parent) |parent| {
-            next_selected_line = parent;
-        } 
-        else {
-            self.line.text.set("");
-            return;
-        }
-        // }
-        prog.buffer.cut(self.line);
-        self.line = next_selected_line;
-    }
-    pub fn pasteLine            (self: *View) void {
-        if (prog.buffer.cutted) |cutted| {
-            prog.buffer.cutted = cutted.next;
-            cutted.next = null;
-            self.line.pushPrev(cutted);
-            if (self.first == self.line) self.first = cutted;
-            self.offset.y += 1;
-            self.goToPrevLine();
-        }
-    }
+pub fn cut                  (self: *View) void {
+if (self.line.parent)      |parent| {
+parent.child = self.line.next;
+}
+var next_selected_line: *Line = undefined;
+// { select next selected line
+if (self.line.next)        |next| {
+next_selected_line = next;
+} 
+else if (self.line.prev)   |prev| {
+next_selected_line = prev;
+} 
+else if (self.line.parent) |parent| {
+next_selected_line = parent;
+} 
+else {
+self.line.text.set("");
+return;
+}
+// }
+if (self.first == self.line) self.first = next_selected_line;
+prog.buffer.cut(self.line);
+self.line = next_selected_line;
+}
+pub fn pasteLine            (self: *View) void {
+if (prog.buffer.cutted) |cutted| {
+prog.buffer.cutted = cutted.next;
+cutted.next = null;
+self.line.pushPrev(cutted);
+if (self.first == self.line) self.first = cutted;
+self.offset.y += 1;
+self.goToPrevLine();
+}
+}
 //}
 }; // end view
 pub const CommandLine    = struct {
