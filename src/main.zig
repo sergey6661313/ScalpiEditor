@@ -1,3 +1,4 @@
+// test
 const     Prog           = @This();
 const     std            = @import("std");
 pub const ansi           = @import("ansi.zig");
@@ -290,9 +291,8 @@ self.goToNextLine();
 }
 pub fn divide               (self: *View) void {
 if (self.symbol == 0) { 
-const new_line = prog.buffer.create() catch return;
-self.line.pushPrev(new_line);
-if (self.offset.y < prog.console.size.y - 1) self.offset.y += 1;
+self.addPrevLine();
+self.goToNextLine();
 }
 else {
 if (self.line.child)  |_| {self.first.unFold();}
