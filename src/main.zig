@@ -1,4 +1,3 @@
-// test
 const     Prog           = @This();
 const     std            = @import("std");
 pub const ansi           = @import("ansi.zig");
@@ -37,74 +36,74 @@ self.free = &self.lines[0];
 } // end fn init
 pub fn create       (self: *Buffer) !*Line {
 if (self.free) |free| {
-            self.free = free.next; // update self.free
-            const line = free;
-            try line.init();
-            return line;
-        } 
+self.free = free.next; // update self.free
+const line = free;
+try line.init();
+return line;
+} 
 else return error.NoFreeSlots;
 }
 pub fn delete       (self: *Buffer, line: *Line) void {
-        if (line.child) |_| self.deleteBlock(line)
-        else self.deleteLine(line);
-    } // end fn delete
+if (line.child) |_| self.deleteBlock(line)
+else self.deleteLine(line);
+} // end fn delete
 pub fn deleteBlock  (self: *Buffer, line: *Line) void {
-        const start_line = line;
-        const end_line   = start_line.next;
-        prog.view.unFold();
-        var current: ?*Line = start_line;
-        while(current) |cur_line| { 
-          if (current == end_line) break;
-          current = cur_line.next;
-          self.deleteLine(cur_line);
-        } 
-    } // end fn deleteBlock
+const start_line = line;
+const end_line   = start_line.next;
+prog.view.unFold();
+var current: ?*Line = start_line;
+while(current) |cur_line| { 
+if (current == end_line) break;
+current = cur_line.next;
+self.deleteLine(cur_line);
+} 
+} // end fn deleteBlock
 pub fn deleteLine   (self: *Buffer, line: *Line) void {
-        //{ change links
-            if (line.prev) |prev| {
-                prev.next = line.next;
-            }
-            if (line.next) |next| {
-                next.prev = line.prev;
-            }
-            if (line.parent) |parent| {
-                parent.child = line.next;
-                if (line.next) |next| {
-                    next.parent = parent;
-                }
-            }
-            line.prev   = null;
-            line.next   = null;
-            line.parent = null;
-        //}
-        //{ add to free
-            line.next = self.free;
-            self.free = line;
-        //}
-    } // end fn deleteLine
+//{ change links
+if (line.prev) |prev| {
+prev.next = line.next;
+}
+if (line.next) |next| {
+next.prev = line.prev;
+}
+if (line.parent) |parent| {
+parent.child = line.next;
+if (line.next) |next| {
+next.parent = parent;
+}
+}
+line.prev   = null;
+line.next   = null;
+line.parent = null;
+//}
+//{ add to free
+line.next = self.free;
+self.free = line;
+//}
+} // end fn deleteLine
 pub fn cut          (self: *Buffer, line: *Line) void {
-        //{ change links
-            if (line.prev) |prev| {
-                prev.next = line.next;
-            }
-            if (line.next) |next| {
-                next.prev = line.prev;
-            }
-            if (line.parent) |parent| {
-                parent.child = line.next;
-                if (line.next) |next| {
-                    next.parent = parent;
-                }
-            }
-            line.prev   = null;
-            line.next   = null;
-            line.parent = null;
-        //}
-        //{ add to cutted
-            line.next   = self.cutted;
-            self.cutted = line;
-        //}
-    }
+//{ change links
+if (line.prev) |prev| {
+prev.next = line.next;
+}
+if (line.next) |next| {
+next.prev = line.prev;
+}
+if (line.parent) |parent| {
+parent.child = line.next;
+if (line.next) |next| {
+next.parent = parent;
+}
+}
+line.prev   = null;
+line.next   = null;
+line.parent = null;
+//}
+//{ add to cutted
+line.next   = self.cutted;
+self.cutted = line;
+//}
+}
 pub fn lineToPos    (self: *Buffer, line: *Line) usize {
 const ptr = @ptrToInt(line) - @ptrToInt(&self.lines);
 const pos = ptr / @sizeOf(Line);
@@ -129,37 +128,37 @@ need_redraw:  bool        = true,
 focus:        bool        = false,
 last_line:    ?*Line      = null,
 pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
-        self.* = .{};
-        self.setFileName(file_name);
-        self.first = try prog.buffer.create();
-        parse_text_to_lines: { // parse_text_to_lines
-            if (text.len == 0) break :parse_text_to_lines;
-            var line_num:   usize   = 0;
-            var line:       *Line   = self.first;
-            var data_pos:   usize   = 0;
-            var symbol_pos: usize   = 0;
-            while (true) {
-                if (data_pos == text.len) break;
-                const symbol = text[data_pos];
-                if (symbol == '\n') {
-                    const new_line = try prog.buffer.create();
-                    line.pushNext(new_line);
-                    line = new_line;
-                    data_pos += 1;
-                    symbol_pos = 0;
-                    continue;
-                }
-                line.text.insert(symbol_pos, symbol) catch {
-                    std.log.info("\nerror in: line = {}, data_pos: {}, symbol_pos: {}\n",.{line_num, data_pos, symbol_pos});
-                    return error.NotInit;
-                };
-                data_pos   += 1;
-                symbol_pos += 1;
-                line_num   += 1;
-            } // end while
-        }
-        self.line     = self.first;
-    } // end fn loadLines
+self.* = .{};
+self.setFileName(file_name);
+self.first = try prog.buffer.create();
+parse_text_to_lines: { // parse_text_to_lines
+if (text.len == 0) break :parse_text_to_lines;
+var line_num:   usize   = 0;
+var line:       *Line   = self.first;
+var data_pos:   usize   = 0;
+var symbol_pos: usize   = 0;
+while (true) {
+if (data_pos == text.len) break;
+const symbol = text[data_pos];
+if (symbol == '\n') {
+const new_line = try prog.buffer.create();
+line.pushNext(new_line);
+line = new_line;
+data_pos += 1;
+symbol_pos = 0;
+continue;
+}
+line.text.insert(symbol_pos, symbol) catch {
+std.log.info("\nerror in: line = {}, data_pos: {}, symbol_pos: {}\n",.{line_num, data_pos, symbol_pos});
+return error.NotInit;
+};
+data_pos   += 1;
+symbol_pos += 1;
+line_num   += 1;
+} // end while
+}
+self.line     = self.first;
+} // end fn loadLines
 pub fn save                 (self: *View) void {
         self.need_redraw = false;
         { // change status
@@ -276,8 +275,8 @@ self.goToPrevSymbol();
 self.deleteSymbol();
 }
 pub fn clearLine            (self: *View) void {
-      self.line.text.used = 0;
-    }
+self.line.text.used = 0;
+}
 pub fn addPrevLine          (self: *View) void {
 const new_line = prog.buffer.create() catch return;
 self.line.pushPrev(new_line);
@@ -306,21 +305,21 @@ self.goToStartOfLine();
 }
 }
 pub fn duplicateLine        (self: *View) void {
-      var prev = self.line;
-      self.addNextLine();
-      self.line.text.set(prev.text.get());
-    }
+var prev = self.line;
+self.addNextLine();
+self.line.text.set(prev.text.get());
+}
 pub fn swapWithUpper        (self: *View) void {
-        self.cut();
-        self.goToPrevLine();
-        self.pasteLine();
-        if (self.offset.y > 1) self.offset.y += 1;
-    }
+self.cut();
+self.goToPrevLine();
+self.pasteLine();
+if (self.offset.y > 1) self.offset.y += 1;
+}
 pub fn swapWithBottom       (self: *View) void {
-        self.cut();
-        self.goToNextLine();
-        self.pasteLine();
-    }
+self.cut();
+self.goToNextLine();
+self.pasteLine();
+}
 pub fn deleteLine           (self: *View) void {
 var next_selected_line: *Line = undefined;
 if (self.line.next)        |next| {
@@ -765,9 +764,9 @@ text: [254]u8 = undefined,
 used: usize   = 0,
 };
 const     MainErrors     = error  {
-    BufferNotInit,
-    ViewNotInit,
-    Unexpected,
+BufferNotInit,
+ViewNotInit,
+Unexpected,
 };
 pub var   prog: Prog = .{};
 working:  bool     = true,
