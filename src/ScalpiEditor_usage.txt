@@ -3,21 +3,24 @@ This is ScalpiEditor - "heirarhy" text editor.
 for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
 
-tip: use arrows for navigation.
-
-main key bindings:
-exit                   [Ctrl]  +  [q]
-save                   [Ctrl]  +  [s]
-parse with brackets    [Ctrl]  +  [e]
-parse with spaces      [Ctrl]  +  [r]
-parse with tabs        [Ctrl]  +  [t]
-unparse                [Ctrl]  +  [u]
-enter block            [Tab]
-leave block            [Esc] 
-
+main key bindings {
+  exit                   [Ctrl]  +  [q]
+  save                   [Ctrl]  +  [s]
+  movecursour:           just use arrows
+}
+folding {
+  parse with brackets    [Ctrl]  +  [e]
+  parse with spaces      [Ctrl]  +  [r]
+  parse with tabs        [Ctrl]  +  [t]
+  unparse                [Ctrl]  +  [u]
+  enter block            [Tab]
+  leave block            [Esc] 
+}
 navigation {
+  go to line from number [Ctrl]  +  [g]
   go to start  line      [Home]
   go to end    line      [End]
+  go to last   line      [Ctrl]  +  [l]
 }
 edit {
   insert char            [any]
@@ -27,18 +30,16 @@ edit {
   cut                    [Ctrl]  +  [x]
   copy                   [Ctrl]  +  [c]
   paste                  [Ctrl]  +  [v]
-  swap with bottom line  [Ctrl]  +  [B]
-  swap with upper  line  [Ctrl]  +  [N]
+  move line up           [Ctrl]  +  [b]
+  move line down         [Ctrl]  +  [n]
 }
 unrealized {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]
   go to left   word      [Ctrl]  +  [Left]
   go to right  word      [Ctrl]  +  [Right]
-  set block selected     [Ctrl]  +  [a]
   create new mark        [Ctrl]  +  [slash]
   jump to prev mark      [Ctrl]  +  [Up]
   jump to next mark      [Ctrl]  +  [Down]
   swap to commentary     [Alt]   +  [Slash]
-  go to line from number [Ctrl]  +  [g]
 }
