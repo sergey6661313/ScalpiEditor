@@ -293,6 +293,10 @@ if (self.symbol == 0) {
 self.addPrevLine();
 self.goToNextLine();
 }
+else if (self.symbol == self.line.text.used) {
+self.addNextLine();
+self.goToEndOfLine();
+}
 else {
 if (self.line.child)  |_| {self.first.unFold();}
 var parent = self.line;
@@ -691,8 +695,9 @@ pub fn goToRoot             (self: *View) void {
       self.goToStartOfLine();
     }
 pub fn goToLastLine         (self: *View) void {
-        while(self.line.next) |_| self.goToNextLine();
-    }
+while(self.line.next) |_| self.goToNextLine();
+self.goToEndOfLine();
+}
 pub fn goToLine             (self: *View) void {
 var num         = lib.u64FromCharsDec(self.line.text.get()) catch return;
 if (num >= prog.buffer.lineToPos(self.line)) return;

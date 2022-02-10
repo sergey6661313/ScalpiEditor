@@ -136,32 +136,34 @@ pub fn findParentWithRuneCount(self: *Line, count: usize, rune: u8) ?*Line {
     return null;
 }
 pub fn foldFromIndent    (self: *Line, rune: u8) void {
-    var current:    ?*Line = self;
-    var last_count: usize = 0;
-    var count:      usize = 0;
-    while (current) |line| {
-        count = line.text.getFirstRunesCount(rune);
-        if       (count == last_count) {
-            current = line.next;
-        } 
-        else if  (count >  last_count) {
-            if (line.prev) |prev| line.moveToAsChild(prev);
-        } 
-        else { // count <  last_count
-            if (self.findParentWithRuneCount(count, rune)) |parent| {
-              if (line.prev) |prev| prev.next = null;
-              parent.next = line;
-              line.prev   = parent;
-              line.parent = null;
-            } 
-            else if (line.getParent()) |parent| {
-              if (line.prev) |prev| prev.next = null;
-              parent.next = line;
-              line.prev   = parent;
-              line.parent = null;
-            }
-        }
-        last_count  = count;
-        current     = line.next;
-    }
+var current:    ?*Line = self;
+var last_count: usize = 0;
+var count:      usize = 0;
+while (current) |line| {
+count = line.text.getFirstRunesCount(rune);
+if (line.text.countNonIndent() > 0) {
+if       (count == last_count) {
+current = line.next;
+} 
+else if  (count >  last_count) {
+if (line.prev) |prev| line.moveToAsChild(prev);
+} 
+else { // count <  last_count
+if (self.findParentWithRuneCount(count, rune)) |parent| {
+if (line.prev) |prev| prev.next = null;
+parent.next = line;
+line.prev   = parent;
+line.parent = null;
+} 
+else if (line.getParent()) |parent| {
+if (line.prev) |prev| prev.next = null;
+parent.next = line;
+line.prev   = parent;
+line.parent = null;
+}
+}
+last_count  = count;
+}
+current     = line.next;
+}
 }

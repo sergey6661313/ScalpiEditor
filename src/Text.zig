@@ -70,3 +70,14 @@ pub fn countIndent         (self: *TextLine) usize {
   }
   return count;
 }
+pub fn countNonIndent      (self: *TextLine) usize {
+var count: usize = 0;
+var text = self.get();
+for (text) |r| {
+switch(r) {
+' ', '\t' => {},
+else => count += 1,
+}
+}
+return count;
+}
