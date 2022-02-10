@@ -42,15 +42,14 @@ pub fn pushNext          (self: *Line, new_line: *Line) void {
         new_line.prev = self;
     } // update chain
 } // end fn add
+pub fn getFirst          (self: *Line) *Line {
+var line = self;
+while(line.prev) |prev| line = prev;
+return line;
+}
 pub fn getParent         (self: *Line) ?*Line {
-    var current: ?*Line = self;
-    while (current) |line| {
-        if (line.parent) |parent| {
-            return parent;
-        }
-        current = line.prev;
-    }
-    return null;
+var first = self.getFirst();
+return first.parent;
 }
 pub fn getLastChild      (self: *Line) ?*Line {
   if (self.child) |first| {
@@ -125,22 +124,23 @@ pub fn moveToAsChild     (self: *Line, targ: *Line) void {
   targ.child  = self;
   self.parent = targ;
 }
-pub fn findParentWithRuneCount(self: *Line, count: usize, rune: u8) ?*Line {
-    var current: ?*Line = self;
-    while (current) |line| {
-        if (line.getParent()) |parent| {
-            if (parent.text.getFirstRunesCount(rune) <= count) return parent;
-            current = parent;
-        } else break;
-    }
-    return null;
+pub fn findParentWithIndent(self: *Line, count: usize) ?*Line {
+var current: ?*Line = self;
+while (current) |line| {
+if (line.getParent()) |parent| {
+if (parent.text.countIndent() <= count) return parent;
+current = parent;
 }
-pub fn foldFromIndent    (self: *Line, rune: u8) void {
+else break;
+}
+return null;
+}
+pub fn foldFromIndent    (self: *Line) void {
 var current:    ?*Line = self;
 var last_count: usize = 0;
 var count:      usize = 0;
 while (current) |line| {
-count = line.text.getFirstRunesCount(rune);
+count = line.text.countIndent();
 if (line.text.countNonIndent() > 0) {
 if       (count == last_count) {
 current = line.next;
@@ -149,18 +149,12 @@ else if  (count >  last_count) {
 if (line.prev) |prev| line.moveToAsChild(prev);
 } 
 else { // count <  last_count
-if (self.findParentWithRuneCount(count, rune)) |parent| {
+if (self.findParentWithIndent(count)) |parent| {
 if (line.prev) |prev| prev.next = null;
 parent.next = line;
 line.prev   = parent;
 line.parent = null;
 } 
-else if (line.getParent()) |parent| {
-if (line.prev) |prev| prev.next = null;
-parent.next = line;
-line.prev   = parent;
-line.parent = null;
-}
 }
 last_count  = count;
 }

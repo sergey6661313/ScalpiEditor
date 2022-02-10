@@ -3,6 +3,8 @@ This is ScalpiEditor - "heirarhy" text editor.
 for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
 
+* tip: use [Ctrl] + [d] if [Enter] not working.
+
 main key bindings {
   exit                   [Ctrl]  +  [q]
   save                   [Ctrl]  +  [s]
@@ -17,9 +19,9 @@ folding {
   leave block            [Esc] 
 }
 navigation {
-  go to line from number [Ctrl]  +  [g]
   go to start  line      [Home]
   go to end    line      [End]
+  go to line from number [Ctrl]  +  [g]
   go to last   line      [Ctrl]  +  [l]
 }
 edit {

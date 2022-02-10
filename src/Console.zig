@@ -66,63 +66,69 @@ f_stdout:            c_int = undefined,
 stdin_system_flags:  c.struct_termios = undefined,
 stdout_system_flags: c.struct_termios = undefined,
 pub fn init                 (self: *Console) void {
-    self.f_stdin = c.fileno(c.stdin);
-    self.f_stdout = c.fileno(c.stdout);
-
-    //{ save std in/out settings
-        _ = c.tcgetattr(self.f_stdin, &self.stdin_system_flags);
-        _ = c.tcgetattr(self.f_stdout, &self.stdout_system_flags);
-    //}
-    //{ set special flags
-        var flags: c.struct_termios = undefined;
-        //{ for stdin
-            _ = c.tcgetattr(self.f_stdin, &flags);
-
-            flags.c_oflag &= ~(  // disable iflags
-              @as(c_uint, lib.c.OPOST)   | // add \r after \n
-              0
-            );
-            flags.c_cflag |=  (  // enable  cflags
-              @as(c_uint, lib.c.CS8)     |
-              0
-            );
-            flags.c_iflag &= ~(  // disable iflags
-              @as(c_uint, lib.c.IGNBRK)  |
-              @as(c_uint, lib.c.BRKINT)  |
-              @as(c_uint, lib.c.IXON)    | // catch Ctrl+s and Ctrl+q
-              @as(c_uint, lib.c.ICRNL)   | // fix Ctrl+m
-              @as(c_uint, lib.c.IXOFF)   |
-              @as(c_uint, lib.c.INPCK)   | 
-              @as(c_uint, lib.c.ISTRIP)  |
-              0
-            );
-            flags.c_lflag &= ~(  // disable lflags
-              @as(c_uint, lib.c.ISIG)    | // catch Ctrl+c and Ctrl+z
-              @as(c_uint, lib.c.ICANON)  |
-              @as(c_uint, lib.c.ECHO)    |
-              @as(c_uint, lib.c.ECHOE)   |
-              @as(c_uint, lib.c.TOSTOP)  |
-              @as(c_uint, lib.c.IEXTEN)  | // catch Ctrl+v
-              0
-            );
-            flags.c_lflag |=  (  // enable  lflags
-              @as(c_uint, lib.c.ECHOCTL) |
-              0
-            );
-            flags.c_cc[lib.c.VMIN]  = 0;
-            flags.c_cc[lib.c.VTIME] = 0;
-
-            _ = c.tcsetattr(self.f_stdin, c.TCSAFLUSH, &flags);
-        //}
-        //{ for std out
-            _ = c.tcgetattr(self.f_stdout, &flags);
-            flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
-            _ = c.tcsetattr(self.f_stdout, c.TCSANOW, &flags);
-        //}
-    //}
-    self.updateSize();
-    self.initBlankLines();
-    self.clear();
+self.f_stdin = c.fileno(c.stdin);
+self.f_stdout = c.fileno(c.stdout);
+lib.print(ansi.reset);
+//{ save std in/out settings
+_ = c.tcgetattr(self.f_stdin, &self.stdin_system_flags);
+_ = c.tcgetattr(self.f_stdout, &self.stdout_system_flags);
+//}
+//{ set special flags
+var flags: c.struct_termios = undefined;
+//{ for stdin
+_ = c.tcgetattr(self.f_stdin, &flags);
+//{ o_flag
+flags.c_oflag &= ~(  // disable iflags
+@as(c_uint, lib.c.OPOST)   | // add \r after \n
+0
+);
+//}
+//{ c_flag
+flags.c_cflag |=  (  // enable  cflags
+@as(c_uint, lib.c.CS8)     |
+0
+);
+//}
+//{ i_flag
+flags.c_iflag &= ~(  // disable iflags
+@as(c_uint, lib.c.IGNBRK)  |
+@as(c_uint, lib.c.BRKINT)  |
+@as(c_uint, lib.c.IXON)    | // catch Ctrl+s and Ctrl+q
+@as(c_uint, lib.c.ICRNL)   | // fix Ctrl+m
+@as(c_uint, lib.c.IXOFF)   |
+@as(c_uint, lib.c.INPCK)   |
+@as(c_uint, lib.c.ISTRIP)  |
+0
+);
+//}
+//{ c_lflag
+flags.c_lflag &= ~(  // disable lflags
+@as(c_uint, lib.c.ISIG)    | // catch Ctrl+c and Ctrl+z
+@as(c_uint, lib.c.ICANON)  |
+@as(c_uint, lib.c.ECHO)    |
+@as(c_uint, lib.c.ECHOE)   |
+@as(c_uint, lib.c.TOSTOP)  |
+@as(c_uint, lib.c.IEXTEN)  | // catch Ctrl+v
+0
+);
+flags.c_lflag |=  (  // enable  lflags
+@as(c_uint, lib.c.ECHOCTL) |
+0
+);
+//}
+flags.c_cc[lib.c.VMIN]  = 0;
+flags.c_cc[lib.c.VTIME] = 0;
+_ = c.tcsetattr(self.f_stdin, c.TCSAFLUSH, &flags);
+//}
+//{ for std out
+_ = c.tcgetattr(self.f_stdout, &flags);
+flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
+_ = c.tcsetattr(self.f_stdout, c.TCSANOW, &flags);
+//}
+//}
+self.updateSize();
+self.initBlankLines();
+self.clear();
 }
 pub fn deInit               (self: *Console) void {
     // restore buffer settings

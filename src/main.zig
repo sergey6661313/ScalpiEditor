@@ -131,30 +131,35 @@ pub fn init                 (self: *View, file_name: []const u8, text: []const u
 self.* = .{};
 self.setFileName(file_name);
 self.first = try prog.buffer.create();
-parse_text_to_lines: { // parse_text_to_lines
+parse_text_to_lines: {
 if (text.len == 0) break :parse_text_to_lines;
-var line_num:   usize   = 0;
-var line:       *Line   = self.first;
-var data_pos:   usize   = 0;
-var symbol_pos: usize   = 0;
-while (true) {
-if (data_pos == text.len) break;
-const symbol = text[data_pos];
-if (symbol == '\n') {
+var line_num:      usize   = 0;
+var line:          *Line   = self.first;
+var start_line:    usize   = 0;
+var data_pos:      usize   = 0;
+if (text[0] == '\n') { // add blank line
+try line.text.set("");
+start_line = 1;
 const new_line = try prog.buffer.create();
 line.pushNext(new_line);
 line = new_line;
-data_pos += 1;
-symbol_pos = 0;
-continue;
+line_num += 1;
 }
-line.text.insert(symbol_pos, symbol) catch {
-std.log.info("\nerror in: line = {}, data_pos: {}, symbol_pos: {}\n",.{line_num, data_pos, symbol_pos});
-return error.NotInit;
+while (true) { // find other '\n'
+if (data_pos >= text.len or text[data_pos] == '\n') add_line: {
+const end_line: usize = data_pos;
+if (end_line < start_line) break :add_line;
+line.text.set(text[start_line .. end_line]) catch {
+return error.LineIsToLong;
 };
+start_line = end_line + 1;
+const new_line = try prog.buffer.create();
+line.pushNext(new_line);
+line = new_line;
+line_num += 1;
+}
 data_pos   += 1;
-symbol_pos += 1;
-line_num   += 1;
+if (start_line >= text.len) break;
 } // end while
 }
 self.line     = self.first;
@@ -303,7 +308,7 @@ var parent = self.line;
 var pos    = self.symbol;
 if (pos > self.line.text.used) pos = self.line.text.used;
 self.addNextLine();
-self.line.text.set(parent.text.get()[pos ..]);
+self.line.text.set(parent.text.get()[pos ..]) catch unreachable;
 parent.text.used = pos;
 self.goToStartOfLine();
 }
@@ -311,7 +316,7 @@ self.goToStartOfLine();
 pub fn duplicateLine        (self: *View) void {
 var prev = self.line;
 self.addNextLine();
-self.line.text.set(prev.text.get());
+self.line.text.set(prev.text.get()) catch unreachable;
 }
 pub fn swapWithUpper        (self: *View) void {
 self.cut();
@@ -336,7 +341,7 @@ else if (self.line.parent) |parent| {
 next_selected_line = parent;
 } 
 else {
-self.line.text.set("");
+self.line.text.set("") catch unreachable;
 return;
 }
 self.clearLine();
@@ -352,7 +357,7 @@ pub fn duplicateBlock       (self: *View) void {
         while(current) |line| { 
           if (current == end_line) break;
           const line_copy = prog.buffer.create() catch return;
-          line_copy.text.set(line.text.get());
+          line_copy.text.set(line.text.get()) catch unreachable;
           start_line.pushPrev(line_copy);
           current = line.next;
         } 
@@ -364,8 +369,11 @@ pub fn duplicate            (self: *View) void {
 pub fn deleteIndent         (self: *View) void {
 const text   = self.line.text.get();
 const indent = self.line.text.countIndent();
-std.mem.copy(u8, text[0..], text[indent..]);
-self.line.text.used = text.len - indent;
+var   new_indent: usize = 0;
+if (self.line.getParent()) |parent| new_indent = parent.text.countIndent();
+if (new_indent >= indent) return;
+std.mem.copy(u8, text[new_indent ..], text[indent ..]);
+self.line.text.used = text.len - (indent - new_indent);
 }
 //}
 //{ draw
@@ -709,23 +717,16 @@ self.symbol     = self.line.text.countIndent();
 //}
 //{ folding
 pub fn foldFromBrackets     (self: *View) void {
-      self.unFold();
-      if (self.line.getParent()) |parent| {
-        const first_line = parent.child.?;
-        first_line.foldFromBrackets();
-      } 
-      else self.first.foldFromBrackets();
-    }
-pub fn foldFromIndent       (self: *View, rune: u8) void {
-      self.unFold();
-      if (self.line.getParent()) |parent| {
-        parent.child.?.foldFromIndent(rune);
-      } 
-      else self.first.foldFromIndent(rune);
-    }
+self.unFold();
+self.first.foldFromBrackets();
+}
+pub fn foldFromIndent       (self: *View) void {
+self.unFold();
+self.first.foldFromIndent();
+}
 pub fn unFold               (self: *View) void {
-      self.first.unFold();
-    }
+self.first.unFold();
+}
 //}
 //{ clipboard
 pub fn cut                  (self: *View) void {
@@ -744,7 +745,7 @@ else if (self.line.parent) |parent| {
 next_selected_line = parent;
 } 
 else {
-self.line.text.set("");
+self.line.text.set("") catch unreachable;
 return;
 }
 // }
@@ -779,43 +780,42 @@ console:  Console  = .{},
 buffer:   Buffer   = .{},
 view:     View     = .{},
 pub fn main                 ()            MainErrors!void {
-    const self = &prog;
-    self.buffer.init() catch return error.BufferNotInit;
-    switch (std.os.argv.len) { // check arguments
-        1    => { // show usage text
-            const path = "ScalpiEditor_usage.txt";
-            const text = @embedFile("ScalpiEditor_usage.txt");
-            self.view.init(path, text) catch return error.ViewNotInit;
-        },
-        else => { // load file
-            var   argument    = try lib.getTextFromArgument();
-            const parsed_path = try ParsePath.init(argument);
-            const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) { 
-                error.FileNotExist => { // exit
-                    lib.print( // print "File not exist"
-                        \\  File not exist. 
-                        \\  ScalpiEditor does not create files itself.
-                        \\  You can create file with "touch" command: 
-                        \\     touch file_name
-                        \\
-                        \\
-                    );
-                    return;
-                },
-                error.Unexpected => return error.Unexpected,
-            };
-            defer lib.c.free(file_data_allocated.ptr);
-            self.view.init(parsed_path.file_name, file_data_allocated) catch return error.ViewNotInit;
-        }, // end load file
-    } // end switch
-    self.console.init(); defer {
-        self.console.deInit();
-        lib.print(ansi.cyrsor_style.show);
-        lib.print("\r\n");
-    }
-    self.mainLoop();
-    self.console.cursorMoveToEnd();
-    lib.print(ansi.reset);
+const self = &prog;
+self.buffer.init() catch return error.BufferNotInit;
+switch (std.os.argv.len) { // work with arguments
+1    => { // show usage text
+const path = "ScalpiEditor_usage.txt";
+const text = @embedFile("ScalpiEditor_usage.txt");
+self.view.init(path, text) catch return error.ViewNotInit;
+},
+else => { // load file
+var   argument    = try lib.getTextFromArgument();
+const parsed_path = try ParsePath.init(argument);
+const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) {
+error.FileNotExist => { // exit
+lib.print( // print "File not exist"
+  \\  File not exist.
+  \\  ScalpiEditor does not create files itself.
+  \\  You can create file with "touch" command:
+  \\     touch file_name
+  \\
+  \\
+);
+return;
+},
+error.Unexpected => return error.Unexpected,
+};
+defer lib.c.free(file_data_allocated.ptr);
+self.view.init(parsed_path.file_name, file_data_allocated) catch return error.ViewNotInit;
+}, // end load file
+} // end switch
+self.console.init(); defer {
+self.console.deInit();
+lib.print(ansi.cyrsor_style.show);
+lib.print("\r\n");
+}
+self.mainLoop();
+self.console.cursorMoveToEnd();
 } // end fn main
 pub fn mainLoop             (self: *Prog) void {
     while (true) {
@@ -827,23 +827,23 @@ pub fn mainLoop             (self: *Prog) void {
     }
 }
 pub fn stop                 (self: *Prog) void {
-    self.view.need_redraw = false;
-    self.working = false;
+self.view.need_redraw = false;
+self.working = false;
 }
 pub fn debug                (self: *Prog) void {
-    var buffer: [254]u8 = undefined;
-    lib.print(ansi.color.magenta);
-    const debug_lines  = 6;
-    var print_offset: usize = self.console.size.y - debug_lines;
-    self.console.cursorMove(.{.x = 0, .y = print_offset});
-    { // line
+var buffer: [254]u8 = undefined;
+lib.print(ansi.color.magenta);
+const debug_lines  = 6;
+var print_offset: usize = self.console.size.y - debug_lines;
+self.console.cursorMove(.{.x = 0, .y = print_offset});
+{ // line
         const as_num :usize  = (@ptrToInt(self.view.line) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
         const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
         const buffer_count   = @intCast(usize, sprintf_result);
         self.console.print(buffer[0..buffer_count]);
         self.console.fillSpacesToEndLine();
     }
-    { // current line prev
+{ // current line prev
         self.console.cursorMoveToNextLine();
         if (self.view.line.prev) |prev| {
             const as_num :usize  = (@ptrToInt(prev) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
@@ -855,7 +855,7 @@ pub fn debug                (self: *Prog) void {
         }
         self.console.fillSpacesToEndLine();
     }
-    { // current line next
+{ // current line next
         self.console.cursorMoveToNextLine();
         if (self.view.line.next) |next| {
             const as_num :usize  = (@ptrToInt(next) - @ptrToInt(&self.buffer.lines)) / @sizeOf(Line);
@@ -867,13 +867,13 @@ pub fn debug                (self: *Prog) void {
         }
         self.console.fillSpacesToEndLine();
     }
-    { // view.offset
+{ // view.offset
         self.console.cursorMoveToNextLine();
         const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "view.offset .x = %d, .y = %d", self.view.offset.x, self.view.offset.y));
         self.console.print(buffer[0..buffer_count]);
         self.console.fillSpacesToEndLine();
     }
-    { // line.used
+{ // line.used
         self.console.cursorMoveToNextLine();
         const used           = self.view.line.text.used;
         const sprintf_result = lib.c.sprintf(&buffer, "line.len = %d", used);
@@ -881,7 +881,7 @@ pub fn debug                (self: *Prog) void {
         self.console.print(buffer[0..buffer_count]);
         self.console.fillSpacesToEndLine();
     }
-    { // symbol
+{ // symbol
         self.console.cursorMoveToNextLine();
         const used = self.view.line.text.used;
         var   sprintf_result: c_int = 0;
@@ -894,8 +894,8 @@ pub fn debug                (self: *Prog) void {
         self.console.print(buffer[0..buffer_count]);
         self.console.fillSpacesToEndLine();
     }
-    lib.print(ansi.reset);
-    self.console.fillSpacesToEndLine();
+lib.print(ansi.reset);
+self.console.fillSpacesToEndLine();
 }
 pub fn updateKeys           (self: *Prog) void {
 var key: ansi.key = self.getKey();
@@ -959,8 +959,7 @@ switch (key) {
 .CtrlG           => self.view.changeMode(.ToGoTo),
 //{ folding
 .CtrlU           => self.view.unFold(),
-.CtrlT           => self.view.foldFromIndent('\t'),
-.CtrlR           => self.view.foldFromIndent(' '),
+.CtrlR           => self.view.foldFromIndent(),
 .CtrlE           => self.view.foldFromBrackets(),
 //}
 //{ edit
