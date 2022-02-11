@@ -368,12 +368,19 @@ pub fn duplicate            (self: *View) void {
     }
 pub fn deleteIndent         (self: *View) void {
 const text   = self.line.text.get();
-const indent = self.line.text.countIndent();
+const indent = self.line.text.countIndent(1);
 var   new_indent: usize = 0;
-if (self.line.getParent()) |parent| new_indent = parent.text.countIndent();
-if (new_indent >= indent) return;
+if (self.line.getParent()) |parent| new_indent = parent.text.countIndent(1);
+if (new_indent == indent) {return;}
+else if (new_indent > indent) {
+std.mem.copyBackwards(u8, text[new_indent ..], text[indent ..]);
+self.line.text.used = text.len + (indent - new_indent);
+for (text[0 .. new_indent]) |*rune| rune.* = ' ';
+}
+else { // new_indent < indent
 std.mem.copy(u8, text[new_indent ..], text[indent ..]);
 self.line.text.used = text.len - (indent - new_indent);
+}
 }
 //}
 //{ draw
@@ -657,34 +664,34 @@ pub fn goToNextSymbol       (self: *View) void {
         }
     }
 pub fn goToIn               (self: *View) void {
-      if (self.line.child) |child| {
-        const line_indent  = self.line.text.countIndent();
-        const child_indent = child.text.countIndent();
-        if (line_indent <= child_indent) {
-          self.offset.x =  child_indent - line_indent;
-        }
-        self.symbol   = child.text.countIndent();
-        self.line     = child;
-        self.offset.y = 1;
-      }
-    }
+if (self.line.child) |child| {
+const line_indent  = self.line.text.countIndent(1);
+const child_indent = child.text.countIndent(1);
+if (line_indent <= child_indent) {
+self.offset.x =  child_indent - line_indent;
+}
+self.symbol   = child.text.countIndent(1);
+self.line     = child;
+self.offset.y = 1;
+}
+}
 pub fn goToOut              (self: *View) void {
-      if (self.line.getParent()) |parent| {
-        self.symbol   = parent.text.countIndent();
-        self.line     = parent;
-        self.offset.y = 6;
-        if (parent.getParent()) |grand_parent| {
-          const parent_indent       = parent.text.countIndent();
-          const grand_parent_indent = grand_parent.text.countIndent();
-          if (grand_parent_indent <= parent_indent) {
-            self.offset.x = parent_indent - grand_parent_indent;
-          }
-          else self.offset.x = self.symbol;
-        } 
-        else self.offset.x = self.symbol;
-      }
-      else self.goToRoot();
-    }
+if (self.line.getParent()) |parent| {
+self.symbol   = parent.text.countIndent(1);
+self.line     = parent;
+self.offset.y = 6;
+if (parent.getParent()) |grand_parent| {
+const parent_indent       = parent.text.countIndent(1);
+const grand_parent_indent = grand_parent.text.countIndent(1);
+if (grand_parent_indent <= parent_indent) {
+self.offset.x = parent_indent - grand_parent_indent;
+}
+else self.offset.x = self.symbol;
+} 
+else self.offset.x = self.symbol;
+}
+else self.goToRoot();
+}
 pub fn goToStartOfLine      (self: *View) void {
       self.symbol   = 0;
       self.offset.x = 0;
@@ -712,7 +719,7 @@ if (num >= prog.buffer.lineToPos(self.line)) return;
 self.last_line  = &prog.buffer.lines[num];
 self.changeMode(.Edit);
 self.offset.y   = 5;
-self.symbol     = self.line.text.countIndent();
+self.symbol     = self.line.text.countIndent(1);
 }
 //}
 //{ folding
@@ -720,9 +727,9 @@ pub fn foldFromBrackets     (self: *View) void {
 self.unFold();
 self.first.foldFromBrackets();
 }
-pub fn foldFromIndent       (self: *View) void {
+pub fn foldFromIndent       (self: *View, tabsize: usize) void {
 self.unFold();
-self.first.foldFromIndent();
+self.first.foldFromIndent(tabsize);
 }
 pub fn unFold               (self: *View) void {
 self.first.unFold();
@@ -959,7 +966,8 @@ switch (key) {
 .CtrlG           => self.view.changeMode(.ToGoTo),
 //{ folding
 .CtrlU           => self.view.unFold(),
-.CtrlR           => self.view.foldFromIndent(),
+.Ctrl4           => self.view.foldFromIndent(4),
+.CtrlR           => self.view.foldFromIndent(1),
 .CtrlE           => self.view.foldFromBrackets(),
 //}
 //{ edit

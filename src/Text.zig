@@ -46,16 +46,17 @@ pub fn getRunesCount       (self: *TextLine, rune: u8) usize { // used for foldi
   }
   return count;
 }
-pub fn countIndent         (self: *TextLine) usize {
-  var count: usize = 0;
-  var text = self.get();
-  for (text) |r| {
-    switch(r) {
-      ' ', '\t' => count += 1,
-      else => break,
-    }
-  }
-  return count;
+pub fn countIndent         (self: *TextLine, tabsize: usize) usize {
+var count: usize = 0;
+var text = self.get();
+for (text) |r| {
+switch(r) {
+' '  => count += 1,
+'\t' => count += tabsize,
+else => break,
+}
+}
+return count;
 }
 pub fn countNonIndent      (self: *TextLine) usize {
 var count: usize = 0;

@@ -124,40 +124,39 @@ pub fn moveToAsChild     (self: *Line, targ: *Line) void {
   targ.child  = self;
   self.parent = targ;
 }
-pub fn findParentWithIndent(self: *Line, count: usize) ?*Line {
-var current: ?*Line = self;
+pub fn findParentWithIndent(self: *Line, count: usize, tabsize: usize) ?*Line {
+var current: ?*Line = self.getParent();
 while (current) |line| {
-if (line.getParent()) |parent| {
-if (parent.text.countIndent() <= count) return parent;
-current = parent;
-}
-else break;
+if (line.text.countIndent(tabsize) <= count) return line;
+current = line.getParent();
 }
 return null;
 }
-pub fn foldFromIndent    (self: *Line) void {
+pub fn foldFromIndent    (self: *Line, tabsize: usize) void {
 var current:    ?*Line = self;
-var last_count: usize = 0;
-var count:      usize = 0;
+var last:       *Line  = self;
+var last_count: usize  = 0;
+var count:      usize  = 0;
 while (current) |line| {
-count = line.text.countIndent();
+count = line.text.countIndent(tabsize);
 if (line.text.countNonIndent() > 0) {
-if       (count == last_count) {
-current = line.next;
-} 
-else if  (count >  last_count) {
+if       (count == last_count) {}
+else if  (count > last_count) {
 if (line.prev) |prev| line.moveToAsChild(prev);
 } 
-else { // count <  last_count
-if (self.findParentWithIndent(count)) |parent| {
-if (line.prev) |prev| prev.next = null;
+else if  (count < last_count) { 
+if (line.findParentWithIndent(count, tabsize)) |parent| {
+if (line.prev) |prev| {
+prev.next = null;
+}
 parent.next = line;
 line.prev   = parent;
 line.parent = null;
 } 
 }
-last_count  = count;
 }
+last_count  = count;
+if (last == line.prev) last = line;
 current     = line.next;
 }
 }
