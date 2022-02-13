@@ -1,4 +1,3 @@
-// zig fmt: off
 const Console    = @This();
 const std        = @import("std");
 const asBytes    = std.mem.asBytes;
@@ -8,6 +7,10 @@ const lib        = Prog.lib;
 const c          = lib.c;
 const Coor2u     = lib.Coor2u;
 const cmp        = lib.cmp;
+pub const ToggleState = enum {
+enable,
+disable,
+};
 pub const Cursor = struct {
     pos: Coor2u = .{},
 
@@ -59,81 +62,64 @@ pub const Cursor = struct {
         self.pos.y += pos;
     }
 };
-size:                Coor2u           = .{ .x = 0, .y = 0 },
-cursor:              Cursor           = .{},
-f_stdin:             c_int = undefined,
-f_stdout:            c_int = undefined,
-stdin_system_flags:  c.struct_termios = undefined,
-stdout_system_flags: c.struct_termios = undefined,
+size:                Coor2u            = .{ .x = 0, .y = 0 },
+cursor:              Cursor            = .{},
+last_flags:          c.struct_termios  = undefined,
 pub fn init                 (self: *Console) void {
-self.f_stdin = c.fileno(c.stdin);
-self.f_stdout = c.fileno(c.stdout);
 lib.print(ansi.reset);
-//{ save std in/out settings
-_ = c.tcgetattr(self.f_stdin, &self.stdin_system_flags);
-_ = c.tcgetattr(self.f_stdout, &self.stdout_system_flags);
-//}
-//{ set special flags
 var flags: c.struct_termios = undefined;
-//{ for stdin
-_ = c.tcgetattr(self.f_stdin, &flags);
-//{ o_flag
-flags.c_oflag &= ~(  // disable iflags
-@as(c_uint, lib.c.OPOST)   | // add \r after \n
-0
-);
-//}
-//{ c_flag
-flags.c_cflag |=  (  // enable  cflags
-@as(c_uint, lib.c.CS8)     |
-0
-);
-//}
-//{ i_flag
-flags.c_iflag &= ~(  // disable iflags
-@as(c_uint, lib.c.IGNBRK)  |
-@as(c_uint, lib.c.BRKINT)  |
-@as(c_uint, lib.c.IXON)    | // catch Ctrl+s and Ctrl+q
-@as(c_uint, lib.c.ICRNL)   | // fix Ctrl+m
-@as(c_uint, lib.c.IXOFF)   |
-@as(c_uint, lib.c.INPCK)   |
-@as(c_uint, lib.c.ISTRIP)  |
-0
-);
-//}
-//{ c_lflag
-flags.c_lflag &= ~(  // disable lflags
-@as(c_uint, lib.c.ISIG)    | // catch Ctrl+c and Ctrl+z
-@as(c_uint, lib.c.ICANON)  |
-@as(c_uint, lib.c.ECHO)    |
-@as(c_uint, lib.c.ECHOE)   |
-@as(c_uint, lib.c.TOSTOP)  |
-@as(c_uint, lib.c.IEXTEN)  | // catch Ctrl+v
-0
-);
-flags.c_lflag |=  (  // enable  lflags
-@as(c_uint, lib.c.ECHOCTL) |
-0
-);
-//}
-flags.c_cc[lib.c.VMIN]  = 0;
-flags.c_cc[lib.c.VTIME] = 0;
-_ = c.tcsetattr(self.f_stdin, c.TCSAFLUSH, &flags);
-//}
-//{ for std out
-_ = c.tcgetattr(self.f_stdout, &flags);
-flags.c_lflag &= ~(@as(c_int, 0) -% c.ICANON);
-_ = c.tcsetattr(self.f_stdout, c.TCSANOW, &flags);
-//}
-//}
+_ = c.tcgetattr(0, &flags);
+_ = c.tcgetattr(0, &self.last_flags); // save for restore
+{ // configure flags
+const cflag = &flags.c_cflag;
+const iflag = &flags.c_iflag;
+const lflag = &flags.c_lflag;
+const oflag = &flags.c_oflag;
+
+
+// use 8 bit
+toggleU32(cflag, c.CS8,    .enable);  // use 8 bit
+toggleU32(cflag, c.PARENB, .disable); // parity check
+toggleU32(iflag, c.ISTRIP, .disable); // do not strip
+
+
+// non canonical
+toggleU32(lflag, c.ICANON, .disable); // no wait '\n'
+
+
+// disable all converts
+toggleU32(iflag, c.INLCR,  .disable); // do not convert NL to CR
+toggleU32(oflag, c.ONLCR,  .disable); // --//--
+toggleU32(iflag, c.ICRNL,  .disable); // do not convert CR to NL
+toggleU32(oflag, c.OCRNL,  .disable); // --//--
+toggleU32(iflag, c.XCASE,  .disable); // do not convert register
+toggleU32(iflag, c.IUCLC,  .disable); // --//--
+toggleU32(oflag, c.OLCUC,  .disable); // --//--
+
+
+// disable flow control
+toggleU32(iflag, c.IXON,   .disable); // Ctrl+S Ctlr+Q
+toggleU32(lflag, c.ISIG,   .disable); // Ctrl+C
+
+
+// disable all echo
+toggleU32(lflag, c.ECHO,   .disable); // no print pressed keys
+toggleU32(lflag, c.ECHOE,  .disable); // no mashing
+toggleU32(lflag, c.ECHOK,  .disable); // no print 
+toggleU32(lflag, c.ECHONL, .disable); // no print NL
+
+
+for (flags.c_cc) |*conf| conf.* = 0; // clear c_cc
+
+}
+_ = c.tcsetattr(0, c.TCSANOW, &flags);
 self.updateSize();
 self.initBlankLines();
 self.clear();
+self.cursorMove(.{.x = 0, .y = 0});
 }
 pub fn deInit               (self: *Console) void {
-    // restore buffer settings
-    _ = c.tcsetattr(self.f_stdin,  c.TCSANOW, &self.stdin_system_flags);
-    _ = c.tcsetattr(self.f_stdout, c.TCSANOW, &self.stdout_system_flags);
+_ = c.tcsetattr(0,  c.TCSANOW, &self.last_flags); // restore buffer settings
 }
 pub fn updateSize           (self: *Console) void {
     var w: c.winsize = undefined;
@@ -223,8 +209,15 @@ pub fn printLine            (self: *Console, text: []u8, pos_y: usize) void {
     self.fillSpacesToEndLine();
 } 
 pub fn getBytesWaiting      (self: *Console) usize {
+  _ = self;
   var bytesWaiting: c_int = undefined;
-  _ = lib.c.ioctl(self.f_stdin, lib.c.FIONREAD, &bytesWaiting);
+  _ = lib.c.ioctl(0, lib.c.FIONREAD, &bytesWaiting);
   var count = @intCast(usize, bytesWaiting);
   return count;
+}
+pub fn toggleU32            (ptr: *u32, flag: u32, state: ToggleState) void {
+switch (state) {
+.enable  => ptr.* |= flag,
+.disable => ptr.* &= ~flag,
+}
 }

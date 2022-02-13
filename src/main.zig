@@ -174,7 +174,7 @@ pub fn save                 (self: *View) void {
             prog.console.fillSpacesToEndLine();
             lib.print(ansi.reset);
         }
-        self.first.unFold();
+        self.unFold();
         //{ create file
             var file = lib.File {};
             file.open(self.file_name[0..], .ToWrite) catch unreachable;
@@ -303,7 +303,7 @@ self.addNextLine();
 self.goToEndOfLine();
 }
 else {
-if (self.line.child)  |_| {self.first.unFold();}
+if (self.line.child) |_| return;
 var parent = self.line;
 var pos    = self.symbol;
 if (pos > self.line.text.used) pos = self.line.text.used;
@@ -672,7 +672,7 @@ self.offset.x =  child_indent - line_indent;
 }
 self.symbol   = child.text.countIndent(1);
 self.line     = child;
-self.offset.y = 1;
+self.offset.y = 6;
 }
 }
 pub fn goToOut              (self: *View) void {
@@ -723,16 +723,111 @@ self.symbol     = self.line.text.countIndent(1);
 }
 //}
 //{ folding
+pub fn unFold               (self: *View) void {
+    var current = self.first;
+    while (true) {
+        if (current.child) |child| {
+            current.child = null;
+            child.parent = null;
+            //{ insert range child..last into current and current.next
+              if (current.next) |current_next| { // tie last_child <-> current_next
+                var last_child: *Line = child;
+                while (true) { // find last_child
+                    if (last_child.next) |next| {
+                        last_child = next;
+                    } else break;
+                } // end while
+                last_child.next = current_next;
+                current_next.prev = last_child;
+            } // end if
+            //{ tie child <-> current
+            child.prev = current;
+            current.next = child;
+            //}
+            //} end insert into last and current.next
+        } // end if current_line.child
+        if (current.next)  |next|  {
+            current = next;
+            continue;
+        }
+        break;
+    } // end while
+} // end fn
 pub fn foldFromBrackets     (self: *View) void {
-self.unFold();
-self.first.foldFromBrackets();
+    self.unFold();
+    var current: ?*Line = self.first;
+    while (current) |line| {
+        var close_count = line.text.getRunesCount('}'); // **{
+        var open_count = line.text.getRunesCount('{'); // **}
+        if (open_count == close_count) {
+            current = line.next;
+        } 
+        else if (open_count > close_count) {
+            if (line.next) |next| {
+                next.parent = line;
+                line.child = next;
+                line.next = null;
+                next.prev = null;
+            }
+            current = line.child;
+        } 
+        else { // for close_count > open_count
+            if (line.getParent()) |parent| {
+                if (line.next) |next| {
+                    next.prev = parent;
+                }
+                parent.next = line.next;
+                current = line.next;
+                line.next = null;
+            } else { // unexpected
+                current = line.next;
+                continue;
+            }
+        }
+    }
 }
 pub fn foldFromIndent       (self: *View, tabsize: usize) void {
 self.unFold();
-self.first.foldFromIndent(tabsize);
+var last_indent = self.first.text.countIndent(tabsize);
+var line: *Line = self.first.next orelse return;
+while (true) {
+const prev   = line.prev orelse unreachable;
+const indent = line.text.countIndent(tabsize);
+if (indent != last_indent) {
+if (indent > last_indent) {
+prev.child = line;
+prev.next = null;
+line.parent = line.prev;
+line.prev = null;
 }
-pub fn unFold               (self: *View) void {
-self.first.unFold();
+else if (indent < last_indent) {
+var parent = line.getParent() orelse unreachable;
+var line_parent = parent;
+while (true) {
+var parent_indent = parent.text.countIndent(tabsize);
+if (parent_indent == indent) {
+prev.next   = null;
+parent.next = line;
+line.prev   = parent;
+break;
+}
+else if (parent_indent > indent) {
+parent = parent.getParent() orelse unreachable;
+continue;
+}
+else if (parent_indent < indent) {
+if (parent == line_parent) break;
+var last = parent.getLastChild() orelse unreachable;
+prev.next = null;
+last.next = line;
+line.prev = last;
+}
+}
+}
+last_indent = indent;
+}
+line = line.next orelse break;
+}
 }
 //}
 //{ clipboard
@@ -966,7 +1061,7 @@ switch (key) {
 .CtrlG           => self.view.changeMode(.ToGoTo),
 //{ folding
 .CtrlU           => self.view.unFold(),
-.Ctrl4           => self.view.foldFromIndent(4),
+.CtrlY           => self.view.foldFromIndent(4),
 .CtrlR           => self.view.foldFromIndent(1),
 .CtrlE           => self.view.foldFromBrackets(),
 //}
