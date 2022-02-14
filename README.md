@@ -5,15 +5,13 @@ features:
       ⚠️ display only ansi symbols
       ⚠️ no undo/redo
       ⚠️ does not offer to save the file on exit (until it stabilizes)
-      -  not ability to paste text from external buffer.
+      ⚠️ not ability to paste text from external buffer.
    *  one time memory allocation. 
       +  stable working, no memory leaks, freezes, or other.
       -  Limit on the number and size of rows 
    *  text folding (from figure brackets, tabs, spaces, )
       +  Navigete on your code in MC style.
-      -  work only if the brackets/indents are nicely placed.
-      -  dangerous operations do unfold 
-      -  folding by spaces/tabs work is not stable yet...
+      -  brackets work only if the brackets are nicely placed. (one change nest to one line)
 
 for compile use zig language ver. 0.9. (https://ziglang.org):
     $ zig build

@@ -1,3 +1,7 @@
+14.02.2022 {
+  stabilize folding with indent
+  save without unfold
+}
 06.02.2022 {
   draw parent line if text folded.
 }

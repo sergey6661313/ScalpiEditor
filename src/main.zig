@@ -165,57 +165,66 @@ if (start_line >= text.len) break;
 self.line     = self.first;
 } // end fn loadLines
 pub fn save                 (self: *View) void {
-        self.need_redraw = false;
-        { // change status
-            prog.console.cursorMove(.{.x = 0, .y = 0});
-            lib.print(ansi.reset);
-            lib.print(ansi.color.blue2);
-            prog.console.print("saving...");
-            prog.console.fillSpacesToEndLine();
-            lib.print(ansi.reset);
-        }
-        self.unFold();
-        //{ create file
-            var file = lib.File {};
-            file.open(self.file_name[0..], .ToWrite) catch unreachable;
-            defer file.close() catch unreachable;
-        //}
-        //{ write
-            var line:   *Line = self.first;
-            var count:  usize = 0;
-            while(true) {
-                const text = line.text.get();
-                file.write(text);
-                count += 1;
-                { // change status
-                    prog.console.cursorMove(.{.x = 0, .y = 0});
-                    var buffer: [254]u8 = undefined;
-                    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "            %d lines writed.", count));
-                    lib.print(ansi.color.magenta);
-                    prog.console.print(buffer[0..buffer_count]);
-                    lib.print(ansi.reset);
-                    prog.console.fillSpacesToEndLine();
-                    prog.console.cursorMoveToEnd();
-                }
-                if (line.next) |next|  {
-                    file.write("\n");
-                    line = next;
-                    continue;
-                } 
-                break;
-            } // end while
-        //}
-        { // change status
-            prog.console.cursorMove(.{.x = 0, .y = 0});
-            var buffer: [254]u8 = undefined;
-            const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
-            lib.print(ansi.reset);
-            lib.print(ansi.color.blue2);
-            prog.console.print(buffer[0..buffer_count]);
-            prog.console.fillSpacesToEndLine();
-            prog.console.cursorMoveToEnd();
-        }
-    }
+self.need_redraw = false;
+{ // change status
+prog.console.cursorMove(.{.x = 0, .y = 0});
+lib.print(ansi.reset);
+lib.print(ansi.color.blue2);
+prog.console.print("saving...");
+prog.console.fillSpacesToEndLine();
+lib.print(ansi.reset);
+}
+//{ create file
+var file = lib.File {};
+file.open(self.file_name[0..], .ToWrite) catch unreachable;
+defer file.close() catch unreachable;
+//}
+//{ write
+var line:   *Line = self.first;
+var count:  usize = 0;
+writing: while(true) {
+const text = line.text.get();
+file.write(text);
+count += 1;
+{ // change status
+prog.console.cursorMove(.{.x = 0, .y = 0});
+var buffer: [254]u8 = undefined;
+const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "            %d lines writed.", count));
+lib.print(ansi.color.magenta);
+prog.console.print(buffer[0..buffer_count]);
+lib.print(ansi.reset);
+prog.console.fillSpacesToEndLine();
+prog.console.cursorMoveToEnd();
+}
+if      (line.child) |child| {
+file.write("\n");
+line = child;
+}
+else if (line.next)  |next|  {
+file.write("\n");
+line = next;
+} 
+else { // get parent with next
+while (true) {
+line = line.getParent() orelse break: writing;
+line = line.next        orelse continue;
+file.write("\n");
+break;
+} // end while
+} // end else
+} // end while
+//}
+{ // change status
+prog.console.cursorMove(.{.x = 0, .y = 0});
+var buffer: [254]u8 = undefined;
+const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
+lib.print(ansi.reset);
+lib.print(ansi.color.blue2);
+prog.console.print(buffer[0..buffer_count]);
+prog.console.fillSpacesToEndLine();
+prog.console.cursorMoveToEnd();
+}
+}
 pub fn setFileName          (self: *View, name: []const u8) void {
         std.mem.copy(u8, self.file_name[0..], name);
         self.file_name[name.len] = 0;
@@ -663,17 +672,29 @@ pub fn goToNextSymbol       (self: *View) void {
             if (self.offset.x < prog.console.size.x - 2) self.offset.x += 1;
         }
     }
+pub fn goToStartOfLine      (self: *View) void {
+      self.symbol   = 0;
+      self.offset.x = 0;
+    }
+pub fn goToEndOfLine        (self: *View) void {
+      self.symbol   = self.line.text.used;
+      if (self.symbol > prog.console.size.x - 2) {
+          self.offset.x = prog.console.size.x - 2;
+      } else {
+          self.offset.x = self.symbol;
+      }
+    }
 pub fn goToIn               (self: *View) void {
-if (self.line.child) |child| {
 const line_indent  = self.line.text.countIndent(1);
+const child        = self.line.child orelse return;
 const child_indent = child.text.countIndent(1);
-if (line_indent <= child_indent) {
-self.offset.x =  child_indent - line_indent;
+if (line_indent < child_indent) {
+self.offset.x = child_indent - line_indent;
 }
-self.symbol   = child.text.countIndent(1);
-self.line     = child;
-self.offset.y = 6;
-}
+else self.offset.x = 1;
+self.symbol        = child_indent;
+self.line          = child;
+self.offset.y      = 6;
 }
 pub fn goToOut              (self: *View) void {
 if (self.line.getParent()) |parent| {
@@ -692,18 +713,6 @@ else self.offset.x = self.symbol;
 }
 else self.goToRoot();
 }
-pub fn goToStartOfLine      (self: *View) void {
-      self.symbol   = 0;
-      self.offset.x = 0;
-    }
-pub fn goToEndOfLine        (self: *View) void {
-      self.symbol   = self.line.text.used;
-      if (self.symbol > prog.console.size.x - 2) {
-          self.offset.x = prog.console.size.x - 2;
-      } else {
-          self.offset.x = self.symbol;
-      }
-    }
 pub fn goToRoot             (self: *View) void {
       self.line     = self.first;
       self.offset.y = 1;
@@ -1077,6 +1086,7 @@ switch (key) {
 .CtrlN           => self.view.swapWithBottom(),
 .CtrlB           => self.view.swapWithUpper(),
 .CtrlO           => self.view.line.text.used = 0,
+.CtrlT           => self.view.insertSymbol('\t'),
 //}
 //{ navigation
 .End             => self.view.goToEndOfLine(),

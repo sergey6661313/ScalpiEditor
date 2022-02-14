@@ -1,0 +1,4 @@
+selections
+work with external buffer
+edit two or more files
+use words instead of lines
