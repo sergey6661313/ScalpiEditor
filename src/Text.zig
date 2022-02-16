@@ -24,10 +24,10 @@ if (self.used == 0)       return error.LineIsEmpty;
 if (pos >  size - 1)      unreachable;
 if (pos >  self.used - 1) return error.UnexpectedPos;
 if (pos != self.used - 1) { // shiftSymbolsToLeft
-        const from = self.buffer[pos + 1  ..  self.used    ];
-        const dest = self.buffer[pos      ..  self.used - 1];
-        std.mem.copy(u8, dest, from);
-    }
+const from = self.buffer[pos + 1  ..  self.used    ];
+const dest = self.buffer[pos      ..  self.used - 1];
+std.mem.copy(u8, dest, from);
+}
 self.used -= 1;
 } // end fn
 pub fn get                 (self: *TextLine) []u8 {

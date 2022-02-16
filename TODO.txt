@@ -1,4 +1,5 @@
-selections
+one line mode
 work with external buffer
+selections
 edit two or more files
 use words instead of lines

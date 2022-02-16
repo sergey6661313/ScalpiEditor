@@ -3,12 +3,10 @@ This is ScalpiEditor - "heirarhy" text editor.
 for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
 
-* tip: use [Ctrl] + [d] if [Enter] not working.
-
 main key bindings {
   exit                   [Ctrl]  +  [q]
   save                   [Ctrl]  +  [s]
-  movecursour:           just use arrows
+  move cursour:          just use arrows
 }
 folding {
   parse with brackets    [Ctrl]  +  [e]
@@ -26,9 +24,10 @@ navigation {
 }
 edit {
   insert char            [any]
+  new line / divide line [Enter]
   delete prev char       [BackSpace]
   delete next char       [Del]
-  divide line            [Ctrl]  +  [d]
+  clear line             [Ctrl]  +  [d]
   cut                    [Ctrl]  +  [x]
   copy                   [Ctrl]  +  [c]
   paste                  [Ctrl]  +  [v]

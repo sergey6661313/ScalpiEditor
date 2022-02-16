@@ -1,148 +1,399 @@
-// zig fmt: off
-pub const ansi    = @This();
-const Prog        = @import("root");
-const lib         = Prog.lib;
-pub const esc     = "\x1B";
-pub const control = esc ++ "[";
-pub const reset   = control ++ "0m";
-pub const bold    = control ++ "1m";
-pub const dim     = control ++ "2m";
+pub const ansi         = @This();
+const Prog             = @import("root");
+const lib              = Prog.lib;
+pub const Ascii        = enum(u7)  {
+// { specials
+NUL,
+start_of_heading,
+star_of_text,
+end_of_text,
+end_of_transmission,
+enquiry,
+acknowledge,
+bell,
+back_space,
+tab,
+line_feed,
+vertical_tab,
+formFeed,
+carriage_return,
+shift_out,
+shift_in,
+data_link_escape,
+device_control_1,
+device_control_2,
+device_control_3,
+device_control_4,
+negative_acknowledge,
+synchrinius_idle,
+end_of_trans_block,
+cancel,
+end_of_medium,
+substitute,
+escape,
+file_separator,
+group_separetor,
+record_separator,
+unit_separator,
+//}
+// { signs
+space,           // ' '
+exclamation,     // '!'
+double_cuotes,   // '"'
+number_sign,     // '#'
+dollar_sign,     // '$'
+percent_sign,    // '%'
+ampersand,       // '&'
+apostrophe,      // '\''
+round_bracket_open,
+round_bracket_close,
+asterisk,        // '*'
+plus_sign,       // '+'
+comma,           // ','
+minus_sign,      // '-'
+dot,             // '.'
+slash,           // '/'
+// }
+// { numbers
+code_0,
+code_1,
+code_2,
+code_3,
+code_4,
+code_5,
+code_6,
+code_7,
+code_8,
+code_9,
+// }
+// { signs2
+colon,         // ':'
+semi_colon,    // ';'
+less_sign,     // '<'
+equals_sign,   // '='
+greater_sign,  // '>'
+question_mark, // '?'
+at,            // '@'
+// }
+// { capitals
+code_A,
+code_B,
+code_C,
+code_D,
+code_E,
+code_F,
+code_G,
+code_H,
+code_I,
+code_J,
+code_K,
+code_L,
+code_M,
+code_N,
+code_O,
+code_P,
+code_Q,
+code_R,
+code_S,
+code_T,
+code_U,
+code_V,
+code_W,
+code_X,
+code_Y,
+code_Z,
+//}
+// { signs 3 
+open_bracket,  // '['
+back_slash,    // '\\'
+close_bracket, // ']'
+caret,         // '^'
+under_score,   // '_'
+grave_accent,  // '`'
+// }
+// { non_capitals
+code_a,
+code_b,
+code_c,
+code_d,
+code_e,
+code_f,
+code_g,
+code_h,
+code_i,
+code_j,
+code_k,
+code_l,
+code_m,
+code_n,
+code_o,
+code_p,
+code_q,
+code_r,
+code_s,
+code_t,
+code_u,
+code_v,
+code_w,
+code_x,
+code_y,
+code_z,
+//}
+// { signs 4
+open_figure_bracket,
+vertical_bar,
+close_figure_bracket,
+tilda,
+delete,
+// }
+};
+pub const AsciiKey     = enum(u7)  {
+// { specials
+NUL,
+ctrl_a,  // start_of_heading,
+ctrl_b,  // star_of_text,
+ctrl_c,  // end_of_text,
+ctrl_d,  // end_of_transmission,
+ctrl_e,  // enquiry,
+ctrl_f,  // acknowledge,
+ctrl_g,  // bell,
+ctrl_h,  // non_back_space,
+tab,     // horizontal_tab,
+ctrl_j,  // line_feed,
+ctrl_k,  // vertical_tab,
+ctrl_l,  // formFeed,
+enter,   // carriage_return,
+ctrl_n,  // shift_out,
+ctrl_o,  // shift_in,
+ctrl_p,  // data_link_escape,
+ctrl_q,  // device_control_1,
+ctrl_r,  // device_control_2,
+ctrl_s,  // device_control_3,
+ctrl_t,  // device_control_4,
+ctrl_u,  // negative_acknowledge,
+ctrl_v,  // synchrinius_idle,
+ctrl_w,  // end_of_trans_block,
+ctrl_x,  // cancel,
+ctrl_y,  // end_of_medium,
+ctrl_z,  // substitute,
+escape,
+file_separator,
+group_separetor,
+record_separator,
+unit_separator,
+//}
+// { signs
+space,           // ' '
+exclamation,     // '!'
+double_cuotes,   // '"'
+number_sign,     // '#'
+dollar_sign,     // '$'
+percent_sign,    // '%'
+ampersand,       // '&'
+apostrophe,      // '\''
+round_bracket_open,
+round_bracket_close,
+asterisk,        // '*'
+plus_sign,       // '+'
+comma,           // ','
+minus_sign,      // '-'
+dot,             // '.'
+slash,           // '/'
+// }
+// { numbers
+code_0,
+code_1,
+code_2,
+code_3,
+code_4,
+code_5,
+code_6,
+code_7,
+code_8,
+code_9,
+// }
+// { signs2
+colon,         // ':'
+semi_colon,    // ';'
+less_sign,     // '<'
+equals_sign,   // '='
+greater_sign,  // '>'
+question_mark, // '?'
+at,            // '@'
+// }
+// { capitals
+code_A,
+code_B,
+code_C,
+code_D,
+code_E,
+code_F,
+code_G,
+code_H,
+code_I,
+code_J,
+code_K,
+code_L,
+code_M,
+code_N,
+code_O,
+code_P,
+code_Q,
+code_R,
+code_S,
+code_T,
+code_U,
+code_V,
+code_W,
+code_X,
+code_Y,
+code_Z,
+//}
+// { signs 3 
+open_bracket,  // '['
+back_slash,    // '\\'
+close_bracket, // ']'
+caret,         // '^'
+under_score,   // '_'
+grave_accent,  // '`'
+// }
+// { non_capitals
+code_a,
+code_b,
+code_c,
+code_d,
+code_e,
+code_f,
+code_g,
+code_h,
+code_i,
+code_j,
+code_k,
+code_l,
+code_m,
+code_n,
+code_o,
+code_p,
+code_q,
+code_r,
+code_s,
+code_t,
+code_u,
+code_v,
+code_w,
+code_x,
+code_y,
+code_z,
+//}
+// { signs 4
+open_figure_bracket,
+vertical_bar,
+close_figure_bracket,
+tilda,
+back_space, // delete,
+// }
+};
+pub const Sequence     = enum(u64) {
+// { enum
+delete,
+left,
+right,
+up,
+down,
+end,
+home,
+// }
+pub const Parser = struct {
+sequence: Sequence = null,
+used:     usize     = 0,
+pub fn fromDo(buffer: []u8) ?Parser {
+if (buffer.len >= 3) {
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x44") == .equal) { // left
+const parser: Parser = .{.sequence = .left, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x43") == .equal) { // right
+const parser: Parser = .{.sequence = .right, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x41") == .equal) { // up
+const parser: Parser = .{.sequence = .up, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x42") == .equal) { // down
+const parser: Parser = .{.sequence = .down, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x46") == .equal) { // end
+const parser: Parser = .{.sequence = .end, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x5B\x48") == .equal) { // home
+const parser: Parser = .{.sequence = .home, .used = 3};
+return parser;
+}
+}
+if (buffer.len >= 4) {
+if (lib.cmp(buffer[0..4], "\x1B\x5B\x33\x7E") == .equal) { //del
+const parser: Parser = .{.sequence = .delete, .used = 4};
+return parser;
+}
+}
+return null;
+}
+};
+};
+pub const esc          = "\x1B";
+pub const control      = esc ++ "[";
+pub const reset        = control ++ "0m";
+pub const bold         = control ++ "1m";
+pub const dim          = control ++ "2m";
 pub const cyrsor_style = struct {
-    pub const hide               = control ++ "?25l";
-    pub const show               = control ++ "?25h";
-
-    pub const reset              = control ++ "0 q";
-    pub const blinking_block     = control ++ "1 q";
-    pub const steady_block       = control ++ "2 q";
-    pub const blinking_underline = control ++ "3 q";
-    pub const steady_underline   = control ++ "4 q";
-    pub const blinking_I_beam    = control ++ "5 q";
-    pub const steady_I_beam      = control ++ "6 q";
+pub const hide               = control ++ "?25l";
+pub const show               = control ++ "?25h";
+pub const reset              = control ++ "0 q";
+pub const blinking_block     = control ++ "1 q";
+pub const steady_block       = control ++ "2 q";
+pub const blinking_underline = control ++ "3 q";
+pub const steady_underline   = control ++ "4 q";
+pub const blinking_I_beam    = control ++ "5 q";
+pub const steady_I_beam      = control ++ "6 q";
 };
 pub const color        = struct {
-    pub const black    = control ++ "30;1m";    
-    pub const red      = control ++ "31;1m";
-    pub const green    = control ++ "32;1m";
-    pub const yellow   = control ++ "33;1m";
-    pub const blue     = control ++ "34;1m";
-    pub const magenta  = control ++ "35;1m";
-    pub const cyan     = control ++ "36;1m";
-    pub const white    = control ++ "37;1m";
-    pub const zero     = control ++ "39;1m";
-    
-    pub const black2    = control ++ "90;1m";    
-    pub const red2      = control ++ "91;1m";
-    pub const green2    = control ++ "92;1m";
-    pub const yellow2   = control ++ "93;1m";
-    pub const blue2     = control ++ "94;1m";
-    pub const magenta2  = control ++ "95;1m";
-    pub const cyan2     = control ++ "96;1m";
-    pub const white2    = control ++ "97;1m";
+pub const black     = control ++ "30;1m";
+pub const red       = control ++ "31;1m";
+pub const green     = control ++ "32;1m";
+pub const yellow    = control ++ "33;1m";
+pub const blue      = control ++ "34;1m";
+pub const magenta   = control ++ "35;1m";
+pub const cyan      = control ++ "36;1m";
+pub const white     = control ++ "37;1m";
+pub const zero      = control ++ "39;1m";
+pub const black2    = control ++ "90;1m";    
+pub const red2      = control ++ "91;1m";
+pub const green2    = control ++ "92;1m";
+pub const yellow2   = control ++ "93;1m";
+pub const blue2     = control ++ "94;1m";
+pub const magenta2  = control ++ "95;1m";
+pub const cyan2     = control ++ "96;1m";
+pub const white2    = control ++ "97;1m";
 };
 pub const bg_color     = struct {
-    pub const black    = control ++ "40;1m";    
-    pub const red      = control ++ "41;1m";
-    pub const green    = control ++ "42;1m";
-    pub const yellow   = control ++ "43;1m";
-    pub const blue     = control ++ "44;1m";
-    pub const magenta  = control ++ "45;1m";
-    pub const cyan     = control ++ "46;1m";
-    pub const white    = control ++ "47;1m";
-    pub const zero     = control ++ "49;1m";
-    
-    pub const black2    = control ++ "100;1m";
-    pub const red2      = control ++ "101;1m";
-    pub const green2    = control ++ "102;1m";
-    pub const yellow2   = control ++ "103;1m";
-    pub const blue2     = control ++ "104;1m";
-    pub const magenta2  = control ++ "105;1m";
-    pub const cyan2     = control ++ "106;1m";
-    pub const white2    = control ++ "107;1m";
-};
-pub const key = enum(u64) {
-    Ctrl2           = 0x0000000000000000,
-    CtrlA           = 0x0000000000000001,
-    CtrlB           = 0x0000000000000002,
-    CtrlC           = 0x0000000000000003,
-    CtrlD           = 0x0000000000000004,
-    CtrlE           = 0x0000000000000005,
-    CtrlF           = 0x0000000000000006,
-    CtrlG           = 0x0000000000000007,
-    CtrlH           = 0x0000000000000008,
-    Tab             = 0x0000000000000009, // same as CtrlI
-    CtrlJ           = 0x000000000000000a, 
-    CtrlK           = 0x000000000000000b,
-    CtrlL           = 0x000000000000000c,
-    Enter           = 0x000000000000000d, // same as CtrlM
-    CtrlN           = 0x000000000000000e,
-    CtrlO           = 0x000000000000000f,
-    CtrlP           = 0x0000000000000010,
-    CtrlQ           = 0x0000000000000011,
-    CtrlR           = 0x0000000000000012,
-    CtrlS           = 0x0000000000000013,
-    CtrlT           = 0x0000000000000014,
-    CtrlU           = 0x0000000000000015,
-    CtrlV           = 0x0000000000000016,
-    CtrlW           = 0x0000000000000017,
-    CtrlX           = 0x0000000000000018,
-    CtrlY           = 0x0000000000000019,
-    CtrlZ           = 0x000000000000001a,
-    Esc             = 0x000000000000001b, // same as Ctrl3
-    Ctrl4           = 0x000000000000001c,
-    Ctrl5           = 0x000000000000001d,
-    Ctrl6           = 0x000000000000001e,
-    CtrlSlash       = 0x000000000000001f, // same as Ctrl7
-    Space           = 0x0000000000000020,
-    Ctrl0           = 0x0000000000000030,
-    Ctrl1           = 0x0000000000000031,
-    Ctrl9           = 0x0000000000000039,
-    A               = 0x0000000000000061,
-    B               = 0x0000000000000062,
-    C               = 0x0000000000000063,
-    D               = 0x0000000000000064,
-    E               = 0x0000000000000065,
-    F               = 0x0000000000000066,
-    G               = 0x0000000000000067,
-    H               = 0x0000000000000068,
-    J               = 0x000000000000006a,
-    K               = 0x000000000000006b,
-    L               = 0x000000000000006c,
-    M               = 0x000000000000006d,
-    N               = 0x000000000000006e,
-    O               = 0x000000000000006f,
-    P               = 0x0000000000000070,
-    Q               = 0x0000000000000071,
-    R               = 0x0000000000000072,
-    S               = 0x0000000000000073,
-    U               = 0x0000000000000075,
-    V               = 0x0000000000000076,
-    W               = 0x0000000000000077,
-    X               = 0x0000000000000078,
-    Y               = 0x0000000000000079,
-    Z               = 0x000000000000007a,
-    BackSpace       = 0x000000000000007f, // same as Ctrl8
-    F1              = 0x0000000000504f1b,
-    F2              = 0x0000000000514f1b,
-    F3              = 0x0000000000524f1b,
-    F4              = 0x0000000000534f1b,
-    F5              = 0x0000000035315b1b,
-    F6              = 0x0000000037315b1b,
-    F7              = 0x0000000038315b1b,
-    F8              = 0x0000000039315b1b,
-    F9              = 0x0000000030325b1b,
-    F10             = 0x0000000031325b1b,
-    F11             = 0x0000000033325b1b,
-    F12             = 0x0000000034325b1b,
-    Insert          = 0x000000007e325b1b,
-    Del             = 0x000000007e335b1b,
-    Home            = 0x0000000000485b1b,
-    End             = 0x0000000000465b1b,
-    PgUp            = 0x000000007e355b1b,
-    PgDown          = 0x000000007e365b1b,
-    Up              = 0x0000000000415b1b,
-    Down            = 0x0000000000425b1b,
-    Left            = 0x0000000000445b1b,
-    Right           = 0x0000000000435b1b,
-    ShiftEnter      = 0x00000000004d4f1b,
-    AltEnter        = 0x0000000000000d1b,
+pub const black     = control ++ "40;1m";
+pub const red       = control ++ "41;1m";
+pub const green     = control ++ "42;1m";
+pub const yellow    = control ++ "43;1m";
+pub const blue      = control ++ "44;1m";
+pub const magenta   = control ++ "45;1m";
+pub const cyan      = control ++ "46;1m";
+pub const white     = control ++ "47;1m";
+pub const zero      = control ++ "49;1m";
+pub const black2    = control ++ "100;1m";
+pub const red2      = control ++ "101;1m";
+pub const green2    = control ++ "102;1m";
+pub const yellow2   = control ++ "103;1m";
+pub const blue2     = control ++ "104;1m";
+pub const magenta2  = control ++ "105;1m";
+pub const cyan2     = control ++ "106;1m";
+pub const white2    = control ++ "107;1m";
 };

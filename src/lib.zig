@@ -1,5 +1,5 @@
-const std = @import("std");
-pub const c          = @cImport({
+const std             = @import("std");
+pub const c           = @cImport({
     // canonical c
     @cInclude("stdio.h");
     @cInclude("stdlib.h");
@@ -16,7 +16,7 @@ pub const c          = @cImport({
     @cInclude("unistd.h");
     @cInclude("signal.h");
 });
-pub const Coor2u     = struct {
+pub const Coor2u      = struct {
     x: usize = 0,
     y: usize = 0,
 
@@ -31,7 +31,7 @@ pub const Coor2u     = struct {
         return false;
     }
 };
-pub const File       = struct {
+pub const File        = struct {
     //{ defines
         const Method = enum {
             ToRead,
@@ -79,7 +79,14 @@ pub const File       = struct {
     //}
 
 };
-pub const CmpResult  = enum { equal, various };
+pub const CmpResult   = enum { 
+equal, 
+various,
+};
+pub const ToggleState = enum {
+enable,
+disable,
+};
 pub fn printRune            (rune: u8) void {
     _ = c.fputc(rune, c.stdout);
     _ = c.fflush(c.stdout);
@@ -160,7 +167,7 @@ pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var arg = argIterator.next() orelse return error.Unexpected;
     return arg;
 }
-pub fn findRune(_rune: u8, text: []u8, _pos: usize) ?usize {
+pub fn findRune             (_rune: u8, text: []u8, _pos: usize) ?usize {
   var pos = _pos;
   while(true) {
     const rune = text[pos];
@@ -170,7 +177,7 @@ pub fn findRune(_rune: u8, text: []u8, _pos: usize) ?usize {
   }
   return null;
 }
-pub fn findRuneReversed(_rune: u8, text: []u8, _pos: usize) ?usize {
+pub fn findRuneReversed     (_rune: u8, text: []u8, _pos: usize) ?usize {
   var pos = _pos;
   while(true) {
     const rune = text[pos];
@@ -180,4 +187,9 @@ pub fn findRuneReversed(_rune: u8, text: []u8, _pos: usize) ?usize {
   }
   return null;
 }
-
+pub fn toggleU32            (ptr: *u32, flag: u32, state: ToggleState) void {
+switch(state) {
+.enable  => ptr.* |= flag,
+.disable => ptr.* &= ~flag,
+}
+}

@@ -1,15 +1,15 @@
 <pre>
-ScalpiEditor - Simple console text editor writed from zig language. 
+ScalpiEditor - Simple console text editor writed from zig language.
 features:
-   *  ready for edit simpliest file like configs
+   *  ready for edit simpliest file like configs:
       ⚠️ display only ansi symbols
       ⚠️ no undo/redo
       ⚠️ does not offer to save the file on exit (until it stabilizes)
       ⚠️ not ability to paste text from external buffer.
-   *  one time memory allocation. 
+   *  one time memory allocation:
       +  stable working, no memory leaks, freezes, or other.
       -  Limit on the number and size of rows 
-   *  text folding (from figure brackets, tabs, spaces, )
+   *  text folding (from figure brackets, tabs, spaces, ):
       +  Navigete on your code in MC style.
       -  brackets work only if the brackets are nicely placed. (one change nest to one line)
 
