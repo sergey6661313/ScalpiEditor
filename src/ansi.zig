@@ -157,7 +157,7 @@ ctrl_d,  // end_of_transmission,
 ctrl_e,  // enquiry,
 ctrl_f,  // acknowledge,
 ctrl_g,  // bell,
-ctrl_h,  // non_back_space,
+ctrl_bs, // ctrl backspace,
 tab,     // horizontal_tab,
 ctrl_j,  // line_feed,
 ctrl_k,  // vertical_tab,
@@ -302,6 +302,7 @@ up,
 down,
 end,
 home,
+f1,
 // }
 pub const Parser = struct {
 sequence: Sequence = null,
@@ -330,6 +331,10 @@ return parser;
 }
 if (lib.cmp(buffer[0..3], "\x1B\x5B\x48") == .equal) { // home
 const parser: Parser = .{.sequence = .home, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x4F\x50") == .equal) { // f1
+const parser: Parser = .{.sequence = .f1, .used = 3};
 return parser;
 }
 }

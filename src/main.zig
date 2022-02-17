@@ -10,13 +10,13 @@ pub const Console      = @import("Console.zig");
 // { defines
 pub const Buffer       = struct {
 pub const size = 25000; // about 10 mb...
-lines: [size]Line = .{.{}} ** size,
-free: ?*Line = null,
-cutted: ?*Line = null,
-find_text: ?*Line = null,
-to_goto: ?*Line = null,
-line_for_goto: usize = 0,
-pub fn init(self: *Buffer) !void {
+lines:         [size]Line = .{.{}} ** size,
+free:          ?*Line     = null,
+cutted:        ?*Line     = null,
+find_text:     ?*Line     = null,
+to_goto:       ?*Line     = null,
+line_for_goto: usize      = 0,
+pub fn init         (self: *Buffer) !void {
 //{ tie all lines to "free" chain
 const first = &self.lines[0];
 const last = &self.lines[size - 1];
@@ -37,7 +37,7 @@ if (pos == size - 1) break;
 //}
 self.free = &self.lines[0];
 } // end fn init
-pub fn create(self: *Buffer) !*Line {
+pub fn create       (self: *Buffer) !*Line {
 if (self.free) |free| {
 self.free = free.next; // update self.free
 const line = free;
@@ -45,10 +45,10 @@ try line.init();
 return line;
 } else return error.NoFreeSlots;
 }
-pub fn delete(self: *Buffer, line: *Line) void {
+pub fn delete       (self: *Buffer, line: *Line) void {
 if (line.child) |_| self.deleteBlock(line) else self.deleteLine(line);
 } // end fn delete
-pub fn deleteBlock(self: *Buffer, line: *Line) void {
+pub fn deleteBlock  (self: *Buffer, line: *Line) void {
 const start_line = line;
 const end_line = start_line.next;
 prog.view.unFold();
@@ -59,7 +59,7 @@ current = cur_line.next;
 self.deleteLine(cur_line);
 }
 } // end fn deleteBlock
-pub fn deleteLine(self: *Buffer, line: *Line) void {
+pub fn deleteLine   (self: *Buffer, line: *Line) void {
 //{ change links
 if (line.prev) |prev| {
 prev.next = line.next;
@@ -82,7 +82,7 @@ line.next = self.free;
 self.free = line;
 //}
 } // end fn deleteLine
-pub fn cut(self: *Buffer, line: *Line) void {
+pub fn cut          (self: *Buffer, line: *Line) void {
 //{ change links
 if (line.prev) |prev| {
 prev.next = line.next;
@@ -105,7 +105,7 @@ line.next = self.cutted;
 self.cutted = line;
 //}
 }
-pub fn lineToPos(self: *Buffer, line: *Line) usize {
+pub fn lineToPos    (self: *Buffer, line: *Line) usize {
 const ptr = @ptrToInt(line) - @ptrToInt(&self.lines);
 const pos = ptr / @sizeOf(Line);
 return pos;
@@ -118,6 +118,7 @@ to_find,
 to_line,
 history,
 select,
+normal,
 };
 mode:        Mode        = .edit,
 file_name:   [1024]u8    = undefined,
@@ -175,11 +176,9 @@ prog.console.print("saving...");
 prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
 }
-//{ create file
 var file = lib.File{};
 file.open(self.file_name[0..], .ToWrite) catch unreachable;
 defer file.close() catch unreachable;
-//}
 //{ write
 var line: *Line = self.first;
 var count: usize = 0;
@@ -200,10 +199,12 @@ prog.console.cursorMoveToEnd();
 if (line.child) |child| {
 file.write("\n");
 line = child;
-} else if (line.next) |next| {
+} 
+else if (line.next) |next| {
 file.write("\n");
 line = next;
-} else { // get parent with next
+} 
+else { // get parent with next
 while (true) {
 line = line.getParent() orelse break :writing;
 line = line.next orelse continue;
@@ -242,7 +243,7 @@ prog.buffer.to_goto = new_line;
 self.line = prog.buffer.to_goto.?;
 self.goToEndOfLine();
 },
-.edit => {
+.edit    => {
 if (self.last_line) |last| {
 self.line = last;
 } else {
@@ -250,7 +251,8 @@ self.line = self.first;
 }
 },
 .history => {},
-.select => {},
+.select  => {},
+.normal  => {},
 }
 self.mode = mode;
 }
@@ -294,6 +296,7 @@ self.deleteSymbol();
 }
 pub fn clearLine         (self: *View) void {
 self.line.text.used = 0;
+self.goToStartOfLine();
 }
 pub fn addPrevLine       (self: *View) void {
 const new_line = prog.buffer.create() catch return;
@@ -324,21 +327,20 @@ parent.text.used = pos;
 self.goToStartOfLine();
 }
 }
-pub fn duplicateLine     (self: *View) void {
-var prev = self.line;
-self.addNextLine();
-self.line.text.set(prev.text.get()) catch unreachable;
+pub fn swapWithBottom    (self: *View) void {
+if (self.line.next) |_| {
+self.cut();
+self.goToNextLine();
+self.pasteLine();
+}
 }
 pub fn swapWithUpper     (self: *View) void {
+if (self.line.prev) |_| {
 self.cut();
 self.goToPrevLine();
 self.pasteLine();
 if (self.offset.y > 1) self.offset.y += 1;
 }
-pub fn swapWithBottom    (self: *View) void {
-self.cut();
-self.goToNextLine();
-self.pasteLine();
 }
 pub fn deleteLine        (self: *View) void {
 var next_selected_line: *Line = undefined;
@@ -356,22 +358,6 @@ self.clearLine();
 if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.delete(self.line);
 self.line = next_selected_line;
-}
-pub fn duplicateBlock    (self: *View) void {
-const start_line = self.line;
-const end_line = start_line.next;
-self.unFold();
-var current: ?*Line = start_line;
-while (current) |line| {
-if (current == end_line) break;
-const line_copy = prog.buffer.create() catch return;
-line_copy.text.set(line.text.get()) catch unreachable;
-start_line.pushPrev(line_copy);
-current = line.next;
-}
-}
-pub fn duplicate         (self: *View) void {
-if (self.line.child) |_| self.duplicateBlock() else self.duplicateLine();
 }
 pub fn deleteIndent      (self: *View) void {
 const text = self.line.text.get();
@@ -817,7 +803,55 @@ line = line.next orelse break;
 }
 //}
 //{ clipboard
-pub fn cut        (self: *View) void {
+pub fn duplicate      (self: *View) void {
+const first      = self.line; 
+const copy_first = prog.buffer.create() catch return;
+copy_first.text.set(first.text.get()) catch unreachable;
+self.line.pushNext(copy_first);
+if (first.child) |first_child| {
+var current         = first_child;
+var copy_current    = prog.buffer.create() catch return;
+copy_current.text.set(current.text.get()) catch unreachable;
+copy_current.parent = copy_first;
+copy_first.child    = copy_current;
+copying: while (true) {
+if (current.child) |child| {
+var copy_child = prog.buffer.create() catch return;
+copy_child.text.set(child.text.get()) catch unreachable;
+copy_child.parent  = copy_current;
+copy_current.child = copy_child;
+current       = child;
+copy_current  = copy_child;
+} 
+else if (current.next) |next| {
+var copy_next = prog.buffer.create() catch return;
+copy_next.text.set(next.text.get()) catch unreachable;
+copy_next.prev    = copy_current;
+copy_current.next = copy_next;
+current       = next;
+copy_current  = copy_next;
+}
+else { // find parent with next
+var next: *Line = undefined;
+while (true) {
+current     = current.getParent()      orelse break :copying;
+if (current == first) break: copying;
+copy_current = copy_current.getParent() orelse unreachable;
+next        = current.next orelse continue;
+break;
+}
+var copy_next     = prog.buffer.create() catch return;
+copy_next.text.set(next.text.get()) catch unreachable;
+copy_next.prev    = copy_current;
+copy_current.next = copy_next;
+current           = next;
+copy_current      = copy_next;
+}
+}
+}
+self.line = copy_first;
+}
+pub fn cut            (self: *View) void {
 if (self.line.parent) |parent| {
 parent.child = self.line.next;
 }
@@ -838,7 +872,7 @@ if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.cut(self.line);
 self.line = next_selected_line;
 }
-pub fn pasteLine  (self: *View) void {
+pub fn pasteLine      (self: *View) void {
 if (prog.buffer.cutted) |cutted| {
 prog.buffer.cutted = cutted.next;
 cutted.next = null;
@@ -846,6 +880,57 @@ self.line.pushPrev(cutted);
 if (self.first == self.line) self.first = cutted;
 self.offset.y += 1;
 self.goToPrevLine();
+}
+}
+pub fn externalCopy   (self: *View) void {
+self.need_redraw = false;
+
+var file = lib.File {};
+var file_path: [256*4]u8 = undefined;
+var file_name_len_c_int = lib.c.sprintf(&file_path, "%s/clipboard.tmp", lib.c.getenv("HOME"));
+var file_name_len = @intCast(usize, file_name_len_c_int);
+file.open(file_path[0..file_name_len], .ToWrite) catch return;
+defer file.close() catch unreachable;
+
+const first: *Line  = self.line;
+file.write(first.text.get());
+if (first.child) |first_child| {
+file.write("\n");
+file.write(first_child.text.get());
+var current: *Line = first_child;
+copying: while (true) {
+if (current.child) |child| {
+file.write("\n");
+file.write(child.text.get());
+current = child;
+} 
+else if (current.next) |next| {
+file.write("\n");
+file.write(next.text.get());
+current = next;
+}
+else { // find parent with next
+var next: *Line = undefined;
+while (true) {
+current     = current.getParent()      orelse break :copying;
+if (current == first) break: copying;
+next        = current.next orelse continue;
+break;
+}
+file.write("\n");
+file.write(next.text.get());
+current = next;
+}
+}
+}
+
+{ // change status
+prog.console.cursorMove(.{ .x = 0, .y = 0 });
+lib.print(ansi.reset);
+lib.print(ansi.color.blue2);
+prog.console.print("saved to ~/clipboard.tmp");
+prog.console.fillSpacesToEndLine();
+lib.print(ansi.reset);
 }
 }
 //}
@@ -943,12 +1028,14 @@ ViewNotInit,
 Unexpected,
 };
 // }
+// { fields
 pub var prog: Prog     = .{};
 working:  bool         = true,
 console:  Console      = .{},
 buffer:   Buffer       = .{},
 view:     View         = .{},
 debug:    Debug        = .{},
+// }
 pub fn main        () MainErrors!void {
 const self = &prog;
 self.buffer.init() catch return error.BufferNotInit;
@@ -988,7 +1075,8 @@ lib.print("\r\n");
 self.mainLoop();
 self.console.cursorMoveToEnd();
 } // end fn main
-pub fn mainLoop    (self: *Prog) void {
+// { methods
+pub fn mainLoop       (self: *Prog) void {
 while (true) {
 self.console.updateSize();
 self.updateKeys();
@@ -998,20 +1086,20 @@ std.time.sleep(std.time.ns_per_ms * 10);
 //prog.debug.draw();
 }
 }
-pub fn stop        (self: *Prog) void {
+pub fn stop           (self: *Prog) void {
 self.view.need_redraw = false;
 self.working = false;
 }
-pub fn updateKeys  (self: *Prog) void {
+pub fn updateKeys     (self: *Prog) void {
 if (self.console.input.grab()) |first_key| {
+self.view.need_redraw = true;
 self.onKey(first_key);
 while (self.console.input.grab()) |key| {
 self.onKey(key);
 }
-self.view.need_redraw = true;
 }
 } // end fn updateKeys
-pub fn onKey       (self: *Prog, cik: Console.Input.Key) void {
+pub fn onKey          (self: *Prog, cik: Console.Input.Key) void {
 switch (self.view.mode) {
 .edit    => {
 switch (cik) {
@@ -1024,6 +1112,7 @@ switch (sequence) {
 .up         => self.view.goToPrevLine(),
 .left       => self.view.goToPrevSymbol(),
 .right      => self.view.goToNextSymbol(),
+.f1         => self.view.changeMode(.normal),
 //else    => {},
 }
 },
@@ -1042,12 +1131,13 @@ switch (key) {
 .enter      => self.view.divide(),
 .back_space => self.view.deletePrevSymbol(),
 .ctrl_p     => self.view.deleteIndent(),
+.ctrl_d     => self.view.duplicate(),
 .ctrl_x     => self.view.cut(),
-.ctrl_c     => self.view.duplicate(),
+.ctrl_c     => self.view.externalCopy(),
 .ctrl_v     => self.view.pasteLine(),
-.ctrl_n     => self.view.swapWithBottom(),
-.ctrl_b     => self.view.swapWithUpper(),
-.ctrl_d     => self.view.line.text.used = 0,
+.ctrl_j     => self.view.swapWithBottom(),
+.ctrl_k     => self.view.swapWithUpper(),
+.ctrl_bs    => self.view.clearLine(),
 .ctrl_t     => self.view.insertSymbol('\t'),
 .escape     => self.view.goToOut(),
 .tab        => self.view.goToIn(),
@@ -1089,5 +1179,50 @@ self.view.insertSymbol(byte);
 },
 .history => {},
 .select  => {},
+.normal  => {
+switch (cik) {
+.sequence  => |sequence| {
+switch (sequence) {
+.delete     => self.view.deleteSymbol(),
+.end        => self.view.goToEndOfLine(),
+.home       => self.view.goToStartOfLine(),
+.down       => self.view.goToNextLine(),
+.up         => self.view.goToPrevLine(),
+.left       => self.view.goToPrevSymbol(),
+.right      => self.view.goToNextSymbol(),
+else        => {},
+}
+},
+.byte      => |_| {},
+.ascii_key => |key|  {
+switch (key) {
+.code_q     => self.stop(),
+.code_s     => self.view.save(),
+.code_i     => self.view.changeMode(.edit),
+.code_g     => self.view.changeMode(.to_line),
+.code_u     => self.view.unFold(),
+.code_y     => self.view.foldFromIndent(4),
+.code_r     => self.view.foldFromIndent(1),
+.code_e     => self.view.foldFromBrackets(),
+.enter      => self.view.divide(),
+.back_space => self.view.deletePrevSymbol(),
+.code_p     => self.view.deleteIndent(),
+.code_d     => self.view.duplicate(),
+.code_x     => self.view.cut(),
+.code_c     => self.view.externalCopy(),
+.code_v     => self.view.pasteLine(),
+.code_j     => self.view.swapWithBottom(),
+.code_k     => self.view.swapWithUpper(),
+.ctrl_bs    => self.view.clearLine(),
+.code_t     => self.view.insertSymbol('\t'),
+.escape     => self.view.goToOut(),
+.tab        => self.view.goToIn(),
+.code_l     => self.view.goToLastLine(),
+else        => {},
+}
+},
+}
+},
 }
 }
+// }

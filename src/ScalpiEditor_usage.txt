@@ -8,33 +8,34 @@ main key bindings {
   save                   [Ctrl]  +  [s]
   move cursour:          just use arrows
 }
-folding {
+folding     {
   parse with brackets    [Ctrl]  +  [e]
-  parse with spaces      [Ctrl]  +  [r]
-  parse with tabs        [Ctrl]  +  [t]
+  parse with indent      [Ctrl]  +  [r]
   unparse                [Ctrl]  +  [u]
   enter block            [Tab]
   leave block            [Esc] 
 }
-navigation {
-  go to start  line      [Home]
-  go to end    line      [End]
+navigation  {
+  go to start of line    [Home]
+  go to end   of line    [End]
+  go to last line        [Ctrl]  +  [l]
   go to line from number [Ctrl]  +  [g]
-  go to last   line      [Ctrl]  +  [l]
 }
-edit {
+edit        {
   insert char            [any]
   new line / divide line [Enter]
   delete prev char       [BackSpace]
   delete next char       [Del]
-  clear line             [Ctrl]  +  [d]
+  clear line             [Ctrl]  +  [BackSpace]
+  duplicate              [Ctrl]  +  [d]
   cut                    [Ctrl]  +  [x]
-  copy                   [Ctrl]  +  [c]
+  copy (external)        [Ctrl]  +  [c]
   paste                  [Ctrl]  +  [v]
-  move line up           [Ctrl]  +  [b]
-  move line down         [Ctrl]  +  [n]
+  move line down         [Ctrl]  +  [j]
+  move line up           [Ctrl]  +  [k]
 }
-unrealized {
+
+unrealized  {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]
   go to left   word      [Ctrl]  +  [Left]
