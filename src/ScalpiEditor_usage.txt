@@ -34,7 +34,6 @@ edit        {
   move line down         [Ctrl]  +  [j]
   move line up           [Ctrl]  +  [k]
 }
-
 unrealized  {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]

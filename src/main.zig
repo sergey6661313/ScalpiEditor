@@ -231,6 +231,13 @@ self.file_name[name.len] = 0;
 }
 pub fn changeMode           (self: *View, mode: Mode) void {
 switch (mode) {
+.edit    => {
+if (self.last_line) |last| {
+self.line = last;
+} else {
+self.line = self.first;
+}
+},
 .to_find => {
 self.last_line = self.line;
 },
@@ -242,13 +249,6 @@ prog.buffer.to_goto = new_line;
 }
 self.line = prog.buffer.to_goto.?;
 self.goToEndOfLine();
-},
-.edit    => {
-if (self.last_line) |last| {
-self.line = last;
-} else {
-self.line = self.first;
-}
 },
 .history => {},
 .select  => {},
@@ -695,7 +695,7 @@ var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
 if (num >= prog.buffer.lineToPos(self.line)) return;
 self.last_line = &prog.buffer.lines[num];
 self.changeMode(.edit);
-self.offset.y = 5;
+self.offset.y = 6;
 self.symbol = self.line.text.countIndent(1);
 }
 //}
@@ -883,21 +883,19 @@ self.goToPrevLine();
 }
 }
 pub fn externalCopy   (self: *View) void {
+if (prog.buffer.cutted) |cutted| {
 self.need_redraw = false;
-
 var file = lib.File {};
+// { open file
 var file_path: [256*4]u8 = undefined;
 var file_name_len_c_int = lib.c.sprintf(&file_path, "%s/clipboard.tmp", lib.c.getenv("HOME"));
 var file_name_len = @intCast(usize, file_name_len_c_int);
 file.open(file_path[0..file_name_len], .ToWrite) catch return;
 defer file.close() catch unreachable;
-
-const first: *Line  = self.line;
-file.write(first.text.get());
-if (first.child) |first_child| {
-file.write("\n");
-file.write(first_child.text.get());
-var current: *Line = first_child;
+// }
+// { working with lines
+var current: *Line = cutted;
+file.write(current.text.get());
 copying: while (true) {
 if (current.child) |child| {
 file.write("\n");
@@ -913,7 +911,6 @@ else { // find parent with next
 var next: *Line = undefined;
 while (true) {
 current     = current.getParent()      orelse break :copying;
-if (current == first) break: copying;
 next        = current.next orelse continue;
 break;
 }
@@ -922,8 +919,7 @@ file.write(next.text.get());
 current = next;
 }
 }
-}
-
+// }
 { // change status
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
 lib.print(ansi.reset);
@@ -931,6 +927,7 @@ lib.print(ansi.color.blue2);
 prog.console.print("saved to ~/clipboard.tmp");
 prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
+}
 }
 }
 //}
