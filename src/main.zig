@@ -313,14 +313,25 @@ pub fn divide            (self: *View) void {
 if (self.symbol == 0) {
 self.addPrevLine();
 self.goToNextLine();
-} else if (self.symbol == self.line.text.used) {
+} 
+else if (self.symbol >= self.line.text.used) {
 self.addNextLine();
 self.goToEndOfLine();
-} else {
+} 
+else if (self.line.text.buffer[self.symbol] == '}' and self.line.text.buffer[self.symbol - 1] == '{') {
+if (self.line.child) |_| return;
+const new_line = prog.buffer.create() catch return;
+self.line.child = new_line;
+new_line.parent = self.line;
+new_line.text.set(self.line.text.get()[self.symbol..]) catch unreachable;
+self.line.text.used = self.symbol;
+self.line = new_line;
+self.goToStartOfLine();
+}
+else {
 if (self.line.child) |_| return;
 var parent = self.line;
 var pos = self.symbol;
-if (pos > self.line.text.used) pos = self.line.text.used;
 self.addNextLine();
 self.line.text.set(parent.text.get()[pos..]) catch unreachable;
 parent.text.used = pos;
