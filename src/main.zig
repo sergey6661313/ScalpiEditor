@@ -126,7 +126,6 @@ first:       *Line       = undefined,
 line:        *Line       = undefined,
 symbol:      usize       = 0,
 offset:      lib.Coor2u  = .{ .y = 1 },
-need_redraw: bool        = true,
 focus:       bool        = false,
 last_line:   ?*Line      = null,
 pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
@@ -167,7 +166,7 @@ if (start_line >= text.len) break;
 self.line = self.first;
 } // end fn loadLines
 pub fn save                 (self: *View) void {
-self.need_redraw = false;
+prog.need_redraw = false;
 { // change status
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
 lib.print(ansi.reset);
@@ -287,6 +286,7 @@ std.mem.copy(u8, prev.text.buffer[prev.text.used..], next.text.get());
 prev.text.used += next_used;
 self.deleteLine();
 if (self.line.next) |_| self.goToPrevLine();
+self.goToSymbol(prev_used);
 }
 return;
 }
@@ -303,20 +303,23 @@ const new_line = prog.buffer.create() catch return;
 self.line.pushPrev(new_line);
 if (self.first == self.line) self.first = new_line;
 self.goToPrevLine();
+self.goToStartOfLine();
 }
 pub fn addNextLine       (self: *View) void {
 const new_line = prog.buffer.create() catch return;
 self.line.pushNext(new_line);
 self.goToNextLine();
+self.goToStartOfLine();
 }
 pub fn divide            (self: *View) void {
 if (self.symbol == 0) {
 self.addPrevLine();
 self.goToNextLine();
+self.goToStartOfLine();
 } 
 else if (self.symbol >= self.line.text.used) {
 self.addNextLine();
-self.goToEndOfLine();
+self.goToStartOfLine();
 } 
 else if (self.line.text.buffer[self.symbol] == '}' and self.line.text.buffer[self.symbol - 1] == '{') {
 if (self.line.child) |_| return;
@@ -326,7 +329,7 @@ new_line.parent = self.line;
 new_line.text.set(self.line.text.get()[self.symbol..]) catch unreachable;
 self.line.text.used = self.symbol;
 self.line = new_line;
-self.goToStartOfLine();
+self.addPrevLine();
 }
 else {
 if (self.line.child) |_| return;
@@ -389,19 +392,16 @@ self.line.text.used = text.len - (indent - new_indent);
 //}
 //{ draw
 pub fn draw             (self: *View) void {
-if (self.need_redraw == false) return;
 if (self.symbol < self.offset.x) { // unexpected
 self.offset.x = 0;
 self.symbol = 0;
+prog.need_redraw = true;
 return;
 }
-self.need_redraw = false;
-prog.console.clear();
 lib.print(ansi.reset);
 if (self.line.child) |_| self.drawEditedFoldedLine(self.offset.y) else self.drawEditedLine(self.offset.y);
 self.drawUpperLines();
 self.drawDownerLines();
-self.cursorMoveToCurrent();
 } // end draw lines
 pub fn drawUpperLines   (self: *View) void {
 if (self.offset.y == 0) return;
@@ -465,7 +465,7 @@ prog.console.cursorMove(.{ .x = 0, .y = offset_y });
 if (self.symbol < self.offset.x) { // unexpected
 self.offset.x = 0;
 self.symbol = 0;
-self.need_redraw = true;
+prog.need_redraw = true;
 return;
 }
 var pos: usize = self.symbol - self.offset.x; // first visible rune
@@ -667,34 +667,20 @@ self.offset.x = prog.console.size.x - 2;
 self.offset.x = self.symbol;
 }
 }
-pub fn goToIn           (self: *View) void {
-const line_indent = self.line.text.countIndent(1);
-const child = self.line.child orelse return;
-const child_indent = child.text.countIndent(1);
-if (line_indent < child_indent) {
-self.offset.x = child_indent - line_indent;
-} else self.offset.x = 1;
-self.symbol = child_indent;
-self.line = child;
-self.offset.y = 6;
-}
-pub fn goToOut          (self: *View) void {
-if (self.line.getParent()) |parent| {
-self.symbol = parent.text.countIndent(1);
-self.line = parent;
-self.offset.y = 6;
-if (parent.getParent()) |grand_parent| {
-const parent_indent = parent.text.countIndent(1);
-const grand_parent_indent = grand_parent.text.countIndent(1);
-if (grand_parent_indent <= parent_indent) {
-self.offset.x = parent_indent - grand_parent_indent;
-} else self.offset.x = self.symbol;
-} else self.offset.x = self.symbol;
-} else self.goToRoot();
+pub fn goToSymbol       (self: *View, pos: usize) void {
+self.symbol = pos;
+if (self.symbol > prog.console.size.x - 2) {
+self.offset.x = prog.console.size.x - 2;
+} 
+else {self.offset.x = self.symbol;}
 }
 pub fn goToRoot         (self: *View) void {
 self.line = self.first;
 self.offset.y = 1;
+self.goToStartOfLine();
+}
+pub fn goToFirstLine    (self: *View) void {
+while (self.line.prev) |_| self.goToPrevLine();
 self.goToStartOfLine();
 }
 pub fn goToLastLine     (self: *View) void {
@@ -734,7 +720,7 @@ current.next = child;
 //}
 //} end insert into last and current.next
 } // end if current_line.child
-if (current.next) |next| {
+if (current.next)  |next| {
 current = next;
 continue;
 }
@@ -811,6 +797,32 @@ last_indent = indent;
 }
 line = line.next orelse break;
 }
+}
+pub fn goToIn           (self: *View) void {
+prog.need_redraw = true;
+const line_indent = self.line.text.countIndent(1);
+const child = self.line.child orelse return;
+const child_indent = child.text.countIndent(1);
+if (line_indent < child_indent) {self.offset.x = child_indent - line_indent;} 
+else self.offset.x = 1;
+self.symbol = child_indent;
+self.line = child;
+self.offset.y = 6;
+}
+pub fn goToOut          (self: *View) void {
+if (self.line.getParent()) |parent| {
+prog.need_redraw = true;
+self.symbol = parent.text.countIndent(1);
+self.line = parent;
+self.offset.y = 6;
+if (parent.getParent()) |grand_parent| {
+const parent_indent = parent.text.countIndent(1);
+const grand_parent_indent = grand_parent.text.countIndent(1);
+if (grand_parent_indent <= parent_indent) {
+self.offset.x = parent_indent - grand_parent_indent;
+} else self.offset.x = self.symbol;
+} else self.offset.x = self.symbol;
+} else self.goToRoot();
 }
 //}
 //{ clipboard
@@ -894,16 +906,12 @@ self.goToPrevLine();
 }
 }
 pub fn externalCopy   (self: *View) void {
-if (prog.buffer.cutted) |cutted| {
-self.need_redraw = false;
 var file = lib.File {};
 // { open file
-var file_path: [256*4]u8 = undefined;
-var file_name_len_c_int = lib.c.sprintf(&file_path, "%s/clipboard.tmp", lib.c.getenv("HOME"));
-var file_name_len = @intCast(usize, file_name_len_c_int);
-file.open(file_path[0..file_name_len], .ToWrite) catch return;
+file.open(prog.path_to_clipboard.get(), .ToWrite) catch return;
 defer file.close() catch unreachable;
 // }
+if (prog.buffer.cutted) |cutted| {
 // { working with lines
 var current: *Line = cutted;
 file.write(current.text.get());
@@ -932,14 +940,84 @@ current = next;
 }
 // }
 { // change status
+prog.need_redraw = false;
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
 lib.print(ansi.reset);
 lib.print(ansi.color.blue2);
-prog.console.print("saved to ~/clipboard.tmp");
+prog.console.print("cuted text saved to ~/clipboard.tmp");
 prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
 }
 }
+else {
+// { working with lines
+const first = self.line;
+file.write(first.text.get());
+if (first.child) |first_child| {
+var current: *Line = first_child;
+file.write("\n");
+file.write(current.text.get());
+copying: while (true) {
+if (current.child) |child| {
+file.write("\n");
+file.write(child.text.get());
+current = child;
+} 
+else if (current.next) |next| {
+file.write("\n");
+file.write(next.text.get());
+current = next;
+}
+else { // find parent with next
+var next: *Line = undefined;
+while (true) {
+current = current.getParent() orelse break :copying;
+if (current == first) break: copying;
+next = current.next orelse continue;
+break;
+}
+file.write("\n");
+file.write(next.text.get());
+current = next;
+}
+}
+}
+// }
+{ // change status
+prog.need_redraw = false;
+prog.console.cursorMove(.{ .x = 0, .y = 0 });
+lib.print(ansi.reset);
+lib.print(ansi.color.blue2);
+prog.console.print("this block saved to ~/clipboard.tmp");
+prog.console.fillSpacesToEndLine();
+lib.print(ansi.reset);
+}
+}
+}
+pub fn externalPaste  (self: *View) !void {
+const line = self.line;
+const file_data_allocated = lib.loadFile(prog.path_to_clipboard.get()) catch |loadFile_result| switch (loadFile_result) {
+error.FileNotExist => { // exit
+{ // change status
+prog.console.cursorMove(.{ .x = 0, .y = 0 });
+lib.print(ansi.reset);
+lib.print(ansi.color.red2);
+prog.console.print("file ~/clipboard.tmp not exist");
+prog.console.fillSpacesToEndLine();
+lib.print(ansi.reset);
+}
+return;
+},
+error.Unexpected   => return error.Unexpected,
+};
+self.addPrevLine();
+for (file_data_allocated) |rune| { // parse lines
+switch(rune) {
+10, 13 => {self.divide();},
+else   => {self.insertSymbol(rune);},
+}
+}
+self.line = line;
 }
 //}
 }; // end view
@@ -952,7 +1030,7 @@ pub fn draw(self: *Debug) void {
 _ = self;
 const debug_lines = 7;
 var buffer: [254]u8 = undefined;
-lib.print(ansi.color.magenta);
+lib.print(ansi.color.blue2);
 var print_offset: usize = prog.console.size.y - debug_lines;
 prog.console.cursorMove(.{ .x = 0, .y = print_offset });
 { // line
@@ -969,7 +1047,8 @@ const as_num: usize = (@ptrToInt(prev) - @ptrToInt(&prog.buffer.lines)) / @sizeO
 const sprintf_result = lib.c.sprintf(&buffer, "line.prev = %d", as_num);
 const buffer_count = @intCast(usize, sprintf_result);
 prog.console.print(buffer[0..buffer_count]);
-} else {
+} 
+else {
 prog.console.print("line.prev = null");
 }
 prog.console.fillSpacesToEndLine();
@@ -981,7 +1060,8 @@ const as_num: usize = (@ptrToInt(next) - @ptrToInt(&prog.buffer.lines)) / @sizeO
 const sprintf_result = lib.c.sprintf(&buffer, "line.next = %d", as_num);
 const buffer_count = @intCast(usize, sprintf_result);
 prog.console.print(buffer[0..buffer_count]);
-} else {
+} 
+else {
 prog.console.print("line.next = null");
 }
 prog.console.fillSpacesToEndLine();
@@ -1027,7 +1107,7 @@ prog.console.print(buffer[0..buffer_pos]);
 prog.console.fillSpacesToEndLine();
 }
 lib.print(ansi.reset);
-prog.console.fillSpacesToEndLine();
+//prog.console.fillSpacesToEndLine();
 }
 };
 const MainErrors       = error{
@@ -1037,12 +1117,14 @@ Unexpected,
 };
 // }
 // { fields
-pub var prog: Prog     = .{};
-working:  bool         = true,
-console:  Console      = .{},
-buffer:   Buffer       = .{},
-view:     View         = .{},
-debug:    Debug        = .{},
+pub var prog:      Prog         = .{};
+working:           bool         = true,
+console:           Console      = .{},
+buffer:            Buffer       = .{},
+view:              View         = .{},
+debug:             Debug        = .{},
+path_to_clipboard: Line.Text    = .{},
+need_redraw:       bool         = true,
 // }
 pub fn main        () MainErrors!void {
 const self = &prog;
@@ -1080,6 +1162,7 @@ self.console.deInit();
 lib.print(ansi.cyrsor_style.show);
 lib.print("\r\n");
 }
+self.updatePathToClipboard();
 self.mainLoop();
 self.console.cursorMoveToEnd();
 } // end fn main
@@ -1089,18 +1172,23 @@ while (true) {
 self.console.updateSize();
 self.updateKeys();
 if (self.working == false) return;
+if (self.need_redraw == true) {
+self.need_redraw = false;
+prog.console.clear();
 self.view.draw();
-std.time.sleep(std.time.ns_per_ms * 10);
 //prog.debug.draw();
+self.view.cursorMoveToCurrent();
+}
+std.time.sleep(std.time.ns_per_ms * 10);
 }
 }
 pub fn stop           (self: *Prog) void {
-self.view.need_redraw = false;
+self.need_redraw = false;
 self.working = false;
 }
 pub fn updateKeys     (self: *Prog) void {
 if (self.console.input.grab()) |first_key| {
-self.view.need_redraw = true;
+self.need_redraw = true;
 self.onKey(first_key);
 while (self.console.input.grab()) |key| {
 self.onKey(key);
@@ -1121,7 +1209,12 @@ switch (sequence) {
 .left       => self.view.goToPrevSymbol(),
 .right      => self.view.goToNextSymbol(),
 .f1         => self.view.changeMode(.normal),
-//else    => {},
+.alt_v      => self.view.externalPaste() catch {},
+.ctrl_up    => self.view.goToFirstLine(),
+.ctrl_down  => self.view.goToLastLine(),
+.alt_up     => self.view.swapWithUpper(),
+.alt_down   => self.view.swapWithBottom(),
+else        => {},
 }
 },
 .byte      => |byte| {
@@ -1143,13 +1236,10 @@ switch (key) {
 .ctrl_x     => self.view.cut(),
 .ctrl_c     => self.view.externalCopy(),
 .ctrl_v     => self.view.pasteLine(),
-.ctrl_j     => self.view.swapWithBottom(),
-.ctrl_k     => self.view.swapWithUpper(),
 .ctrl_bs    => self.view.clearLine(),
 .ctrl_t     => self.view.insertSymbol('\t'),
 .escape     => self.view.goToOut(),
 .tab        => self.view.goToIn(),
-.ctrl_l     => self.view.goToLastLine(),
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte);
@@ -1232,5 +1322,10 @@ else        => {},
 }
 },
 }
+}
+pub fn updatePathToClipboard  (self: *Prog) void {
+var len_c_int = lib.c.sprintf(&self.path_to_clipboard.buffer, "%s/clipboard.tmp", lib.c.getenv("HOME"));
+var len = @intCast(usize, len_c_int);
+self.path_to_clipboard.used = len;
 }
 // }

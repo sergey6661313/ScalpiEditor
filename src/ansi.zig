@@ -303,11 +303,26 @@ down,
 end,
 home,
 f1,
+alt_v,
+ctrl_left,
+ctrl_right,
+ctrl_up,
+ctrl_down,
+alt_left,
+alt_right,
+alt_up,
+alt_down,
 // }
 pub const Parser = struct {
 sequence: Sequence = null,
 used:     usize     = 0,
 pub fn fromDo(buffer: []u8) ?Parser {
+if (buffer.len >= 2) {
+if (lib.cmp(buffer[0..2], "\x1B\x76") == .equal) { // alt_v
+const parser: Parser = .{.sequence = .alt_v, .used = 2};
+return parser;
+}
+}
 if (buffer.len >= 3) {
 if (lib.cmp(buffer[0..3], "\x1B\x5B\x44") == .equal) { // left
 const parser: Parser = .{.sequence = .left, .used = 3};
@@ -341,6 +356,40 @@ return parser;
 if (buffer.len >= 4) {
 if (lib.cmp(buffer[0..4], "\x1B\x5B\x33\x7E") == .equal) { //del
 const parser: Parser = .{.sequence = .delete, .used = 4};
+return parser;
+}
+}
+if (buffer.len >= 6) {
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x44") == .equal) { // ctrl_left
+const parser: Parser = .{.sequence = .ctrl_left, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x43") == .equal) { // ctrl_right
+const parser: Parser = .{.sequence = .ctrl_right, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x41") == .equal) { // ctrl_up
+const parser: Parser = .{.sequence = .ctrl_up, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x42") == .equal) { // ctrl_down
+const parser: Parser = .{.sequence = .ctrl_down, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x44") == .equal) { // alt_left
+const parser: Parser = .{.sequence = .alt_left, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x43") == .equal) { // alt_right
+const parser: Parser = .{.sequence = .alt_right, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x41") == .equal) { // alt_up
+const parser: Parser = .{.sequence = .alt_up, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x42") == .equal) { // alt_down
+const parser: Parser = .{.sequence = .alt_down, .used = 6};
 return parser;
 }
 }
