@@ -31,54 +31,6 @@ pub const Coor2u      = struct {
         return false;
     }
 };
-pub const File        = struct {
-    //{ defines
-        const Method = enum {
-            ToRead,
-            ToWrite
-        };
-        const Errors = error {
-            FileNotExist,
-            Unexpected,
-        };
-    //}
-    //{ fields
-        handle: *c.struct__IO_FILE = undefined,
-    //}
-    //{ methods
-        pub fn open    (self: *File, name: []const u8, method: Method) Errors!void {
-            // DODO use zig api for file, but ONLY after zig release
-            switch (method) {
-                .ToRead  => {
-                    self.handle = c.fopen(name.ptr, "rb") orelse return error.FileNotExist;
-                },
-                .ToWrite => {
-                    self.handle = c.fopen(name.ptr, "wb") orelse return error.Unexpected;
-                },
-            }
-        }
-        pub fn close   (self: *File) !void {
-            var fcloseResult = c.fclose(self.handle);
-            if (fcloseResult != 0) return error.Unexpected;
-        }
-        pub fn getSize (self: *File) !usize {
-            _ = c.fseek(self.handle, 0, c.SEEK_END);
-            const size      = c.ftell(self.handle);
-            const err_value = std.math.maxInt(u32);
-            if (size == err_value) return error.Unexpected;
-            return @intCast(usize, size);
-        }
-        pub fn loadTo  (self: *File, buffer: []u8) !void {
-            _ = c.fseek(self.handle, 0, c.SEEK_SET);
-            const freadResult = c.fread(buffer.ptr, 1, buffer.len, self.handle);
-            if (freadResult != buffer.len) return error.Unexpected;
-        }
-        pub fn write   (self: *File, data: []const u8) void {
-            _ = c.fwrite(data.ptr, 1, data.len, self.handle);
-        }
-    //}
-
-};
 pub const CmpResult   = enum { 
 equal, 
 various,
@@ -105,12 +57,6 @@ pub fn cmp                  (a: []const u8, b: []const u8) CmpResult {
         if (pos == last) return .equal;
         pos += 1;
     }
-}
-pub fn findSymbol           (text: []const u8, symbol: u8) ?usize {
-    for(text) |rune, id| {
-        if (rune == symbol) return id;
-    }
-    return null;
 }
 pub fn countSymbol          (text: []const u8, symbol: u8) usize {
     var count: usize = 0;
@@ -145,27 +91,18 @@ pub fn u64FromCharsDec      (data: []const u8) error{NotNumber, Unexpected,}!u64
         pos -= 1;
     }
 }
-pub fn loadFile             (name: []const u8) File.Errors![]u8 {
-    var file: File = .{};
-    try file.open(name, .ToRead);
-    defer file.close() catch unreachable; // this is NOT unreachable, but zig not supports error in defer 0_o
-    const size   = try file.getSize();
-    const buffer = try alloc(size);
-    try file.loadTo(buffer);
-    return buffer;
-}
-pub fn alloc                (size: usize) ![]u8 {
-    // DODO rewrite this to zig allocator, but ONLY after zig release
-    const memory_ptr = c.malloc(size) orelse return error.Unexpected;
-    const buffer = @ptrCast([*]u8, memory_ptr)[0..size]; //? how to normal syntax to create slice?
-    return buffer;
-}
 pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var argIterator_packed = std.process.ArgIterator.init();
     var argIterator        = &argIterator_packed.inner;
     _ = argIterator.skip(); // skip name of programm
     var arg = argIterator.next() orelse return error.Unexpected;
     return arg;
+}
+pub fn findSymbol           (text: []const u8, symbol: u8) ?usize {
+    for(text) |rune, id| {
+        if (rune == symbol) return id;
+    }
+    return null;
 }
 pub fn findRune             (_rune: u8, text: []u8, _pos: usize) ?usize {
   var pos = _pos;

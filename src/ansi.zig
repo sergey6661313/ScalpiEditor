@@ -304,6 +304,8 @@ end,
 home,
 f1,
 alt_v,
+alt_m,
+alt_M,
 ctrl_left,
 ctrl_right,
 ctrl_up,
@@ -320,6 +322,14 @@ pub fn fromDo(buffer: []u8) ?Parser {
 if (buffer.len >= 2) {
 if (lib.cmp(buffer[0..2], "\x1B\x76") == .equal) { // alt_v
 const parser: Parser = .{.sequence = .alt_v, .used = 2};
+return parser;
+}
+if (lib.cmp(buffer[0..2], "\x1B\x6D") == .equal) { // alt_m
+const parser: Parser = .{.sequence = .alt_m, .used = 2};
+return parser;
+}
+if (lib.cmp(buffer[0..2], "\x1B\x4D") == .equal) { // alt_M
+const parser: Parser = .{.sequence = .alt_M, .used = 2};
 return parser;
 }
 }

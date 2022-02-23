@@ -1,5 +1,5 @@
-one line mode
-work with external buffer
 selections
-edit two or more files
+one line mode
 use words instead of lines
+UTF-8
+edit two or more files sometimes

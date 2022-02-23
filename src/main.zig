@@ -6,6 +6,8 @@ pub const lib          = @import("lib.zig");
 pub const ParsePath    = @import("ParsePath.zig");
 pub const Line         = @import("Line.zig");
 pub const Console      = @import("Console.zig");
+pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
+pub const File         = @import("File/src/File.zig");
 // }
 // { defines
 pub const Buffer       = struct {
@@ -15,6 +17,7 @@ free:          ?*Line     = null,
 cutted:        ?*Line     = null,
 find_text:     ?*Line     = null,
 to_goto:       ?*Line     = null,
+to_find:       ?*Line     = null,
 line_for_goto: usize      = 0,
 pub fn init         (self: *Buffer) !void {
 //{ tie all lines to "free" chain
@@ -128,7 +131,9 @@ symbol:      usize       = 0,
 offset:      lib.Coor2u  = .{ .y = 1 },
 focus:       bool        = false,
 last_line:   ?*Line      = null,
-pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
+selected:    usize       = 0,
+marked_line: ?*Line      = null,
+pub fn init                 (self: *View, file_name: [:0]const u8, text: []const u8) !void {
 self.* = .{};
 self.setFileName(file_name);
 self.first = try prog.buffer.create();
@@ -165,7 +170,7 @@ if (start_line >= text.len) break;
 }
 self.line = self.first;
 } // end fn loadLines
-pub fn save                 (self: *View) void {
+pub fn save                 (self: *View) !void {
 prog.need_redraw = false;
 { // change status
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
@@ -175,15 +180,15 @@ prog.console.print("saving...");
 prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
 }
-var file = lib.File{};
-file.open(self.file_name[0..], .ToWrite) catch unreachable;
+const file_name = @ptrCast([*:0]const u8,  &self.file_name);
+var file = File.fromOpen(file_name, .toWrite) catch unreachable;
 defer file.close() catch unreachable;
 //{ write
 var line: *Line = self.first;
 var count: usize = 0;
 writing: while (true) {
 const text = line.text.get();
-file.write(text);
+try file.write(text);
 count += 1;
 { // change status
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
@@ -196,18 +201,18 @@ prog.console.fillSpacesToEndLine();
 prog.console.cursorMoveToEnd();
 }
 if (line.child) |child| {
-file.write("\n");
+try file.write("\n");
 line = child;
 } 
 else if (line.next) |next| {
-file.write("\n");
+try file.write("\n");
 line = next;
 } 
 else { // get parent with next
 while (true) {
 line = line.getParent() orelse break :writing;
 line = line.next orelse continue;
-file.write("\n");
+try file.write("\n");
 break;
 } // end while
 } // end else
@@ -224,9 +229,8 @@ prog.console.fillSpacesToEndLine();
 prog.console.cursorMoveToEnd();
 }
 }
-pub fn setFileName          (self: *View, name: []const u8) void {
+pub fn setFileName          (self: *View, name: [:0]const u8) void {
 std.mem.copy(u8, self.file_name[0..], name);
-self.file_name[name.len] = 0;
 }
 pub fn changeMode           (self: *View, mode: Mode) void {
 switch (mode) {
@@ -258,7 +262,17 @@ self.mode = mode;
 pub fn cursorMoveToCurrent  (self: *View) void {
 prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
 }
-//{ edit
+// { mark
+pub fn markThisLine         (self: *View) void {
+self.marked_line = self.line;
+}
+pub fn goToMarked           (self: *View) void {
+if (self.marked_line) |mark| {
+self.line = mark;
+}
+}
+// }
+// { edit
 pub fn insertSymbol      (self: *View, rune: u8) void {
 self.line.text.insert(self.symbol, rune) catch return;
 self.goToNextSymbol();
@@ -378,19 +392,20 @@ const text = self.line.text.get();
 const indent = self.line.text.countIndent(1);
 var new_indent: usize = 0;
 if (self.line.getParent()) |parent| new_indent = parent.text.countIndent(1);
-if (new_indent == indent) {
-return;
-} else if (new_indent > indent) {
-std.mem.copyBackwards(u8, text[new_indent..], text[indent..]);
+var buffer = self.line.text.buffer[0..];
+if (new_indent == indent) {return;} 
+else if (new_indent > indent) {
+std.mem.copyBackwards(u8, buffer[new_indent..], buffer[indent..]);
 self.line.text.used = text.len + (indent - new_indent);
-for (text[0..new_indent]) |*rune| rune.* = ' ';
-} else { // new_indent < indent
-std.mem.copy(u8, text[new_indent..], text[indent..]);
+for (buffer[0..new_indent]) |*rune| rune.* = ' ';
+} 
+else { // new_indent < indent
+std.mem.copy(u8, buffer[new_indent..], buffer[indent..]);
 self.line.text.used = text.len - (indent - new_indent);
 }
 }
 //}
-//{ draw
+// { draw
 pub fn draw             (self: *View) void {
 if (self.symbol < self.offset.x) { // unexpected
 self.offset.x = 0;
@@ -572,11 +587,11 @@ prog.console.printRune('>');
 prog.console.printRune(' ');
 }
 }
-pub fn drawSymbol       (text: []u8, pos: usize) void {
+pub fn drawSymbol       (text: []const u8, pos: usize) void {
 if (pos >= text.len) prog.console.printRune(' ') else prog.console.printRune(text[pos]);
 }
 //}
-//{ navigation
+// { navigation
 pub fn goToPrevLine     (self: *View) void {
 if (self.line.prev) |prev| {
 self.line = prev;
@@ -695,8 +710,44 @@ self.changeMode(.edit);
 self.offset.y = 6;
 self.symbol = self.line.text.countIndent(1);
 }
+pub fn findNext         (self: *View) void {
+const text = self.line.text.get();
+var line   = self.line;
+if (line.text.find(text, self.symbol)) |pos|   { // goto pos and return
+self.line = line;
+self.goToSymbol(pos);
+return;
+}
+else { // iterate and find
+while(true) {
+// iterate
+if (line.child) |child| { // goto child
+line = child;
+} 
+else if (line.next)  |next|  { // goto next
+line = next;
+}
+else { // find parent with next
+var next: *Line = undefined;
+while (true) {
+line = line.getParent() orelse return;
+next = line.next        orelse continue;
+break;
+}
+line = next;
+}
+// find
+if (line.text.find(text, 0)) |pos| { // goto pos and return
+self.line = line;
+self.goToSymbol(pos);
+return;
+}
+}
+}
+self.changeMode(.edit);
+}
 //}
-//{ folding
+// { folding
 pub fn unFold            (self: *View) void {
 var current = self.first;
 while (true) {
@@ -825,7 +876,7 @@ self.offset.x = parent_indent - grand_parent_indent;
 } else self.goToRoot();
 }
 //}
-//{ clipboard
+// { clipboard
 pub fn duplicate      (self: *View) void {
 const first      = self.line; 
 const copy_first = prog.buffer.create() catch return;
@@ -905,25 +956,22 @@ self.offset.y += 1;
 self.goToPrevLine();
 }
 }
-pub fn externalCopy   (self: *View) void {
-var file = lib.File {};
-// { open file
-file.open(prog.path_to_clipboard.get(), .ToWrite) catch return;
+pub fn externalCopy   (self: *View) !void {
+var file = File.fromOpen(prog.path_to_clipboard.getSantieled(), .toWrite) catch return;
 defer file.close() catch unreachable;
-// }
 if (prog.buffer.cutted) |cutted| {
 // { working with lines
 var current: *Line = cutted;
-file.write(current.text.get());
+try file.write(current.text.get());
 copying: while (true) {
 if (current.child) |child| {
-file.write("\n");
-file.write(child.text.get());
+try file.write("\n");
+try file.write(child.text.get());
 current = child;
 } 
 else if (current.next) |next| {
-file.write("\n");
-file.write(next.text.get());
+try file.write("\n");
+try file.write(next.text.get());
 current = next;
 }
 else { // find parent with next
@@ -933,8 +981,8 @@ current     = current.getParent()      orelse break :copying;
 next        = current.next orelse continue;
 break;
 }
-file.write("\n");
-file.write(next.text.get());
+try file.write("\n");
+try file.write(next.text.get());
 current = next;
 }
 }
@@ -952,20 +1000,20 @@ lib.print(ansi.reset);
 else {
 // { working with lines
 const first = self.line;
-file.write(first.text.get());
+try file.write(first.text.get());
 if (first.child) |first_child| {
 var current: *Line = first_child;
-file.write("\n");
-file.write(current.text.get());
+try file.write("\n");
+try file.write(current.text.get());
 copying: while (true) {
 if (current.child) |child| {
-file.write("\n");
-file.write(child.text.get());
+try file.write("\n");
+try file.write(child.text.get());
 current = child;
 } 
 else if (current.next) |next| {
-file.write("\n");
-file.write(next.text.get());
+try file.write("\n");
+try file.write(next.text.get());
 current = next;
 }
 else { // find parent with next
@@ -976,8 +1024,8 @@ if (current == first) break: copying;
 next = current.next orelse continue;
 break;
 }
-file.write("\n");
-file.write(next.text.get());
+try file.write("\n");
+try file.write(next.text.get());
 current = next;
 }
 }
@@ -996,22 +1044,20 @@ lib.print(ansi.reset);
 }
 pub fn externalPaste  (self: *View) !void {
 const line = self.line;
-const file_data_allocated = lib.loadFile(prog.path_to_clipboard.get()) catch |loadFile_result| switch (loadFile_result) {
-error.FileNotExist => { // exit
+const file_data_allocated = AllocatedFileData.fromName(prog.path_to_clipboard.getSantieled()) catch {
 { // change status
 prog.console.cursorMove(.{ .x = 0, .y = 0 });
 lib.print(ansi.reset);
 lib.print(ansi.color.red2);
-prog.console.print("file ~/clipboard.tmp not exist");
+prog.console.print("file ~/clipboard.tmp not reedable.");
 prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
 }
 return;
-},
-error.Unexpected   => return error.Unexpected,
 };
 self.addPrevLine();
-for (file_data_allocated) |rune| { // parse lines
+const slice = file_data_allocated.slice orelse unreachable;
+for (slice) |rune| { // parse lines
 switch(rune) {
 10, 13 => {self.divide();},
 else   => {self.insertSymbol(rune);},
@@ -1130,18 +1176,31 @@ pub fn main        () MainErrors!void {
 const self = &prog;
 self.buffer.init() catch return error.BufferNotInit;
 switch (std.os.argv.len) { // work with arguments
-1 => { // show usage text
+1    => { // show usage text
 const path = "ScalpiEditor_usage.txt";
 const text = @embedFile("ScalpiEditor_usage.txt");
 self.view.init(path, text) catch return error.ViewNotInit;
 },
 else => { // load file
-var argument = try lib.getTextFromArgument();
-const parsed_path = try ParsePath.init(argument);
-const file_data_allocated = lib.loadFile(parsed_path.file_name) catch |loadFile_result| switch (loadFile_result) {
-error.FileNotExist => { // exit
-lib.print( // print "File not exist"
-\\  File not exist.
+var   argument            = try lib.getTextFromArgument();
+const parsed_path         = ParsePath.fromText(argument) catch {
+lib.print(
+\\  file name not parsed. 
+\\
+\\  Scalpi editor does not open multiple files in one time.
+\\  you can use [Ctrl] + [F2] to change tty.
+\\  or use tmux, byobu, GNU_Screen, dtach, abduco, mtm, or eny you want terminal multiplexor...
+\\  or if you use X or wayland just open multiple terminals and use it...
+\\
+\\
+);
+return;
+};
+var   file_name           = parsed_path.file_name orelse unreachable;
+const file_name_santieled = file_name.getSantieled();
+var   file_data_allocated = AllocatedFileData.fromName(file_name_santieled) catch {
+lib.print( 
+\\  File not exist or file blocked by system.
 \\  ScalpiEditor does not create files itself.
 \\  You can create file with "touch" command:
 \\     touch file_name
@@ -1149,11 +1208,10 @@ lib.print( // print "File not exist"
 \\
 );
 return;
-},
-error.Unexpected => return error.Unexpected,
 };
-defer lib.c.free(file_data_allocated.ptr);
-self.view.init(parsed_path.file_name, file_data_allocated) catch return error.ViewNotInit;
+defer file_data_allocated.deInit() catch unreachable;
+const text                = file_data_allocated.slice orelse unreachable; 
+self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
 }, // end load file
 } // end switch
 self.console.init();
@@ -1210,6 +1268,10 @@ switch (sequence) {
 .right      => self.view.goToNextSymbol(),
 .f1         => self.view.changeMode(.normal),
 .alt_v      => self.view.externalPaste() catch {},
+.alt_m      => self.view.markThisLine(),
+.alt_M      => self.view.goToMarked(),
+.ctrl_left  => self.view.goToStartOfLine(),
+.ctrl_right => self.view.goToEndOfLine(),
 .ctrl_up    => self.view.goToFirstLine(),
 .ctrl_down  => self.view.goToLastLine(),
 .alt_up     => self.view.swapWithUpper(),
@@ -1223,8 +1285,9 @@ self.view.insertSymbol(byte);
 .ascii_key => |key|  {
 switch (key) {
 .ctrl_q     => self.stop(),
-.ctrl_s     => self.view.save(),
+.ctrl_s     => self.view.save() catch {},
 .ctrl_g     => self.view.changeMode(.to_line),
+.ctrl_f     => self.view.changeMode(.to_find),
 .ctrl_u     => self.view.unFold(),
 .ctrl_y     => self.view.foldFromIndent(4),
 .ctrl_r     => self.view.foldFromIndent(1),
@@ -1234,7 +1297,7 @@ switch (key) {
 .ctrl_p     => self.view.deleteIndent(),
 .ctrl_d     => self.view.duplicate(),
 .ctrl_x     => self.view.cut(),
-.ctrl_c     => self.view.externalCopy(),
+.ctrl_c     => self.view.externalCopy() catch {},
 .ctrl_v     => self.view.pasteLine(),
 .ctrl_bs    => self.view.clearLine(),
 .ctrl_t     => self.view.insertSymbol('\t'),
@@ -1248,13 +1311,42 @@ self.view.insertSymbol(byte);
 },
 }
 },
-.to_find => {},
+.to_find => {
+switch (cik) {
+.sequence  => |sequence| {
+switch (sequence) {
+.ctrl_left  => self.view.goToStartOfLine(),
+.ctrl_right => self.view.goToEndOfLine(),
+.delete     => self.view.deleteSymbol(),
+else        => {},
+}
+},
+.byte      => |byte| {
+self.view.insertSymbol(byte);
+},
+.ascii_key => |key|  {
+switch (key) {
+.escape     => self.view.changeMode(.edit),
+.ctrl_q     => self.stop(),
+.back_space => self.view.deletePrevSymbol(),
+.enter      => self.view.findNext(),
+.ctrl_bs    => self.view.clearLine(),
+else        => {
+var byte = @enumToInt(key);
+self.view.insertSymbol(byte);
+},
+}
+},
+}
+},
 .to_line => {
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
-.delete => self.view.deleteSymbol(),
-else    => {},
+.ctrl_left  => self.view.goToStartOfLine(),
+.ctrl_right => self.view.goToEndOfLine(),
+.delete     => self.view.deleteSymbol(),
+else        => {},
 }
 },
 .byte      => |byte| {
@@ -1266,7 +1358,7 @@ switch (key) {
 .ctrl_q     => self.stop(),
 .back_space => self.view.deletePrevSymbol(),
 .enter      => self.view.goToLine(),
-.ctrl_d     => self.view.line.text.used = 0,
+.ctrl_bs    => self.view.clearLine(),
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte);
@@ -1295,7 +1387,7 @@ else        => {},
 .ascii_key => |key|  {
 switch (key) {
 .code_q     => self.stop(),
-.code_s     => self.view.save(),
+.code_s     => self.view.save() catch {},
 .code_i     => self.view.changeMode(.edit),
 .code_g     => self.view.changeMode(.to_line),
 .code_u     => self.view.unFold(),
@@ -1307,7 +1399,7 @@ switch (key) {
 .code_p     => self.view.deleteIndent(),
 .code_d     => self.view.duplicate(),
 .code_x     => self.view.cut(),
-.code_c     => self.view.externalCopy(),
+.code_c     => self.view.externalCopy() catch {},
 .code_v     => self.view.pasteLine(),
 .code_j     => self.view.swapWithBottom(),
 .code_k     => self.view.swapWithUpper(),

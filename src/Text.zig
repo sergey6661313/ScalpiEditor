@@ -2,9 +2,26 @@ const TextLine = @This();
 const std      = @import("std");
 const Prog     = @import("root");
 const prog     = &Prog.prog;
-pub const size      = 254;
-buffer:   [size]u8  = undefined,
-used:     usize     = 0,
+const lib      = @import("lib.zig");
+pub const  size      = 254;
+buffer:    [size]u8  = undefined,
+used:      usize     = 0,
+pub fn fromText            (text: []const u8) !TextLine {
+var self: TextLine = .{};
+try self.set(text);
+return self;
+}
+pub fn add                 (self: *TextLine, rune: u8) !void {
+if (self.used >= size) unreachable;
+if (self.used == size - 1) return error.LineIsFull;
+self.buffer[self.used] = rune;
+self.used += 1;
+}
+pub fn set                 (self: *TextLine, text: []const u8) !void {
+if (text.len > size) return error.TextIsToLong;
+std.mem.copy(u8, self.buffer[0..], text);
+self.used = text.len;
+}
 pub fn insert              (self: *TextLine, pos: usize, rune: u8) !void {
 if (self.used > size) unreachable;
 if (pos       > size) unreachable;
@@ -30,23 +47,22 @@ std.mem.copy(u8, dest, from);
 }
 self.used -= 1;
 } // end fn
-pub fn get                 (self: *TextLine) []u8 {
+pub fn getSantieled        (self: *TextLine) [:0]const u8 {
+self.buffer[self.used] = 0;
+return self.buffer[0 .. self.used :0];
+}
+pub fn get                 (self: *const TextLine) []const   u8 {
     return self.buffer[0 .. self.used];
 }
-pub fn set                 (self: *TextLine, text: []const u8) !void {
-if (text.len > size) return error.TextIsToLong;
-std.mem.copy(u8, self.buffer[0..], text);
-self.used = text.len;
-}
-pub fn getRunesCount       (self: *TextLine, rune: u8) usize { // used for folding on brackets
+pub fn getRunesCount       (self: *const TextLine, rune: u8) usize { // used for folding on brackets
   var count: usize = 0;
-  var text:  []u8  = self.get();
+  var text:  []const u8 = self.get();
   for (text) |r| {
     if (r == rune) count += 1; 
   }
   return count;
 }
-pub fn countIndent         (self: *TextLine, tabsize: usize) usize {
+pub fn countIndent         (self: *const TextLine, tabsize: usize) usize {
 var count: usize = 0;
 var text = self.get();
 for (text) |r| {
@@ -58,7 +74,7 @@ else => break,
 }
 return count;
 }
-pub fn countNonIndent      (self: *TextLine) usize {
+pub fn countNonIndent      (self: *const TextLine) usize {
 var count: usize = 0;
 var text = self.get();
 for (text) |r| {
@@ -68,4 +84,16 @@ else => count += 1,
 }
 }
 return count;
+}
+pub fn find                (self: *const TextLine, text: []const u8, start_pos: usize) ?usize { // pos  
+const self_text = self.get();
+if (self.used < text.len)  return null;
+if (self.used < start_pos) return null;
+var pos: usize = start_pos;
+while (true) {
+if (self.used - pos < text.len) return null;
+if (lib.cmp(self_text, text) == .equal) return pos;
+pos += 1;
+if (pos >= self.used) return null;
+}
 }
