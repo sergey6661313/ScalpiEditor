@@ -276,10 +276,12 @@ self.line = mark;
 pub fn insertSymbol      (self: *View, rune: u8) void {
 self.line.text.insert(self.symbol, rune) catch return;
 self.goToNextSymbol();
+prog.need_redraw  = true;
 } // end fn
 pub fn deleteSymbol      (self: *View) void {
 if (self.line.text.used == 0) return;
 self.line.text.delete(self.symbol) catch return;
+prog.need_redraw  = true;
 }
 pub fn deletePrevSymbol  (self: *View) void {
 if (self.symbol == 0) {
@@ -307,10 +309,12 @@ return;
 if (self.line.text.used == 0) return;
 self.goToPrevSymbol();
 self.deleteSymbol();
+prog.need_redraw  = true;
 }
 pub fn clearLine         (self: *View) void {
 self.line.text.used = 0;
 self.goToStartOfLine();
+prog.need_redraw  = true;
 }
 pub fn addPrevLine       (self: *View) void {
 const new_line = prog.buffer.create() catch return;
@@ -318,12 +322,14 @@ self.line.pushPrev(new_line);
 if (self.first == self.line) self.first = new_line;
 self.goToPrevLine();
 self.goToStartOfLine();
+prog.need_redraw  = true;
 }
 pub fn addNextLine       (self: *View) void {
 const new_line = prog.buffer.create() catch return;
 self.line.pushNext(new_line);
 self.goToNextLine();
 self.goToStartOfLine();
+prog.need_redraw  = true;
 }
 pub fn divide            (self: *View) void {
 if (self.symbol == 0) {
@@ -354,6 +360,7 @@ self.line.text.set(parent.text.get()[pos..]) catch unreachable;
 parent.text.used = pos;
 self.goToStartOfLine();
 }
+prog.need_redraw  = true;
 }
 pub fn swapWithBottom    (self: *View) void {
 if (self.line.next) |_| {
@@ -361,6 +368,7 @@ self.cut();
 self.goToNextLine();
 self.pasteLine();
 }
+prog.need_redraw  = true;
 }
 pub fn swapWithUpper     (self: *View) void {
 if (self.line.prev) |_| {
@@ -369,6 +377,7 @@ self.goToPrevLine();
 self.pasteLine();
 if (self.offset.y > 1) self.offset.y += 1;
 }
+prog.need_redraw  = true;
 }
 pub fn deleteLine        (self: *View) void {
 var next_selected_line: *Line = undefined;
@@ -386,6 +395,7 @@ self.clearLine();
 if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.delete(self.line);
 self.line = next_selected_line;
+prog.need_redraw  = true;
 }
 pub fn deleteIndent      (self: *View) void {
 const text = self.line.text.get();
@@ -403,6 +413,7 @@ else { // new_indent < indent
 std.mem.copy(u8, buffer[new_indent..], buffer[indent..]);
 self.line.text.used = text.len - (indent - new_indent);
 }
+prog.need_redraw  = true;
 }
 //}
 // { draw
@@ -410,8 +421,6 @@ pub fn draw             (self: *View) void {
 if (self.symbol < self.offset.x) { // unexpected
 self.offset.x = 0;
 self.symbol = 0;
-prog.need_redraw = true;
-return;
 }
 lib.print(ansi.reset);
 if (self.line.child) |_| self.drawEditedFoldedLine(self.offset.y) else self.drawEditedLine(self.offset.y);
@@ -593,12 +602,8 @@ if (pos >= text.len) prog.console.printRune(' ') else prog.console.printRune(tex
 //}
 // { navigation
 pub fn goToPrevLine     (self: *View) void {
-if (self.line.prev) |prev| {
-self.line = prev;
-} else {
-return;
-}
-
+if (self.line.prev) |prev| {self.line = prev;} 
+else {return;}
 // correct offset_y:
 if (self.offset.y > 1) self.offset.y -= 1;
 var count_to_upperest_line: usize = 0;
@@ -607,11 +612,14 @@ while (count_to_upperest_line < 5) {
 if (line.prev) |prev| {
 count_to_upperest_line += 1;
 line = prev;
-} else {
-break;
+} 
+else {break;}
 }
+if (self.offset.y < count_to_upperest_line + 1) {
+self.offset.y = count_to_upperest_line + 1;
+prog.need_clear  = true;
 }
-if (self.offset.y < count_to_upperest_line + 1) self.offset.y = count_to_upperest_line + 1;
+prog.need_redraw = true;
 } // end fn
 pub fn goToNextLine     (self: *View) void {
 if (self.line.next) |next| {
@@ -627,11 +635,14 @@ while (count_to_downest_line < 5) {
 if (line.next) |next| {
 count_to_downest_line += 1;
 line = next;
-} else {
-break;
+} 
+else {break;}
 }
+if (prog.console.size.y - self.offset.y < count_to_downest_line) {
+self.offset.y = prog.console.size.y - count_to_downest_line;
+prog.need_clear  = true;
 }
-if (prog.console.size.y - self.offset.y < count_to_downest_line) self.offset.y = prog.console.size.y - count_to_downest_line;
+prog.need_redraw = true;
 } // end fn
 pub fn goToPrevSymbol   (self: *View) void {
 const used = self.line.text.used;
@@ -653,6 +664,7 @@ if (self.offset.x > 10) self.offset.x -= 1;
 } else {
 if (self.offset.x > 0) self.offset.x -= 1;
 }
+prog.need_redraw  = true;
 }
 pub fn goToNextSymbol   (self: *View) void {
 const used = self.line.text.used;
@@ -669,6 +681,7 @@ if (self.offset.x < prog.console.size.x - 12) self.offset.x += 1;
 } else {
 if (self.offset.x < prog.console.size.x - 2) self.offset.x += 1;
 }
+prog.need_redraw  = true;
 }
 pub fn goToStartOfLine  (self: *View) void {
 self.symbol = 0;
@@ -693,14 +706,20 @@ pub fn goToRoot         (self: *View) void {
 self.line = self.first;
 self.offset.y = 1;
 self.goToStartOfLine();
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 pub fn goToFirstLine    (self: *View) void {
 while (self.line.prev) |_| self.goToPrevLine();
 self.goToStartOfLine();
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 pub fn goToLastLine     (self: *View) void {
 while (self.line.next) |_| self.goToNextLine();
 self.goToEndOfLine();
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 pub fn goToLine         (self: *View) void {
 var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
@@ -709,6 +728,8 @@ self.last_line = &prog.buffer.lines[num];
 self.changeMode(.edit);
 self.offset.y = 6;
 self.symbol = self.line.text.countIndent(1);
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 pub fn findNext         (self: *View) void {
 const text = self.line.text.get();
@@ -745,6 +766,8 @@ return;
 }
 }
 self.changeMode(.edit);
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 //}
 // { folding
@@ -777,6 +800,8 @@ continue;
 }
 break;
 } // end while
+prog.need_redraw = true;
+prog.need_clear  = true;
 } // end fn
 pub fn foldFromBrackets  (self: *View) void {
 self.unFold();
@@ -808,6 +833,8 @@ continue;
 }
 }
 }
+prog.need_redraw = true;
+prog.need_clear  = true;
 }
 pub fn foldFromIndent    (self: *View, tabsize: usize) void {
 self.unFold();
@@ -848,9 +875,10 @@ last_indent = indent;
 }
 line = line.next orelse break;
 }
+prog.need_redraw = true;
+prog.need_clear  = true;
 }
 pub fn goToIn           (self: *View) void {
-prog.need_redraw = true;
 const line_indent = self.line.text.countIndent(1);
 const child = self.line.child orelse return;
 const child_indent = child.text.countIndent(1);
@@ -859,10 +887,11 @@ else self.offset.x = 1;
 self.symbol = child_indent;
 self.line = child;
 self.offset.y = 6;
+prog.need_redraw = true;
+prog.need_clear  = true;
 }
 pub fn goToOut          (self: *View) void {
 if (self.line.getParent()) |parent| {
-prog.need_redraw = true;
 self.symbol = parent.text.countIndent(1);
 self.line = parent;
 self.offset.y = 6;
@@ -871,9 +900,14 @@ const parent_indent = parent.text.countIndent(1);
 const grand_parent_indent = grand_parent.text.countIndent(1);
 if (grand_parent_indent <= parent_indent) {
 self.offset.x = parent_indent - grand_parent_indent;
-} else self.offset.x = self.symbol;
-} else self.offset.x = self.symbol;
-} else self.goToRoot();
+} 
+else self.offset.x = self.symbol;
+} 
+else self.offset.x = self.symbol;
+} 
+else self.goToRoot();
+prog.need_redraw = true;
+prog.need_clear  = true;
 }
 //}
 // { clipboard
@@ -924,6 +958,7 @@ copy_current      = copy_next;
 }
 }
 self.line = copy_first;
+prog.need_redraw = true;
 }
 pub fn cut            (self: *View) void {
 if (self.line.parent) |parent| {
@@ -945,6 +980,8 @@ return;
 if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.cut(self.line);
 self.line = next_selected_line;
+prog.need_clear  = true;
+prog.need_redraw = true;
 }
 pub fn pasteLine      (self: *View) void {
 if (prog.buffer.cutted) |cutted| {
@@ -955,6 +992,7 @@ if (self.first == self.line) self.first = cutted;
 self.offset.y += 1;
 self.goToPrevLine();
 }
+prog.need_redraw = true;
 }
 pub fn externalCopy   (self: *View) !void {
 var file = File.fromOpen(prog.path_to_clipboard.getSantieled(), .toWrite) catch return;
@@ -1041,6 +1079,7 @@ prog.console.fillSpacesToEndLine();
 lib.print(ansi.reset);
 }
 }
+prog.need_redraw = true;
 }
 pub fn externalPaste  (self: *View) !void {
 const line = self.line;
@@ -1064,6 +1103,7 @@ else   => {self.insertSymbol(rune);},
 }
 }
 self.line = line;
+prog.need_redraw = true;
 }
 //}
 }; // end view
@@ -1170,6 +1210,7 @@ buffer:            Buffer       = .{},
 view:              View         = .{},
 debug:             Debug        = .{},
 path_to_clipboard: Line.Text    = .{},
+need_clear:        bool         = true,
 need_redraw:       bool         = true,
 // }
 pub fn main        () MainErrors!void {
@@ -1232,7 +1273,10 @@ self.updateKeys();
 if (self.working == false) return;
 if (self.need_redraw == true) {
 self.need_redraw = false;
+if (self.need_clear == true) {
+self.need_clear = false;
 prog.console.clear();
+}
 self.view.draw();
 //prog.debug.draw();
 self.view.cursorMoveToCurrent();
@@ -1246,7 +1290,6 @@ self.working = false;
 }
 pub fn updateKeys     (self: *Prog) void {
 if (self.console.input.grab()) |first_key| {
-self.need_redraw = true;
 self.onKey(first_key);
 while (self.console.input.grab()) |key| {
 self.onKey(key);
