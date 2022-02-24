@@ -863,6 +863,8 @@ var last_indent = self.first.text.countIndent(tabsize);
 var line: *Line = self.first.next orelse return;
 while (true) {
 const prev = line.prev orelse unreachable;
+if (line.text.used == 0) {} // skip blank lines
+else { // change to child or parent
 const indent = line.text.countIndent(tabsize);
 if (indent != last_indent) {
 if (indent > last_indent) {
@@ -893,6 +895,7 @@ line.prev = last;
 }
 }
 last_indent = indent;
+}
 }
 line = line.next orelse break;
 }
