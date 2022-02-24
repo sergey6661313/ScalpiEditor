@@ -18,6 +18,8 @@ features:
 for compile use zig language ver. 0.9. (https://ziglang.org):
     $ zig build
 and find binaries in "zig-out/bin"...
+
+to support me (monero): 87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B
 </pre>
 
 examples:

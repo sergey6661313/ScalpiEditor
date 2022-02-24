@@ -304,6 +304,7 @@ self.deleteLine();
 if (self.line.next) |_| self.goToPrevLine();
 self.goToSymbol(prev_used);
 }
+prog.need_clear  = true;
 }
 else {
 if (self.line.text.used == 0) return;
@@ -340,19 +341,24 @@ self.goToStartOfLine();
 } 
 else if (self.symbol >= self.line.text.used) {
 if (self.line.text.buffer[self.symbol - 1] == ':') {
+var indent = self.line.text.countIndent(1) + 2;
+self.addNextLine();
+self.goToStartOfLine();
+while (indent > 0) {
+try self.line.text.add(' ');
+self.goToNextSymbol();
+indent -= 1;
+}
+}
+else { // create line
 var indent = self.line.text.countIndent(1);
 self.addNextLine();
 self.goToStartOfLine();
 while (indent > 0) {
 try self.line.text.add(' ');
+self.goToNextSymbol();
 indent -= 1;
 }
-try self.line.text.add(' ');
-try self.line.text.add(' ');
-}
-else { // create line
-self.addNextLine();
-self.goToStartOfLine();
 }
 prog.need_redraw  = true;
 } 
@@ -366,7 +372,7 @@ self.line.text.used = self.symbol;
 self.line = new_line;
 self.addPrevLine();
 }
-else {
+else { 
 if (self.line.child) |_| return;
 var parent = self.line;
 var pos = self.symbol;
