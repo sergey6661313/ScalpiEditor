@@ -707,14 +707,13 @@ prog.need_redraw  = true;
 pub fn goToStartOfLine  (self: *View) void {
 self.symbol = 0;
 self.offset.x = 0;
+prog.need_redraw  = true;
 }
 pub fn goToEndOfLine    (self: *View) void {
 self.symbol = self.line.text.used;
-if (self.symbol > prog.console.size.x - 2) {
-self.offset.x = prog.console.size.x - 2;
-} else {
-self.offset.x = self.symbol;
-}
+if (self.symbol > prog.console.size.x - 2) {self.offset.x = prog.console.size.x - 2;}
+else {self.offset.x = self.symbol;}
+prog.need_redraw  = true;
 }
 pub fn goToSymbol       (self: *View, pos: usize) void {
 self.symbol = pos;
