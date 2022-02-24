@@ -273,8 +273,8 @@ self.line = mark;
 }
 // }
 // { edit
-pub fn insertSymbol      (self: *View, rune: u8) void {
-self.line.text.insert(self.symbol, rune) catch return;
+pub fn insertSymbol      (self: *View, rune: u8) !void {
+try self.line.text.insert(self.symbol, rune);
 self.goToNextSymbol();
 prog.need_redraw  = true;
 } // end fn
@@ -304,11 +304,12 @@ self.deleteLine();
 if (self.line.next) |_| self.goToPrevLine();
 self.goToSymbol(prev_used);
 }
-return;
 }
+else {
 if (self.line.text.used == 0) return;
 self.goToPrevSymbol();
 self.deleteSymbol();
+}
 prog.need_redraw  = true;
 }
 pub fn clearLine         (self: *View) void {
@@ -331,15 +332,29 @@ self.goToNextLine();
 self.goToStartOfLine();
 prog.need_redraw  = true;
 }
-pub fn divide            (self: *View) void {
+pub fn divide            (self: *View) !void {
 if (self.symbol == 0) {
 self.addPrevLine();
 self.goToNextLine();
 self.goToStartOfLine();
 } 
 else if (self.symbol >= self.line.text.used) {
+if (self.line.text.buffer[self.symbol - 1] == ':') {
+var indent = self.line.text.countIndent(1);
 self.addNextLine();
 self.goToStartOfLine();
+while (indent > 0) {
+try self.line.text.add(' ');
+indent -= 1;
+}
+try self.line.text.add(' ');
+try self.line.text.add(' ');
+}
+else { // create line
+self.addNextLine();
+self.goToStartOfLine();
+}
+prog.need_redraw  = true;
 } 
 else if (self.line.text.buffer[self.symbol] == '}' and self.line.text.buffer[self.symbol - 1] == '{') {
 if (self.line.child) |_| return;
@@ -1098,8 +1113,8 @@ self.addPrevLine();
 const slice = file_data_allocated.slice orelse unreachable;
 for (slice) |rune| { // parse lines
 switch(rune) {
-10, 13 => {self.divide();},
-else   => {self.insertSymbol(rune);},
+10, 13 => {self.divide() catch {};},
+else   => {self.insertSymbol(rune) catch {};},
 }
 }
 self.line = line;
@@ -1323,32 +1338,33 @@ else        => {},
 }
 },
 .byte      => |byte| {
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 .ascii_key => |key|  {
 switch (key) {
-.ctrl_q     => self.stop(),
-.ctrl_s     => self.view.save() catch {},
-.ctrl_g     => self.view.changeMode(.to_line),
-.ctrl_f     => self.view.changeMode(.to_find),
-.ctrl_u     => self.view.unFold(),
-.ctrl_y     => self.view.foldFromIndent(4),
-.ctrl_r     => self.view.foldFromIndent(1),
-.ctrl_e     => self.view.foldFromBrackets(),
-.enter      => self.view.divide(),
-.back_space => self.view.deletePrevSymbol(),
-.ctrl_p     => self.view.deleteIndent(),
-.ctrl_d     => self.view.duplicate(),
-.ctrl_x     => self.view.cut(),
-.ctrl_c     => self.view.externalCopy() catch {},
-.ctrl_v     => self.view.pasteLine(),
-.ctrl_bs    => self.view.clearLine(),
-.ctrl_t     => self.view.insertSymbol('\t'),
-.escape     => self.view.goToOut(),
-.tab        => self.view.goToIn(),
+.ctrl_q     => {self.stop();},
+.ctrl_s     => {self.view.save() catch {};},
+.ctrl_g     => {self.view.changeMode(.to_line);},
+.ctrl_f     => {self.view.changeMode(.to_find);},
+.ctrl_u     => {self.view.unFold();},
+.ctrl_y     => {self.view.foldFromIndent(4);},
+.ctrl_r     => {self.view.foldFromIndent(1);},
+.ctrl_e     => {self.view.foldFromBrackets();},
+.ctrl_j     => {self.view.divide() catch {};},
+.enter      => {self.view.divide() catch {};},
+.back_space => {self.view.deletePrevSymbol();},
+.ctrl_p     => {self.view.deleteIndent();},
+.ctrl_d     => {self.view.duplicate();},
+.ctrl_x     => {self.view.cut();},
+.ctrl_c     => {self.view.externalCopy() catch {};},
+.ctrl_v     => {self.view.pasteLine();},
+.ctrl_bs    => {self.view.clearLine();},
+.ctrl_t     => {self.view.insertSymbol('\t') catch {};},
+.escape     => {self.view.goToOut();},
+.tab        => {self.view.goToIn();},
 else        => {
 var byte = @enumToInt(key);
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 }
 },
@@ -1365,18 +1381,19 @@ else        => {},
 }
 },
 .byte      => |byte| {
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 .ascii_key => |key|  {
 switch (key) {
 .escape     => self.view.changeMode(.edit),
 .ctrl_q     => self.stop(),
 .back_space => self.view.deletePrevSymbol(),
+.ctrl_j     => self.view.findNext(),
 .enter      => self.view.findNext(),
 .ctrl_bs    => self.view.clearLine(),
 else        => {
 var byte = @enumToInt(key);
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 }
 },
@@ -1393,18 +1410,19 @@ else        => {},
 }
 },
 .byte      => |byte| {
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 .ascii_key => |key|  {
 switch (key) {
 .escape     => self.view.changeMode(.edit),
 .ctrl_q     => self.stop(),
 .back_space => self.view.deletePrevSymbol(),
+.ctrl_j     => self.view.goToLine(),
 .enter      => self.view.goToLine(),
 .ctrl_bs    => self.view.clearLine(),
 else        => {
 var byte = @enumToInt(key);
-self.view.insertSymbol(byte);
+self.view.insertSymbol(byte) catch {};
 },
 }
 },
@@ -1429,28 +1447,27 @@ else        => {},
 .byte      => |_| {},
 .ascii_key => |key|  {
 switch (key) {
-.code_q     => self.stop(),
-.code_s     => self.view.save() catch {},
-.code_i     => self.view.changeMode(.edit),
-.code_g     => self.view.changeMode(.to_line),
-.code_u     => self.view.unFold(),
-.code_y     => self.view.foldFromIndent(4),
-.code_r     => self.view.foldFromIndent(1),
-.code_e     => self.view.foldFromBrackets(),
-.enter      => self.view.divide(),
-.back_space => self.view.deletePrevSymbol(),
-.code_p     => self.view.deleteIndent(),
-.code_d     => self.view.duplicate(),
-.code_x     => self.view.cut(),
-.code_c     => self.view.externalCopy() catch {},
-.code_v     => self.view.pasteLine(),
-.code_j     => self.view.swapWithBottom(),
-.code_k     => self.view.swapWithUpper(),
-.ctrl_bs    => self.view.clearLine(),
-.code_t     => self.view.insertSymbol('\t'),
-.escape     => self.view.goToOut(),
-.tab        => self.view.goToIn(),
-.code_l     => self.view.goToLastLine(),
+.code_q     => {self.stop();},
+.code_s     => {self.view.save() catch {};},
+.code_i     => {self.view.changeMode(.edit);},
+.code_g     => {self.view.changeMode(.to_line);},
+.code_u     => {self.view.unFold();},
+.code_y     => {self.view.foldFromIndent(4);},
+.code_r     => {self.view.foldFromIndent(1);},
+.code_e     => {self.view.foldFromBrackets();},
+.code_j     => {self.view.divide() catch {};},
+.enter      => {self.view.divide() catch {};},
+.back_space => {self.view.deletePrevSymbol();},
+.code_p     => {self.view.deleteIndent();},
+.code_d     => {self.view.duplicate();},
+.code_x     => {self.view.cut();},
+.code_c     => {self.view.externalCopy() catch {};},
+.code_v     => {self.view.pasteLine();},
+.ctrl_bs    => {self.view.clearLine();},
+.code_t     => {self.view.insertSymbol('\t') catch {};},
+.escape     => {self.view.goToOut();},
+.tab        => {self.view.goToIn();},
+.code_l     => {self.view.goToLastLine();},
 else        => {},
 }
 },
