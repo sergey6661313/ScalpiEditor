@@ -36,7 +36,7 @@ edit        {
   move line down         [Alt]   +  [Down]
   move line up           [Alt]   +  [Up]
 }
-unrealized  {
+not implemented yet {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]
   go to left   word      [Ctrl]  +  [Left]

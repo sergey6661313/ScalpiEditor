@@ -1175,13 +1175,13 @@ need_redraw:       bool         = true,
 pub fn main        () MainErrors!void {
 const self = &prog;
 self.buffer.init() catch return error.BufferNotInit;
-switch (std.os.argv.len) { // work with arguments
-1    => { // show usage text
+// { work with arguments
+if (std.os.argv.len == 1) { // show usage text
 const path = "ScalpiEditor_usage.txt";
 const text = @embedFile("ScalpiEditor_usage.txt");
 self.view.init(path, text) catch return error.ViewNotInit;
-},
-else => { // load file
+}
+else { // load file
 var   argument            = try lib.getTextFromArgument();
 const parsed_path         = ParsePath.fromText(argument) catch {
 lib.print(
@@ -1212,8 +1212,8 @@ return;
 defer file_data_allocated.deInit() catch unreachable;
 const text                = file_data_allocated.slice orelse unreachable; 
 self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
-}, // end load file
-} // end switch
+} // end load file
+// }
 self.console.init();
 defer {
 self.console.deInit();
