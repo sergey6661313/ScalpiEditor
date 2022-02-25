@@ -262,6 +262,9 @@ self.mode = mode;
 pub fn cursorMoveToCurrent  (self: *View) void {
 prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
 }
+pub fn getLineNum           (self: *View) usize {
+return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
+}
 // { mark
 pub fn markThisLine         (self: *View) void {
 self.marked_line = self.line;
@@ -1135,17 +1138,18 @@ text: [254]u8 = undefined,
 used: usize = 0,
 };
 pub const Debug        = struct {
-pub fn draw(self: *Debug) void {
-_ = self;
+visible: bool = false,
+pub fn draw    (self: *Debug) void {
+if (self.visible == false) {return;}
 const debug_lines = 7;
 var buffer: [254]u8 = undefined;
 lib.print(ansi.color.blue2);
 var print_offset: usize = prog.console.size.y - debug_lines;
 prog.console.cursorMove(.{ .x = 0, .y = print_offset });
 { // line
-const as_num: usize = (@ptrToInt(prog.view.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
+const as_num         = prog.view.getLineNum();
 const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
-const buffer_count = @intCast(usize, sprintf_result);
+const buffer_count   = @intCast(usize, sprintf_result);
 prog.console.print(buffer[0..buffer_count]);
 prog.console.fillSpacesToEndLine();
 }
@@ -1216,7 +1220,10 @@ prog.console.print(buffer[0..buffer_pos]);
 prog.console.fillSpacesToEndLine();
 }
 lib.print(ansi.reset);
-//prog.console.fillSpacesToEndLine();
+}
+pub fn toggle  (self: *Debug) void {
+self.visible = !self.visible;
+prog.need_redraw = true;
 }
 };
 const MainErrors       = error{
@@ -1301,7 +1308,7 @@ self.need_clear = false;
 prog.console.clear();
 }
 self.view.draw();
-//prog.debug.draw();
+prog.debug.draw();
 self.view.cursorMoveToCurrent();
 }
 std.time.sleep(std.time.ns_per_ms * 10);
@@ -1364,6 +1371,7 @@ switch (key) {
 .ctrl_p     => {self.view.deleteIndent();},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
+.ctrl_o     => {self.debug.toggle();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
 .ctrl_v     => {self.view.pasteLine();},
 .ctrl_bs    => {self.view.clearLine();},
