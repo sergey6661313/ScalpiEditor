@@ -295,6 +295,8 @@ back_space, // delete,
 };
 pub const Sequence     = enum(u64) {
 // { enum
+ctrl_shift_left,
+ctrl_shift_right,
 shift_up,
 shift_down,
 shift_left,
@@ -324,6 +326,14 @@ sequence: Sequence = null,
 used:     usize     = 0,
 pub fn fromDo(buffer: []u8) ?Parser {
 if (buffer.len >= 6) {
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x36\x44") == .equal) { // ctrl_shift_left
+const parser: Parser = .{.sequence = .ctrl_shift_left, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x36\x43") == .equal) { // ctrl_shift_right
+const parser: Parser = .{.sequence = .ctrl_shift_right, .used = 6};
+return parser;
+}
 if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x41") == .equal) { // shift_up 
 const parser: Parser = .{.sequence = .shift_up, .used = 6};
 return parser;

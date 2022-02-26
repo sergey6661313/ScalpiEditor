@@ -374,6 +374,7 @@ new_line.text.set(self.line.text.get()[self.symbol..]) catch unreachable;
 self.line.text.used = self.symbol;
 self.line = new_line;
 self.addPrevLine();
+prog.need_clear  = true;
 }
 else { 
 if (self.line.child) |_| return;
@@ -680,14 +681,12 @@ return;
 if (self.symbol > used) {
 self.symbol = used;
 if (used < prog.console.size.x - 1) self.offset.x = self.line.text.used;
+prog.need_redraw  = true;
 return;
 }
 if (self.symbol > 0) self.symbol -= 1;
-if (self.symbol >= 10) {
-if (self.offset.x > 10) self.offset.x -= 1;
-} else {
-if (self.offset.x > 0) self.offset.x -= 1;
-}
+if (self.symbol >= 10) {if (self.offset.x > 10) {self.offset.x -= 1;}} 
+else {if (self.offset.x > 0) self.offset.x -= 1;}
 prog.need_redraw  = true;
 }
 pub fn goToNextSymbol   (self: *View) void {
@@ -790,6 +789,43 @@ return;
 }
 self.changeMode(.edit);
 prog.need_clear  = true;
+prog.need_redraw = true;
+}
+pub fn goToStartOfWord  (self: *View) void {
+if (self.symbol > self.line.text.used) {self.goToSymbol(self.line.text.used);}
+else if (self.symbol == 0) {return;}
+else while(true) {
+const next_symbol = self.line.text.buffer[self.symbol - 1];
+switch(next_symbol){
+' ', '	', '\\', 
+'+', '-', '/', '*', '^',
+'(', ')', 
+'[', ']', 
+'{', '}', 
+'.'  => {break;},
+else => {},
+}
+self.goToPrevSymbol();
+if (self.symbol == 0) return;
+}
+prog.need_redraw = true;
+}
+pub fn goToEndOfWord    (self: *View) void {
+if (self.symbol >= self.line.text.used) {return;}
+else while(true) {
+const next_symbol = self.line.text.buffer[self.symbol + 1];
+switch(next_symbol){
+' ', '	', '\\', 
+'+', '-', '/', '*', '^',
+'(', ')', 
+'[', ']', 
+'{', '}', 
+'.'  => {break;},
+else => {},
+}
+self.goToNextSymbol();
+if (self.symbol == self.line.text.used) return;
+}
 prog.need_redraw = true;
 }
 //}
@@ -1332,24 +1368,26 @@ switch (self.view.mode) {
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
-.delete     => self.view.deleteSymbol(),
-.end        => self.view.goToEndOfLine(),
-.home       => self.view.goToStartOfLine(),
-.down       => self.view.goToNextLine(),
-.up         => self.view.goToPrevLine(),
-.left       => self.view.goToPrevSymbol(),
-.right      => self.view.goToNextSymbol(),
-.f1         => self.view.changeMode(.normal),
-.alt_v      => self.view.externalPaste() catch {},
-.alt_m      => self.view.markThisLine(),
-.alt_M      => self.view.goToMarked(),
-.ctrl_left  => self.view.goToStartOfLine(),
-.ctrl_right => self.view.goToEndOfLine(),
-.ctrl_up    => self.view.goToFirstLine(),
-.ctrl_down  => self.view.goToLastLine(),
-.alt_up     => self.view.swapWithUpper(),
-.alt_down   => self.view.swapWithBottom(),
-else        => {},
+.delete           => self.view.deleteSymbol(),
+.end              => self.view.goToEndOfLine(),
+.home             => self.view.goToStartOfLine(),
+.down             => self.view.goToNextLine(),
+.up               => self.view.goToPrevLine(),
+.left             => self.view.goToPrevSymbol(),
+.right            => self.view.goToNextSymbol(),
+.f1               => self.view.changeMode(.normal),
+.alt_v            => self.view.externalPaste() catch {},
+.alt_m            => self.view.markThisLine(),
+.alt_M            => self.view.goToMarked(),
+.ctrl_shift_left  => self.view.goToStartOfLine(),
+.ctrl_shift_right => self.view.goToEndOfLine(),
+.ctrl_left        => self.view.goToStartOfWord(),
+.ctrl_right       => self.view.goToEndOfWord(),
+.ctrl_up          => self.view.goToFirstLine(),
+.ctrl_down        => self.view.goToLastLine(),
+.alt_up           => self.view.swapWithUpper(),
+.alt_down         => self.view.swapWithBottom(),
+else              => {},
 }
 },
 .byte      => |byte| {
