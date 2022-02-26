@@ -1,2 +1,0 @@
-This is ScalpiEditor console text editor.
-simple to edit config files:
