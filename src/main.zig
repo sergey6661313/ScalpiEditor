@@ -12,14 +12,28 @@ pub const File         = @import("File/src/File.zig");
 // { defines
 pub const Buffer       = struct {
 pub const size = 25000; // about 10 mb...
-lines:         [size]Line = .{.{}} ** size,
-free:          ?*Line     = null,
-cutted:        ?*Line     = null,
-find_text:     ?*Line     = null,
-to_goto:       ?*Line     = null,
-to_find:       ?*Line     = null,
-line_for_goto: usize      = 0,
+lines:         [size]Line,
+free:          ?*Line,
+cutted:        ?*Line,
+find_text:     ?*Line,
+to_goto:       ?*Line,
+to_find:       ?*Line,
+line_for_goto: usize,
+pub fn fromInit     () !*Buffer {
+const allocated    = lib.c.aligned_alloc(8, @sizeOf(Buffer)) orelse return error.NeedMoreMemory;
+var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
+try buffer.init();
+return buffer;
+}
 pub fn init         (self: *Buffer) !void {
+self.cutted        = null;
+self.find_text     = null;
+self.to_goto       = null;
+self.to_find       = null;
+self.line_for_goto = 0;
+for (self.lines) |*line| { // init all lines:
+line.* = try Line.fromInit();
+}
 //{ tie all lines to "free" chain
 const first = &self.lines[0];
 const last = &self.lines[size - 1];
@@ -1272,16 +1286,16 @@ Unexpected,
 pub var prog:      Prog         = .{};
 working:           bool         = true,
 console:           Console      = .{},
-buffer:            Buffer       = .{},
+buffer:            *Buffer      = undefined,
 view:              View         = .{},
 debug:             Debug        = .{},
-path_to_clipboard: Line.Text    = .{},
+path_to_clipboard: Line.Text    = undefined,
 need_clear:        bool         = true,
 need_redraw:       bool         = true,
 // }
 pub fn main        () MainErrors!void {
 const self = &prog;
-self.buffer.init() catch return error.BufferNotInit;
+self.buffer = Buffer.fromInit() catch return error.BufferNotInit;
 // { work with arguments
 if (std.os.argv.len == 1) { // show usage text
 const path = "ScalpiEditor_usage.txt";

@@ -4,16 +4,22 @@ const Prog                 = @import("root");
 const prog                 = &Prog.prog;
 pub const Text             = @import("Text.zig");
 pub const RuneIteratorUtf8 = struct {};
-text:    Text    = .{},
-next:    ?*Line  = null,
-prev:    ?*Line  = null,
-parent:  ?*Line  = null,
-child:   ?*Line  = null,
+text:    Text,
+next:    ?*Line,
+prev:    ?*Line,
+parent:  ?*Line,
+child:   ?*Line,
+pub fn fromInit          () !Line {
+var line: Line = undefined;
+try line.init();
+return line;
+}
 pub fn init              (self: *Line) !void {
-    self.next = null;
-    self.prev = null;
+    self.next   = null;
+    self.prev   = null;
     self.parent = null;
-    self.child = null;
+    self.child  = null;
+    self.text   = Text.fromText("") catch unreachable;
 }
 pub fn pushPrev          (self: *Line, new_line: *Line) void {
     { // update chain

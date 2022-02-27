@@ -3,11 +3,12 @@ const std      = @import("std");
 const Prog     = @import("root");
 const prog     = &Prog.prog;
 const lib      = @import("lib.zig");
-pub const  size      = 254;
-buffer:    [size]u8  = undefined,
-used:      usize     = 0,
+pub const  size      = 512;
+used:      usize,
+buffer:    [size]u8,
 pub fn fromText            (text: []const u8) !TextLine {
-var self: TextLine = .{};
+var self: TextLine = undefined;
+self.used = 0;
 try self.set(text);
 return self;
 }
