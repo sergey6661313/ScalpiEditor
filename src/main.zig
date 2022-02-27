@@ -806,9 +806,11 @@ prog.need_clear  = true;
 prog.need_redraw = true;
 }
 pub fn goToStartOfWord  (self: *View) void {
+if (self.symbol == 0) {return;}
 if (self.symbol > self.line.text.used) {self.goToSymbol(self.line.text.used);}
-else if (self.symbol == 0) {return;}
-else while(true) {
+self.goToPrevSymbol();
+while(true) {
+if (self.symbol == 0) {break;}
 const next_symbol = self.line.text.buffer[self.symbol - 1];
 switch(next_symbol){
 ' ', '	', '\\', 
@@ -820,13 +822,14 @@ switch(next_symbol){
 else => {},
 }
 self.goToPrevSymbol();
-if (self.symbol == 0) return;
 }
 prog.need_redraw = true;
 }
 pub fn goToEndOfWord    (self: *View) void {
-if (self.symbol >= self.line.text.used) {return;}
-else while(true) {
+if (self.symbol >= self.line.text.used - 1) {return;}
+self.goToNextSymbol();
+while(true) {
+if (self.symbol >= self.line.text.used - 1) {break;}
 const next_symbol = self.line.text.buffer[self.symbol + 1];
 switch(next_symbol){
 ' ', '	', '\\', 
@@ -838,7 +841,6 @@ switch(next_symbol){
 else => {},
 }
 self.goToNextSymbol();
-if (self.symbol == self.line.text.used) return;
 }
 prog.need_redraw = true;
 }
