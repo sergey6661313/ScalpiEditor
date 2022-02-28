@@ -52,6 +52,18 @@ pub fn getSantieled        (self: *TextLine) [:0]const u8 {
 self.buffer[self.used] = 0;
 return self.buffer[0 .. self.used :0];
 }
+pub fn addIndent           (self: *TextLine, count: usize) !void {
+var last_indent = self.countIndent(1);
+if (self.used + count > self.size - 1) return error.LineIsFull;
+std.mem.copyBackward(u8, self.buffer[last_indent + count .. ], self.buffer[last_indent ..]);
+for (self.buffer[last_indent .. last_indent + count]) |*rune| rune.* = ' '; // fill spaces
+}
+pub fn removeIndent        (self: *TextLine, count: usize) !void {
+var last_indent = self.countIndent(1);
+if (last_indent < count) return error.CountIsBiggerThanExistIndent;
+std.mem.copy(u8, self.buffer[last_indent - count .. ], self.buffer[last_indent ..]);
+if (last_indent - count > 0) {for (self.buffer[last_indent - count .. last_indent]) |*rune| rune.* = ' ';} // fill spaces
+}
 pub fn get                 (self: *const TextLine) []const   u8 {
     return self.buffer[0 .. self.used];
 }

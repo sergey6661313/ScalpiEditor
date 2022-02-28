@@ -295,6 +295,9 @@ back_space, // delete,
 };
 pub const Sequence     = enum(u64) {
 // { enum
+f1,
+f2,
+f9,
 ctrl_alt_v,
 ctrl_shift_left,
 ctrl_shift_right,
@@ -309,7 +312,6 @@ up,
 down,
 end,
 home,
-f1,
 alt_v,
 alt_m,
 alt_M,
@@ -384,6 +386,12 @@ const parser: Parser = .{.sequence = .alt_down, .used = 6};
 return parser;
 }
 }
+if (buffer.len >= 5) {
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x32\x30\x7E") == .equal) { // f9
+const parser: Parser = .{.sequence = .f9, .used = 5};
+return parser;
+}
+}
 if (buffer.len >= 4) {
 if (lib.cmp(buffer[0..4], "\x1B\x5B\x33\x7E") == .equal) { //del
 const parser: Parser = .{.sequence = .delete, .used = 4};
@@ -391,6 +399,14 @@ return parser;
 }
 }
 if (buffer.len >= 3) {
+if (lib.cmp(buffer[0..3], "\x1B\x4F\x50") == .equal) { // f1
+const parser: Parser = .{.sequence = .f1, .used = 3};
+return parser;
+}
+if (lib.cmp(buffer[0..3], "\x1B\x4F\x51") == .equal) { // f2
+const parser: Parser = .{.sequence = .f2, .used = 3};
+return parser;
+}
 if (lib.cmp(buffer[0..3], "\x1B\x5B\x44") == .equal) { // left
 const parser: Parser = .{.sequence = .left, .used = 3};
 return parser;
@@ -413,10 +429,6 @@ return parser;
 }
 if (lib.cmp(buffer[0..3], "\x1B\x5B\x48") == .equal) { // home
 const parser: Parser = .{.sequence = .home, .used = 3};
-return parser;
-}
-if (lib.cmp(buffer[0..3], "\x1B\x4F\x50") == .equal) { // f1
-const parser: Parser = .{.sequence = .f1, .used = 3};
 return parser;
 }
 }

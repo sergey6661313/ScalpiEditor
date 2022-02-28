@@ -1389,6 +1389,8 @@ switch (self.view.mode) {
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
+.f2               => {self.debug.toggle();},
+.f9               => self.view.changeMode(.normal),
 .delete           => self.view.deleteSymbol(),
 .end              => self.view.goToEndOfLine(),
 .home             => self.view.goToStartOfLine(),
@@ -1396,7 +1398,6 @@ switch (sequence) {
 .up               => self.view.goToPrevLine(),
 .left             => self.view.goToPrevSymbol(),
 .right            => self.view.goToNextSymbol(),
-.f1               => self.view.changeMode(.normal),
 .alt_v            => self.view.externalPaste() catch {},
 .alt_m            => self.view.markThisLine(),
 .alt_M            => self.view.goToMarked(),
@@ -1427,10 +1428,10 @@ switch (key) {
 .ctrl_j     => {self.view.divide() catch {};},
 .enter      => {self.view.divide() catch {};},
 .back_space => {self.view.deletePrevSymbol();},
-.ctrl_p     => {self.view.deleteIndent();},
+.ctrl_o     => {self.view.line.text.removeIndent(2) catch {};},
+.ctrl_p     => {self.view.line.text.addIndent(2) catch {};},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
-.ctrl_o     => {self.debug.toggle();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
 .ctrl_v     => {self.view.pasteLine();},
 .ctrl_bs    => {self.view.clearLine();},
