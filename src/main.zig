@@ -453,6 +453,7 @@ else { // new_indent < indent
 std.mem.copy(u8, buffer[new_indent..], buffer[indent..]);
 self.line.text.used = text.len - (indent - new_indent);
 }
+self.goToStartOfText();
 prog.need_redraw  = true;
 }
 //}
