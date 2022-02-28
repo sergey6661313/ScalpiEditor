@@ -357,25 +357,16 @@ self.goToNextLine();
 self.goToStartOfLine();
 } 
 else if (self.symbol >= self.line.text.used) {
-if (self.line.text.buffer[self.symbol - 1] == ':') {
-var indent = self.line.text.countIndent(1) + 2;
-self.addNextLine();
-self.goToStartOfLine();
-while (indent > 0) {
-try self.line.text.add(' ');
-self.goToNextSymbol();
-indent -= 1;
-}
-}
-else { // create line
 var indent = self.line.text.countIndent(1);
+if (self.line.child == null) {
+if (self.line.text.buffer[self.symbol - 1] == ':') {indent += 2;}
+}
 self.addNextLine();
 self.goToStartOfLine();
 while (indent > 0) {
 try self.line.text.add(' ');
 self.goToNextSymbol();
 indent -= 1;
-}
 }
 prog.need_redraw  = true;
 } 
