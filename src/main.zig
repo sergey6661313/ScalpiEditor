@@ -392,12 +392,22 @@ prog.need_clear  = true;
 }
 else { 
 if (self.line.child) |_| return;
-var parent = self.line;
-var pos = self.symbol;
+var   parent = self.line;
+var   pos    = self.symbol;
+var   indent = self.line.text.countIndent(1);
+const text   = self.line.text.get()[pos..];
 self.addNextLine();
-self.line.text.set(parent.text.get()[pos..]) catch unreachable;
+self.line.text.used = indent + text.len;
+std.mem.copy(u8, self.line.text.buffer[indent..], text);
+if (indent > 0) { // add indent
+while (true) { // add indent
+self.line.text.buffer[indent - 1] = ' ';
+indent -= 1;
+if (indent == 0) break;
+}
+} 
+self.goToStartOfText();
 parent.text.used = pos;
-self.goToStartOfLine();
 }
 prog.need_redraw  = true;
 }
@@ -826,12 +836,12 @@ self.goToPrevSymbol();
 prog.need_redraw = true;
 }
 pub fn goToEndOfWord    (self: *View) void {
-if (self.symbol >= self.line.text.used - 1) {return;}
-self.goToNextSymbol();
+if (self.symbol >= self.line.text.used) {return;}
 while(true) {
-if (self.symbol >= self.line.text.used - 1) {break;}
-const next_symbol = self.line.text.buffer[self.symbol + 1];
-switch(next_symbol){
+self.goToNextSymbol();
+if (self.symbol >= self.line.text.used) {break;}
+const rune = self.line.text.buffer[self.symbol];
+switch(rune){
 ' ', '	', '\\', 
 '+', '-', '/', '*', '^',
 '(', ')', 
@@ -840,9 +850,12 @@ switch(next_symbol){
 '.'  => {break;},
 else => {},
 }
-self.goToNextSymbol();
 }
 prog.need_redraw = true;
+}
+pub fn goToStartOfText  (self: *View) void {
+const indent = self.line.text.countIndent(1);
+self.goToSymbol(indent);
 }
 //}
 // { folding

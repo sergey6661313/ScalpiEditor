@@ -295,6 +295,7 @@ back_space, // delete,
 };
 pub const Sequence     = enum(u64) {
 // { enum
+ctrl_alt_v,
 ctrl_shift_left,
 ctrl_shift_right,
 shift_up,
@@ -420,6 +421,10 @@ return parser;
 }
 }
 if (buffer.len >= 2) {
+if (lib.cmp(buffer[0..2], "\x1B\x16") == .equal) { // ctrl_alt_v
+const parser: Parser = .{.sequence = .ctrl_alt_v, .used = 2};
+return parser;
+}
 if (lib.cmp(buffer[0..2], "\x1B\x76") == .equal) { // alt_v
 const parser: Parser = .{.sequence = .alt_v, .used = 2};
 return parser;
