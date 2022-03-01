@@ -335,16 +335,16 @@ self.line.text.used = 0;
 self.goToStartOfLine();
 prog.need_redraw  = true;
 }
-pub fn addPrevLine       (self: *View) void {
-const new_line = prog.buffer.create() catch return;
+pub fn addPrevLine       (self: *View) !void {
+const new_line = try prog.buffer.create();
 self.line.pushPrev(new_line);
 if (self.first == self.line) self.first = new_line;
 self.goToPrevLine();
 self.goToStartOfLine();
 prog.need_redraw  = true;
 }
-pub fn addNextLine       (self: *View) void {
-const new_line = prog.buffer.create() catch return;
+pub fn addNextLine       (self: *View) !void {
+const new_line = try prog.buffer.create();
 self.line.pushNext(new_line);
 self.goToNextLine();
 self.goToStartOfLine();
@@ -352,7 +352,7 @@ prog.need_redraw  = true;
 }
 pub fn divide            (self: *View) !void {
 if (self.symbol == 0) {
-self.addPrevLine();
+try self.addPrevLine();
 self.goToNextLine();
 self.goToStartOfLine();
 } 
@@ -361,7 +361,7 @@ var indent = self.line.text.countIndent(1);
 if (self.line.child == null) {
 if (self.line.text.buffer[self.symbol - 1] == ':') {indent += 2;}
 }
-self.addNextLine();
+try self.addNextLine();
 self.goToStartOfLine();
 while (indent > 0) {
 try self.line.text.add(' ');
@@ -378,7 +378,7 @@ new_line.parent = self.line;
 new_line.text.set(self.line.text.get()[self.symbol..]) catch unreachable;
 self.line.text.used = self.symbol;
 self.line = new_line;
-self.addPrevLine();
+try self.addPrevLine();
 prog.need_clear  = true;
 }
 else { 
@@ -387,7 +387,7 @@ var   parent = self.line;
 var   pos    = self.symbol;
 var   indent = self.line.text.countIndent(1);
 const text   = self.line.text.get()[pos..];
-self.addNextLine();
+try self.addNextLine();
 self.line.text.used = indent + text.len;
 std.mem.copy(u8, self.line.text.buffer[indent..], text);
 if (indent > 0) { // add indent
@@ -761,6 +761,7 @@ prog.need_redraw = true;
 }
 pub fn goToLine         (self: *View) void {
 var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
+num += prog.buffer.lineToPos(self.first);
 if (num >= prog.buffer.lineToPos(self.line)) return;
 self.last_line = &prog.buffer.lines[num];
 self.changeMode(.edit);
@@ -820,6 +821,7 @@ switch(next_symbol){
 '(', ')', 
 '[', ']', 
 '{', '}', 
+'"', '\'',
 '.'  => {break;},
 else => {},
 }
@@ -1177,12 +1179,12 @@ lib.print(ansi.reset);
 }
 return;
 };
-self.addPrevLine();
+try self.addPrevLine();
 const slice = file_data_allocated.slice orelse unreachable;
 for (slice) |rune| { // parse lines
 switch(rune) {
-10, 13 => {self.divide() catch {};},
-else   => {self.insertSymbol(rune) catch {};},
+10, 13 => {try self.addNextLine();},
+else   => {try self.insertSymbol(rune);},
 }
 }
 self.line = line;
