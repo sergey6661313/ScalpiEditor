@@ -21,6 +21,8 @@ navigation  {
   go to first line       [Ctrl]  +  [Up]
   go to last  line       [Ctrl]  +  [Down]
   go to line from number [Ctrl]  +  [g]
+  go to left   word      [Ctrl]  +  [Left]
+  go to right  word      [Ctrl]  +  [Right]
 }
 edit        {
   insert char            [any]
@@ -37,13 +39,12 @@ edit        {
   move line down         [Alt]   +  [Down]
   move line up           [Alt]   +  [Up]
 }
+mark        {
+  mark                   [Ctrl]  +  [M]
+  jump to mark           [Ctrl]  +  [Shift] + [M]
+}
 not implemented yet {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]
-  go to left   word      [Ctrl]  +  [Left]
-  go to right  word      [Ctrl]  +  [Right]
-  toggle  mark           [Ctrl]  +  [slash]
-  jump to prev mark      [Ctrl]  +  [Up]
-  jump to next mark      [Ctrl]  +  [Down]
   swap to commentary     [Alt]   +  [Slash]
 }

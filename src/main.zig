@@ -1299,17 +1299,18 @@ debug:             Debug        = .{},
 path_to_clipboard: Line.Text    = undefined,
 need_clear:        bool         = true,
 need_redraw:       bool         = true,
+usage_line:        *Line        = undefined,
 // }
 pub fn main        () MainErrors!void {
 const self = &prog;
 self.buffer = Buffer.fromInit() catch return error.BufferNotInit;
-// { work with arguments
-if (std.os.argv.len == 1) { // show usage text
+{ // load usage text
 const path = "ScalpiEditor_usage.txt";
 const text = @embedFile("ScalpiEditor_usage.txt");
 self.view.init(path, text) catch return error.ViewNotInit;
+self.usage_line = self.view.first;
 }
-else { // load file
+if (std.os.argv.len > 1) { // work with arguments
 var   argument            = try lib.getTextFromArgument();
 const parsed_path         = ParsePath.fromText(argument) catch {
 lib.print(
@@ -1340,10 +1341,8 @@ return;
 defer file_data_allocated.deInit() catch unreachable;
 const text                = file_data_allocated.slice orelse unreachable; 
 self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
-} // end load file
-// }
-self.console.init();
-defer {
+}
+self.console.init(); defer {
 self.console.deInit();
 lib.print(ansi.cyrsor_style.show);
 lib.print("\r\n");
@@ -1389,6 +1388,7 @@ switch (self.view.mode) {
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
+.f1               => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
 .f2               => {self.debug.toggle();},
 .f9               => self.view.changeMode(.normal),
 .delete           => self.view.deleteSymbol(),
@@ -1428,8 +1428,8 @@ switch (key) {
 .ctrl_j     => {self.view.divide() catch {};},
 .enter      => {self.view.divide() catch {};},
 .back_space => {self.view.deletePrevSymbol();},
-.ctrl_o     => {self.view.line.text.removeIndent(2) catch {};},
-.ctrl_p     => {self.view.line.text.addIndent(2) catch {};},
+.ctrl_o     => {self.view.line.text.removeIndent(2) catch {}; self.need_redraw = true;},
+.ctrl_p     => {self.view.line.text.addIndent(2) catch {}; self.need_redraw = true;},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
