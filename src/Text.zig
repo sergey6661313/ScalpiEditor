@@ -53,16 +53,25 @@ self.buffer[self.used] = 0;
 return self.buffer[0 .. self.used :0];
 }
 pub fn addIndent           (self: *TextLine, count: usize) !void {
-var last_indent = self.countIndent(1);
-if (self.used + count > size - 1) return error.LineIsFull;
-std.mem.copyBackwards(u8, self.buffer[last_indent + count .. ], self.buffer[last_indent ..]);
+const last_indent = self.countIndent(1);
+const last_start  = last_indent;
+const last_end    = self.used;
+const new_start   = last_indent + count;
+const new_end     = self.used   + count;
+if (new_end > size - 1) return error.LineIsFull;
+std.mem.copyBackwards(u8, self.buffer[new_start .. new_end], self.buffer[last_start .. last_end]);
 for (self.buffer[last_indent .. last_indent + count]) |*rune| rune.* = ' '; // fill spaces
+self.used = new_end;
 }
 pub fn removeIndent        (self: *TextLine, count: usize) !void {
-var last_indent = self.countIndent(1);
+const last_indent = self.countIndent(1);
 if (last_indent < count) return error.CountIsBiggerThanExistIndent;
-std.mem.copy(u8, self.buffer[last_indent - count .. ], self.buffer[last_indent ..]);
-if (last_indent - count > 0) {for (self.buffer[last_indent - count .. last_indent]) |*rune| rune.* = ' ';} // fill spaces
+const last_start  = last_indent;
+const last_end    = self.used;
+const new_start   = last_indent - count;
+const new_end     = self.used   - count;
+std.mem.copy(u8, self.buffer[new_start .. new_end], self.buffer[last_start .. last_end]);
+self.used = new_end;
 }
 pub fn get                 (self: *const TextLine) []const   u8 {
     return self.buffer[0 .. self.used];

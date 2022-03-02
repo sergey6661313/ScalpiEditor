@@ -1,3 +1,4 @@
+// { defines
 const Console    = @This();
 const std        = @import("std");
 const asBytes    = std.mem.asBytes;
@@ -7,6 +8,7 @@ const lib        = Prog.lib;
 const c          = lib.c;
 const Coor2u     = lib.Coor2u;
 const cmp        = lib.cmp;
+// }
 pub const Cursor = struct {
 pos: Coor2u = .{},
 pub fn init        (pos: Coor2u) Cursor {
@@ -116,6 +118,7 @@ size:        Coor2u            = .{ .x = 0, .y = 0 },
 cursor:      Cursor            = .{},
 last_flags:  c.struct_termios  = undefined,
 input:       Input             = .{},
+// { methods
 pub fn init                 (self: *Console) void {
 lib.print(ansi.reset);
 var flags: c.struct_termios = undefined;
@@ -273,3 +276,4 @@ self.cursorMove(.{.x = 0, .y = pos_y});
 self.print(text);
 self.fillSpacesToEndLine();
 } 
+// }
