@@ -295,6 +295,8 @@ back_space, // delete,
 };
 pub const Sequence     = enum(u64) {
 // { enum
+f1_tty,
+f2_tty,
 f1,
 f2,
 f9,
@@ -393,7 +395,15 @@ return parser;
 }
 }
 if (buffer.len >= 4) {
-if (lib.cmp(buffer[0..4], "\x1B\x5B\x33\x7E") == .equal) { //del
+if (lib.cmp(buffer[0..4], "\x1B\x5B\x5B\x41") == .equal) { // f1_tty
+const parser: Parser = .{.sequence = .f1_tty, .used = 4};
+return parser;
+}
+if (lib.cmp(buffer[0..4], "\x1B\x5B\x5B\x42") == .equal) { // f2_tty
+const parser: Parser = .{.sequence = .f2_tty, .used = 4};
+return parser;
+}
+if (lib.cmp(buffer[0..4], "\x1B\x5B\x33\x7E") == .equal) { // del
 const parser: Parser = .{.sequence = .delete, .used = 4};
 return parser;
 }

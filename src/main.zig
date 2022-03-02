@@ -204,16 +204,6 @@ writing: while (true) {
 const text = line.text.get();
 try file.write(text);
 count += 1;
-{ // change status
-prog.console.cursorMove(.{ .x = 0, .y = 0 });
-var buffer: [254]u8 = undefined;
-const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "            %d lines writed.", count));
-lib.print(ansi.color.magenta);
-prog.console.print(buffer[0..buffer_count]);
-lib.print(ansi.reset);
-prog.console.fillSpacesToEndLine();
-prog.console.cursorMoveToEnd();
-}
 if (line.child) |child| {
 try file.write("\n");
 line = child;
@@ -1389,26 +1379,28 @@ switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
 .f1               => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
+.f1_tty           => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
 .f2               => {self.debug.toggle();},
-.f9               => self.view.changeMode(.normal),
-.delete           => self.view.deleteSymbol(),
-.end              => self.view.goToEndOfLine(),
-.home             => self.view.goToStartOfLine(),
-.down             => self.view.goToNextLine(),
-.up               => self.view.goToPrevLine(),
-.left             => self.view.goToPrevSymbol(),
-.right            => self.view.goToNextSymbol(),
-.alt_v            => self.view.externalPaste() catch {},
-.alt_m            => self.view.markThisLine(),
-.alt_M            => self.view.goToMarked(),
-.ctrl_shift_left  => self.view.goToStartOfLine(),
-.ctrl_shift_right => self.view.goToEndOfLine(),
-.ctrl_left        => self.view.goToStartOfWord(),
-.ctrl_right       => self.view.goToEndOfWord(),
-.ctrl_up          => self.view.goToFirstLine(),
-.ctrl_down        => self.view.goToLastLine(),
-.alt_up           => self.view.swapWithUpper(),
-.alt_down         => self.view.swapWithBottom(),
+.f2_tty           => {self.debug.toggle();},
+.f9               => {self.view.changeMode(.normal);},
+.delete           => {self.view.deleteSymbol();},
+.end              => {self.view.goToEndOfLine();},
+.home             => {self.view.goToStartOfLine();},
+.down             => {self.view.goToNextLine();},
+.up               => {self.view.goToPrevLine();},
+.left             => {self.view.goToPrevSymbol();},
+.right            => {self.view.goToNextSymbol();},
+.alt_v            => {self.view.externalPaste() catch {};},
+.alt_m            => {self.view.markThisLine();},
+.alt_M            => {self.view.goToMarked();},
+.ctrl_shift_left  => {self.view.goToStartOfLine();},
+.ctrl_shift_right => {self.view.goToEndOfLine();},
+.ctrl_left        => {self.view.goToStartOfWord();},
+.ctrl_right       => {self.view.goToEndOfWord();},
+.ctrl_up          => {self.view.goToFirstLine();},
+.ctrl_down        => {self.view.goToLastLine();},
+.alt_up           => {self.view.swapWithUpper();},
+.alt_down         => {self.view.swapWithBottom();},
 else              => {},
 }
 },
@@ -1422,7 +1414,6 @@ switch (key) {
 .ctrl_g     => {self.view.changeMode(.to_line);},
 .ctrl_f     => {self.view.changeMode(.to_find);},
 .ctrl_u     => {self.view.unFold();},
-.ctrl_y     => {self.view.foldFromIndent(4);},
 .ctrl_r     => {self.view.foldFromIndent(1);},
 .ctrl_e     => {self.view.foldFromBrackets();},
 .ctrl_j     => {self.view.divide() catch {};},
@@ -1443,6 +1434,7 @@ false  => {self.view.divide() catch {};},
 .ctrl_t     => {self.view.insertSymbol('\t') catch {};},
 .escape     => {self.view.goToOut();},
 .tab        => {self.view.goToIn();},
+.ctrl_y     => {self.debug.toggle();},
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte) catch {};
