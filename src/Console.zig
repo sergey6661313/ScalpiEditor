@@ -249,6 +249,7 @@ if (self.cursor.pos.y > self.size.y) unreachable;
 }
 pub fn clear                (self: *Console) void {
 lib.print(ansi.reset);
+lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
 var pos_y: usize = 0; 
 while (pos_y < self.size.y) {
 self.cursorMove(.{.x = 0, .y = pos_y});

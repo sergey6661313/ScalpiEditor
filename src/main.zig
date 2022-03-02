@@ -456,6 +456,7 @@ self.offset.x = 0;
 self.symbol = 0;
 }
 lib.print(ansi.reset);
+lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
 if (self.line.child) |_| self.drawEditedFoldedLine(self.offset.y) else self.drawEditedLine(self.offset.y);
 self.drawUpperLines();
 self.drawDownerLines();
@@ -1354,12 +1355,11 @@ self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
 }
 self.console.init(); defer {
 self.console.deInit();
-lib.print(ansi.cyrsor_style.show);
-lib.print("\r\n");
 }
 self.updatePathToClipboard();
 self.mainLoop();
 self.console.cursorMoveToEnd();
+lib.print("\r\n");
 } // end fn main
 // { methods
 pub fn mainLoop       (self: *Prog) void {
@@ -1367,12 +1367,12 @@ while (true) {
 self.console.updateSize();
 self.updateKeys();
 if (self.working == false) return;
-if (self.need_redraw == true) {
-self.need_redraw = false;
-if (self.need_clear == true) {
+if (self.need_clear  == true) {
 self.need_clear = false;
 prog.console.clear();
 }
+if (self.need_redraw == true) {
+self.need_redraw = false;
 self.view.draw();
 prog.debug.draw();
 self.view.cursorMoveToCurrent();
