@@ -147,6 +147,7 @@ focus:       bool        = false,
 last_line:   ?*Line      = null,
 selected:    usize       = 0,
 marked_line: ?*Line      = null,
+bakup_line:  *Line       = undefined,
 pub fn init                 (self: *View, file_name: [:0]const u8, text: []const u8) !void {
 self.* = .{};
 self.setFileName(file_name);
@@ -183,6 +184,7 @@ if (start_line >= text.len) break;
 } // end while
 }
 self.line = self.first;
+self.bakup_line = try prog.buffer.create();
 } // end fn loadLines
 pub fn save                 (self: *View) !void {
 prog.need_redraw = false;
@@ -632,6 +634,18 @@ if (pos >= text.len) prog.console.printRune(' ') else prog.console.printRune(tex
 }
 //}
 // { navigation
+pub fn goToLine         (self: *View) void {
+var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
+num += prog.buffer.lineToPos(self.first) - 1;
+if (num >= prog.buffer.lineToPos(self.line)) return;
+self.last_line = &prog.buffer.lines[num];
+self.changeMode(.edit);
+self.offset.y = 6;
+self.symbol = self.line.text.countIndent(1);
+prog.need_clear  = true;
+prog.need_redraw = true;
+self.bakup();
+}
 pub fn goToPrevLine     (self: *View) void {
 if (self.line.prev) |prev| {self.line = prev;} 
 else {return;}
@@ -651,6 +665,7 @@ self.offset.y = count_to_upperest_line + 1;
 prog.need_clear  = true;
 }
 prog.need_redraw = true;
+self.bakup();
 } // end fn
 pub fn goToNextLine     (self: *View) void {
 if (self.line.next) |next| {
@@ -674,6 +689,7 @@ self.offset.y = prog.console.size.y - count_to_downest_line;
 prog.need_clear  = true;
 }
 prog.need_redraw = true;
+self.bakup();
 } // end fn
 pub fn goToPrevSymbol   (self: *View) void {
 const used = self.line.text.used;
@@ -736,29 +752,21 @@ self.offset.y = 1;
 self.goToStartOfLine();
 prog.need_clear  = true;
 prog.need_redraw = true;
+self.bakup();
 }
 pub fn goToFirstLine    (self: *View) void {
 while (self.line.prev) |_| self.goToPrevLine();
 self.goToStartOfLine();
 prog.need_clear  = true;
 prog.need_redraw = true;
+self.bakup();
 }
 pub fn goToLastLine     (self: *View) void {
 while (self.line.next) |_| self.goToNextLine();
 self.goToEndOfLine();
 prog.need_clear  = true;
 prog.need_redraw = true;
-}
-pub fn goToLine         (self: *View) void {
-var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
-num += prog.buffer.lineToPos(self.first);
-if (num >= prog.buffer.lineToPos(self.line)) return;
-self.last_line = &prog.buffer.lines[num];
-self.changeMode(.edit);
-self.offset.y = 6;
-self.symbol = self.line.text.countIndent(1);
-prog.need_clear  = true;
-prog.need_redraw = true;
+self.bakup();
 }
 pub fn findNext         (self: *View) void {
 const text = self.line.text.get();
@@ -797,6 +805,7 @@ return;
 self.changeMode(.edit);
 prog.need_clear  = true;
 prog.need_redraw = true;
+self.bakup();
 }
 pub fn goToStartOfWord  (self: *View) void {
 if (self.symbol == 0) {return;}
@@ -1181,6 +1190,15 @@ self.line = line;
 prog.need_redraw = true;
 }
 //}
+// { bakup
+pub fn bakup   (self: *View) void {
+self.bakup_line.text.set(self.line.text.get()) catch {};
+}
+pub fn restore (self: *View) void {
+self.line.text.set(self.bakup_line.text.get()) catch {};
+prog.need_redraw = true;
+}
+// }
 }; // end view
 pub const CommandLine  = struct {
 text: [254]u8 = undefined,
@@ -1435,6 +1453,7 @@ false  => {self.view.divide() catch {};},
 .escape     => {self.view.goToOut();},
 .tab        => {self.view.goToIn();},
 .ctrl_y     => {self.debug.toggle();},
+.ctrl_z     => {self.view.restore();},
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte) catch {};
