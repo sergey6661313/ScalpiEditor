@@ -74,16 +74,16 @@ ungrabed:     usize   = 0,
 unreaded:     usize   = 0,
 buffer:       [8]u8   = .{0}**8,
 debug_buffer: [8]u8   = .{0}**8,
+is_paste:     bool    = false,
 pub fn updateUnreaded  (self: *Input) void  {
 var bytesWaiting: c_int = undefined;
 _ = lib.c.ioctl(0, lib.c.FIONREAD, &bytesWaiting);
 var count = @intCast(usize, bytesWaiting);
 self.unreaded = count;
+if (self.unreaded > 8) {self.is_paste = true;}
+else {self.is_paste = false;}
 }
 pub fn grab            (self: *Input) ?Key  {
-if    (self.ungrabed == 0 and self.unreaded == 0) {
-self.updateUnreaded();
-}
 while (self.ungrabed <  8 and self.unreaded >  0) {
 _ = lib.c.read(0, &self.buffer[self.ungrabed], 1);
 self.ungrabed += 1;

@@ -1377,11 +1377,9 @@ self.need_redraw = false;
 self.working = false;
 }
 pub fn updateKeys     (self: *Prog) void {
-if (self.console.input.grab()) |first_key| {
-self.onKey(first_key);
+self.console.input.updateUnreaded();
 while (self.console.input.grab()) |key| {
 self.onKey(key);
-}
 }
 } // end fn updateKeys
 pub fn onKey          (self: *Prog, cik: Console.Input.Key) void {
@@ -1428,7 +1426,12 @@ switch (key) {
 .ctrl_r     => {self.view.foldFromIndent(1);},
 .ctrl_e     => {self.view.foldFromBrackets();},
 .ctrl_j     => {self.view.divide() catch {};},
-.enter      => {self.view.divide() catch {};},
+.enter      => {
+switch (self.console.input.is_paste) {
+true   => {self.view.addNextLine() catch {};},
+false  => {self.view.divide() catch {};},
+}
+},
 .back_space => {self.view.deletePrevSymbol();},
 .ctrl_o     => {self.view.line.text.removeIndent(2) catch {}; self.need_redraw = true;},
 .ctrl_p     => {self.view.line.text.addIndent(2) catch {}; self.need_redraw = true;},
