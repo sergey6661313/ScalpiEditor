@@ -407,7 +407,6 @@ if (self.line.prev) |_| {
 self.cut();
 self.goToPrevLine();
 self.pasteLine();
-if (self.offset.y > 1) self.offset.y += 1;
 }
 prog.need_redraw  = true;
 }
@@ -811,6 +810,17 @@ self.bakup();
 pub fn goToStartOfWord  (self: *View) void {
 if (self.symbol == 0) {return;}
 if (self.symbol > self.line.text.used) {self.goToSymbol(self.line.text.used);}
+const first_rune = self.line.text.buffer[self.symbol];
+if (first_rune == ' ') {
+self.goToPrevSymbol();
+while (true) {
+if (self.symbol == 0) {break;}
+const rune = self.line.text.buffer[self.symbol];
+if (rune != ' ') break;
+self.goToPrevSymbol();
+}
+}
+else {
 self.goToPrevSymbol();
 while(true) {
 if (self.symbol == 0) {break;}
@@ -827,11 +837,21 @@ else => {},
 }
 self.goToPrevSymbol();
 }
+}
 prog.need_redraw = true;
 }
 pub fn goToEndOfWord    (self: *View) void {
 if (self.symbol >= self.line.text.used) {return;}
+const first_rune = self.line.text.buffer[self.symbol];
+if (first_rune == ' ') {
 while(true) {
+self.goToNextSymbol();
+if (self.symbol >= self.line.text.used) {break;}
+const rune = self.line.text.buffer[self.symbol];
+if (rune != ' ') break;
+}
+}
+else while(true) {
 self.goToNextSymbol();
 if (self.symbol >= self.line.text.used) {break;}
 const rune = self.line.text.buffer[self.symbol];
@@ -841,6 +861,7 @@ switch(rune){
 '(', ')', 
 '[', ']', 
 '{', '}', 
+'"', '\'',
 '.'  => {break;},
 else => {},
 }
@@ -1353,9 +1374,7 @@ defer file_data_allocated.deInit() catch unreachable;
 const text                = file_data_allocated.slice orelse unreachable; 
 self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
 }
-self.console.init(); defer {
-self.console.deInit();
-}
+self.console.init(); defer {self.console.deInit();}
 self.updatePathToClipboard();
 self.mainLoop();
 self.console.cursorMoveToEnd();
@@ -1419,11 +1438,12 @@ switch (sequence) {
 .ctrl_down        => {self.view.goToLastLine();},
 .alt_up           => {self.view.swapWithUpper();},
 .alt_down         => {self.view.swapWithBottom();},
-else              => {},
+else              => {self.need_redraw = true;},
 }
 },
 .byte      => |byte| {
 self.view.insertSymbol(byte) catch {};
+self.need_redraw = true;
 },
 .ascii_key => |key|  {
 switch (key) {
@@ -1457,6 +1477,7 @@ false  => {self.view.divide() catch {};},
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte) catch {};
+self.need_redraw = true;
 },
 }
 },

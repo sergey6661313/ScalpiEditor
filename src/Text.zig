@@ -96,17 +96,6 @@ else => break,
 }
 return count;
 }
-pub fn countNonIndent      (self: *const TextLine) usize {
-var count: usize = 0;
-var text = self.get();
-for (text) |r| {
-switch(r) {
-' ', '\t' => {},
-else => count += 1,
-}
-}
-return count;
-}
 pub fn find                (self: *const TextLine, text: []const u8, start_pos: usize) ?usize { // pos  
 const self_text = self.get();
 if (self.used < text.len)  return null;
