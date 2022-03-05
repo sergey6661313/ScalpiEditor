@@ -303,7 +303,7 @@ var next = self.line;
 if (next.prev) |prev| {
 const next_used = next.text.used;
 const prev_used = prev.text.used;
-if (prev_used + next_used > 252) return;
+if (prev_used + next_used > Line.Text.size - 3) return;
 if (prev_used != 0) { // move cursor
 self.goToPrevLine();
 self.goToEndOfLine();
@@ -860,11 +860,10 @@ const rune = self.line.text.buffer[self.symbol];
 switch(rune){
 ' ', '	', '\\', 
 '+', '-', '/', '*', '^',
-'(', ')', 
-'[', ']', 
-'{', '}', 
+'(', ')', '[', ']', '{', '}', 
 '"', '\'',
-'.'  => {break;},
+':', '.'  
+=> {break;},
 else => {},
 }
 }

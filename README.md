@@ -11,9 +11,7 @@ features:
    *  one time memory allocation:
       +  stable working, no memory leaks, freezes, or other.
       -  Limit on the number and size of rows 
-   *  uses terminal
-      + work in termux :)
-      - terminal compactibility...  (Best is Alacritty)
+   *  uses terminal: tested work in termux, alacritty, evilvte
 
 for compile use zig language ver. 0.9. (https://ziglang.org):
     $ zig build
