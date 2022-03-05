@@ -434,25 +434,6 @@ prog.buffer.delete(self.line);
 self.line = next_selected_line;
 prog.need_redraw  = true;
 }
-pub fn deleteIndent      (self: *View) void {
-const text = self.line.text.get();
-const indent = self.line.text.countIndent(1);
-var new_indent: usize = 0;
-if (self.line.getParent()) |parent| new_indent = parent.text.countIndent(1);
-var buffer = self.line.text.buffer[0..];
-if (new_indent == indent) {return;} 
-else if (new_indent > indent) {
-std.mem.copyBackwards(u8, buffer[new_indent..], buffer[indent..]);
-self.line.text.used = text.len + (indent - new_indent);
-for (buffer[0..new_indent]) |*rune| rune.* = ' ';
-} 
-else { // new_indent < indent
-std.mem.copy(u8, buffer[new_indent..], buffer[indent..]);
-self.line.text.used = text.len - (indent - new_indent);
-}
-self.goToStartOfText();
-prog.need_redraw  = true;
-}
 //}
 // { draw
 pub fn draw             (self: *View) void {
@@ -1472,7 +1453,6 @@ switch (key) {
 .ctrl_u     => {self.view.unFold();},
 .ctrl_r     => {self.view.foldFromIndent(1);},
 .ctrl_e     => {self.view.foldFromBrackets();},
-.ctrl_j     => {self.view.divide() catch {};},
 .enter      => {
 switch (self.console.input.is_paste) {
 true   => {self.view.addNextLine() catch {};},
@@ -1481,8 +1461,7 @@ false  => {self.view.divide() catch {};},
 },
 .back_space => {self.view.deletePrevSymbol();},
 .ctrl_bs    => {self.view.deletePrevSymbol();},
-.ctrl_o     => {self.view.line.text.removeIndent(2) catch {}; self.need_redraw = true;},
-.ctrl_p     => {self.view.line.text.addIndent(2) catch {}; self.need_redraw = true;},
+.ctrl_p     => {self.view.line.changeIndentToCutie() catch {}; self.need_redraw = true;},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
@@ -1593,7 +1572,7 @@ switch (key) {
 .enter      => {self.view.divide() catch {};},
 .back_space => {self.view.deletePrevSymbol();},
 .ctrl_bs    => {self.view.deletePrevSymbol();},
-.code_p     => {self.view.deleteIndent();},
+.code_p     => {self.view.line.changeIndentToCutie() catch {};},
 .code_d     => {self.view.duplicate();},
 .code_x     => {self.view.cut();},
 .code_c     => {self.view.externalCopy() catch {};},

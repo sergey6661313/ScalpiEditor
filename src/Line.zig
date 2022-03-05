@@ -9,19 +9,19 @@ next:    ?*Line,
 prev:    ?*Line,
 parent:  ?*Line,
 child:   ?*Line,
-pub fn fromInit          () !Line {
+pub fn fromInit            () !Line {
 var line: Line = undefined;
 try line.init();
 return line;
 }
-pub fn init              (self: *Line) !void {
+pub fn init                (self: *Line) !void {
     self.next   = null;
     self.prev   = null;
     self.parent = null;
     self.child  = null;
     self.text   = Text.fromText("") catch unreachable;
 }
-pub fn pushPrev          (self: *Line, new_line: *Line) void {
+pub fn pushPrev            (self: *Line, new_line: *Line) void {
     { // update chain
         if (self.prev) |prev| {
             prev.next = new_line;
@@ -38,7 +38,7 @@ pub fn pushPrev          (self: *Line, new_line: *Line) void {
         }
     }
 } // end fn
-pub fn pushNext          (self: *Line, new_line: *Line) void {
+pub fn pushNext            (self: *Line, new_line: *Line) void {
     { // update chain
         if (self.next) |next| {
             next.prev = new_line;
@@ -48,19 +48,37 @@ pub fn pushNext          (self: *Line, new_line: *Line) void {
         new_line.prev = self;
     } // update chain
 } // end fn add
-pub fn getFirst          (self: *Line) *Line {
+pub fn getFirst            (self: *Line) *Line {
 var line = self;
 while(line.prev) |prev| line = prev;
 return line;
 }
-pub fn getParent         (self: *Line) ?*Line {
+pub fn getParent           (self: *Line) ?*Line {
 var first = self.getFirst();
 return first.parent;
 }
-pub fn getLastChild      (self: *Line) ?*Line {
+pub fn getLastChild        (self: *Line) ?*Line {
   if (self.child) |first| {
     var current = first;
     while (current.next) |next| current = next;
     return current;
   } else return null;
+}
+pub fn changeIndentToCutie (self: *Line) !void {
+const indent = self.text.countIndent(1);
+
+var new_indent: usize = 0;
+if (self.prev) |prev| {new_indent = prev.text.countIndent(1);}
+else if (self.parent) |parent| {new_indent = parent.text.countIndent(1) + 2;}
+
+// change indent to new_indent
+if (new_indent == indent) {return;}
+else if (new_indent > indent) { 
+const delta = new_indent - indent;
+try self.text.addIndent(delta);
+} 
+else { // new_indent < indent
+const delta = indent - new_indent;
+try self.text.removeIndent(delta);
+}
 }
