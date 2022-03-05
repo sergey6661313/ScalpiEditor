@@ -277,6 +277,37 @@ prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
 pub fn getLineNum           (self: *View) usize {
 return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
 }
+pub fn indentToCutie        (self: *View) void {
+var current = self.line;
+current.changeIndentToCutie() catch {};
+var first   = current;
+if (first.child) |first_child| {
+current = first_child;
+current.changeIndentToCutie() catch {};
+traversal: while (true) {
+if (current.child)     |child| {
+current = child;
+current.changeIndentToCutie() catch {};
+}
+else if (current.next) |next|  {
+current = next;
+current.changeIndentToCutie() catch {};
+}
+else {
+while (true) { // find parent with next
+current = current.getParent() orelse break :traversal;
+if (current == first) break :traversal;
+if (current.next) |next| {
+current = next; 
+current.changeIndentToCutie() catch {};
+break;
+}
+}
+}
+}
+}
+prog.need_redraw = true;
+}
 // { mark
 pub fn markThisLine         (self: *View) void {
 self.marked_line = self.line;
@@ -1461,7 +1492,7 @@ false  => {self.view.divide() catch {};},
 },
 .back_space => {self.view.deletePrevSymbol();},
 .ctrl_bs    => {self.view.deletePrevSymbol();},
-.ctrl_p     => {self.view.line.changeIndentToCutie() catch {}; self.need_redraw = true;},
+.ctrl_p     => {self.view.indentToCutie();},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
