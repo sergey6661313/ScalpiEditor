@@ -29,13 +29,12 @@ edit        {
   new line / divide line [Enter]
   delete prev char       [BackSpace]
   delete next char       [Del]
-  clear line             [Ctrl]  +  [BackSpace]
+  clear line             [Shift] +  [Del]
   duplicate              [Ctrl]  +  [d]
   cut                    [Ctrl]  +  [x]
   copy (external)        [Ctrl]  +  [c]
   paste                  [Ctrl]  +  [v]
   paste (external)       [Alt]   +  [v]
-  // you can also copy/paste using the vim mode of the alacritty terminal
   move line down         [Alt]   +  [Down]
   move line up           [Alt]   +  [Up]
 }

@@ -25,46 +25,48 @@ var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
 try buffer.init();
 return buffer;
 }
-pub fn init         (self: *Buffer) !void {
-self.cutted        = null;
-self.find_text     = null;
-self.to_goto       = null;
-self.to_find       = null;
-self.line_for_goto = 0;
-for (self.lines) |*line| { // init all lines:
+pub fn init         (buffer: *Buffer) !void {
+buffer.cutted        = null;
+buffer.find_text     = null;
+buffer.to_goto       = null;
+buffer.to_find       = null;
+buffer.line_for_goto = 0;
+for (buffer.lines) |*line| { // init all lines:
 line.* = try Line.fromInit();
 }
 //{ tie all lines to "free" chain
-const first = &self.lines[0];
-const last = &self.lines[size - 1];
+const first = &buffer.lines[0];
+const last  = &buffer.lines[size - 1];
 //{  update ends of range
-first.next = &self.lines[1];
-last.prev = &self.lines[size - 2];
+first.next = &buffer.lines[1];
+last.prev  = &buffer.lines[size - 2];
 //}
 { // update others everything in between first and last
 var pos: usize = 1;
 while (true) {
-const current = &self.lines[pos];
-current.prev = &self.lines[pos - 1];
-current.next = &self.lines[pos + 1];
+const current = &buffer.lines[pos];
+current.prev  = &buffer.lines[pos - 1];
+current.next  = &buffer.lines[pos + 1];
 pos += 1;
 if (pos == size - 1) break;
 }
 }
 //}
-self.free = &self.lines[0];
+buffer.free = &buffer.lines[0];
 } // end fn init
+pub fn delete       (buffer: *Buffer, line: *Line) void {
+if (line.child) |_| buffer.deleteBlock(line) 
+else buffer.deleteLine(line);
+} // end fn delete
 pub fn create       (self: *Buffer) !*Line {
 if (self.free) |free| {
 self.free = free.next; // update self.free
 const line = free;
 try line.init();
 return line;
-} else return error.NoFreeSlots;
+} 
+else return error.NoFreeSlots;
 }
-pub fn delete       (self: *Buffer, line: *Line) void {
-if (line.child) |_| self.deleteBlock(line) else self.deleteLine(line);
-} // end fn delete
 pub fn deleteBlock  (self: *Buffer, line: *Line) void {
 const start_line = line;
 const end_line = start_line.next;
@@ -1386,6 +1388,10 @@ while (true) {
 self.console.updateSize();
 self.updateKeys();
 if (self.working == false) return;
+if (self.debug.visible == true) {
+self.need_clear  = true;
+self.need_redraw = true;
+}
 if (self.need_clear  == true) {
 self.need_clear = false;
 prog.console.clear();
@@ -1421,6 +1427,7 @@ switch (sequence) {
 .f2_tty           => {self.debug.toggle();},
 .f9               => {self.view.changeMode(.normal);},
 .delete           => {self.view.deleteSymbol();},
+.shift_delete     => {self.view.clearLine();},
 .end              => {self.view.goToEndOfLine();},
 .home             => {self.view.goToStartOfLine();},
 .down             => {self.view.goToNextLine();},
@@ -1462,13 +1469,13 @@ false  => {self.view.divide() catch {};},
 }
 },
 .back_space => {self.view.deletePrevSymbol();},
+.ctrl_bs    => {self.view.deletePrevSymbol();},
 .ctrl_o     => {self.view.line.text.removeIndent(2) catch {}; self.need_redraw = true;},
 .ctrl_p     => {self.view.line.text.addIndent(2) catch {}; self.need_redraw = true;},
 .ctrl_d     => {self.view.duplicate();},
 .ctrl_x     => {self.view.cut();},
 .ctrl_c     => {self.view.externalCopy() catch {};},
 .ctrl_v     => {self.view.pasteLine();},
-.ctrl_bs    => {self.view.clearLine();},
 .ctrl_t     => {self.view.insertSymbol('\t') catch {};},
 .escape     => {self.view.goToOut();},
 .tab        => {self.view.goToIn();},
@@ -1487,9 +1494,10 @@ self.need_redraw = true;
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
-.ctrl_left  => self.view.goToStartOfLine(),
-.ctrl_right => self.view.goToEndOfLine(),
-.delete     => self.view.deleteSymbol(),
+.ctrl_left     => self.view.goToStartOfLine(),
+.ctrl_right    => self.view.goToEndOfLine(),
+.delete        => self.view.deleteSymbol(),
+.shift_delete  => {self.view.clearLine();},
 else        => {},
 }
 },
@@ -1501,9 +1509,9 @@ switch (key) {
 .escape     => self.view.changeMode(.edit),
 .ctrl_q     => self.stop(),
 .back_space => self.view.deletePrevSymbol(),
+.ctrl_bs    => self.view.deletePrevSymbol(),
 .ctrl_j     => self.view.findNext(),
 .enter      => self.view.findNext(),
-.ctrl_bs    => self.view.clearLine(),
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte) catch {};
@@ -1516,10 +1524,11 @@ self.view.insertSymbol(byte) catch {};
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
-.ctrl_left  => self.view.goToStartOfLine(),
-.ctrl_right => self.view.goToEndOfLine(),
-.delete     => self.view.deleteSymbol(),
-else        => {},
+.ctrl_left     => self.view.goToStartOfLine(),
+.ctrl_right    => self.view.goToEndOfLine(),
+.delete        => self.view.deleteSymbol(),
+.shift_delete  => {self.view.clearLine();},
+else           => {},
 }
 },
 .byte      => |byte| {
@@ -1530,9 +1539,9 @@ switch (key) {
 .escape     => self.view.changeMode(.edit),
 .ctrl_q     => self.stop(),
 .back_space => self.view.deletePrevSymbol(),
+.ctrl_bs    => self.view.deletePrevSymbol(),
 .ctrl_j     => self.view.goToLine(),
 .enter      => self.view.goToLine(),
-.ctrl_bs    => self.view.clearLine(),
 else        => {
 var byte = @enumToInt(key);
 self.view.insertSymbol(byte) catch {};
@@ -1547,14 +1556,15 @@ self.view.insertSymbol(byte) catch {};
 switch (cik) {
 .sequence  => |sequence| {
 switch (sequence) {
-.delete     => self.view.deleteSymbol(),
-.end        => self.view.goToEndOfLine(),
-.home       => self.view.goToStartOfLine(),
-.down       => self.view.goToNextLine(),
-.up         => self.view.goToPrevLine(),
-.left       => self.view.goToPrevSymbol(),
-.right      => self.view.goToNextSymbol(),
-else        => {},
+.delete       => self.view.deleteSymbol(),
+.shift_delete => {self.view.clearLine();},
+.end          => self.view.goToEndOfLine(),
+.home         => self.view.goToStartOfLine(),
+.down         => self.view.goToNextLine(),
+.up           => self.view.goToPrevLine(),
+.left         => self.view.goToPrevSymbol(),
+.right        => self.view.goToNextSymbol(),
+else          => {},
 }
 },
 .byte      => |_| {},
@@ -1571,12 +1581,12 @@ switch (key) {
 .code_j     => {self.view.divide() catch {};},
 .enter      => {self.view.divide() catch {};},
 .back_space => {self.view.deletePrevSymbol();},
+.ctrl_bs    => {self.view.deletePrevSymbol();},
 .code_p     => {self.view.deleteIndent();},
 .code_d     => {self.view.duplicate();},
 .code_x     => {self.view.cut();},
 .code_c     => {self.view.externalCopy() catch {};},
 .code_v     => {self.view.pasteLine();},
-.ctrl_bs    => {self.view.clearLine();},
 .code_t     => {self.view.insertSymbol('\t') catch {};},
 .escape     => {self.view.goToOut();},
 .tab        => {self.view.goToIn();},

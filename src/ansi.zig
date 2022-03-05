@@ -300,13 +300,6 @@ f2_tty,
 f1,
 f2,
 f9,
-ctrl_alt_v,
-ctrl_shift_left,
-ctrl_shift_right,
-shift_up,
-shift_down,
-shift_left,
-shift_right,
 delete,
 left,
 right,
@@ -314,17 +307,25 @@ up,
 down,
 end,
 home,
-alt_v,
-alt_m,
-alt_M,
 ctrl_left,
+ctrl_alt_v,
+ctrl_shift_left,
+ctrl_shift_right,
 ctrl_right,
 ctrl_up,
 ctrl_down,
-alt_left,
-alt_right,
-alt_up,
+shift_up,
+shift_down,
+shift_left,
+shift_right,
+shift_delete,
+alt_v,
+alt_m,
+alt_M,
 alt_down,
+alt_up,
+alt_right,
+alt_left,
 // }
 pub const Parser = struct {
 sequence: Sequence = null,
@@ -333,26 +334,6 @@ pub fn fromDo(buffer: []u8) ?Parser {
 if (buffer.len >= 6) {
 if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x36\x44") == .equal) { // ctrl_shift_left
 const parser: Parser = .{.sequence = .ctrl_shift_left, .used = 6};
-return parser;
-}
-if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x36\x43") == .equal) { // ctrl_shift_right
-const parser: Parser = .{.sequence = .ctrl_shift_right, .used = 6};
-return parser;
-}
-if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x41") == .equal) { // shift_up 
-const parser: Parser = .{.sequence = .shift_up, .used = 6};
-return parser;
-}
-if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x42") == .equal) { // shift_down 
-const parser: Parser = .{.sequence = .shift_down, .used = 6};
-return parser;
-}
-if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x44") == .equal) { // shift_left 
-const parser: Parser = .{.sequence = .shift_left, .used = 6};
-return parser;
-}
-if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x43") == .equal) { // shift_right
-const parser: Parser = .{.sequence = .shift_right, .used = 6};
 return parser;
 }
 if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x44") == .equal) { // ctrl_left
@@ -371,6 +352,26 @@ if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x35\x42") == .equal) { // ctrl_down
 const parser: Parser = .{.sequence = .ctrl_down, .used = 6};
 return parser;
 }
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x33\x3B\x32\x7E") == .equal) { // shift_delete
+const parser: Parser = .{.sequence = .shift_delete, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x41") == .equal) { // shift_up 
+const parser: Parser = .{.sequence = .shift_up, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x42") == .equal) { // shift_down 
+const parser: Parser = .{.sequence = .shift_down, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x44") == .equal) { // shift_left 
+const parser: Parser = .{.sequence = .shift_left, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x32\x43") == .equal) { // shift_right
+const parser: Parser = .{.sequence = .shift_right, .used = 6};
+return parser;
+}
 if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x44") == .equal) { // alt_left
 const parser: Parser = .{.sequence = .alt_left, .used = 6};
 return parser;
@@ -385,6 +386,10 @@ return parser;
 }
 if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x33\x42") == .equal) { // alt_down
 const parser: Parser = .{.sequence = .alt_down, .used = 6};
+return parser;
+}
+if (lib.cmp(buffer[0..6], "\x1B\x5B\x31\x3B\x36\x43") == .equal) { // ctrl_shift_right
+const parser: Parser = .{.sequence = .ctrl_shift_right, .used = 6};
 return parser;
 }
 }
