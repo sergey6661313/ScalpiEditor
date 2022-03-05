@@ -1,7 +1,7 @@
 const Line                 = @This();
 const std                  = @import("std");
 const Prog                 = @import("root");
-const prog                 = &Prog.prog;
+const prog                 = Prog.prog;
 pub const Text             = @import("Text.zig");
 pub const RuneIteratorUtf8 = struct {};
 text:    Text,

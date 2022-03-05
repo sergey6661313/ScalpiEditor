@@ -19,10 +19,9 @@ find_text:     ?*Line,
 to_goto:       ?*Line,
 to_find:       ?*Line,
 line_for_goto: usize,
-pub fn fromInit     () !*Buffer {
+pub fn fromAlloc    () !*Buffer {
 const allocated    = lib.c.aligned_alloc(8, @sizeOf(Buffer)) orelse return error.NeedMoreMemory;
 var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
-try buffer.init();
 return buffer;
 }
 pub fn init         (buffer: *Buffer) !void {
@@ -150,6 +149,11 @@ last_line:   ?*Line      = null,
 selected:    usize       = 0,
 marked_line: ?*Line      = null,
 bakup_line:  *Line       = undefined,
+pub fn fromAlloc            () !*View {
+const allocated = lib.c.aligned_alloc(8, @sizeOf(View)) orelse return error.NeedMoreMemory;
+var view: *View = @ptrCast(*View, @alignCast(8, allocated));
+return view;
+}
 pub fn init                 (self: *View, file_name: [:0]const u8, text: []const u8) !void {
 self.* = .{};
 self.setFileName(file_name);
@@ -1316,34 +1320,45 @@ self.visible = !self.visible;
 prog.need_redraw = true;
 }
 };
-const MainErrors       = error{
-BufferNotInit,
-ViewNotInit,
-Unexpected,
-};
 // }
+pub var prog: *Prog = undefined;
 // { fields
-pub var prog:      Prog         = .{};
-working:           bool         = true,
-console:           Console      = .{},
-buffer:            *Buffer      = undefined,
-view:              View         = .{},
-debug:             Debug        = .{},
-path_to_clipboard: Line.Text    = undefined,
-need_clear:        bool         = true,
-need_redraw:       bool         = true,
-usage_line:        *Line        = undefined,
+working:           bool,
+console:           Console,
+debug:             Debug,
+need_clear:        bool,
+need_redraw:       bool,
+buffer:            Buffer,
+view:              View,
+path_to_clipboard: Line.Text,
+usage_line:        *Line,
 // }
-pub fn main        () MainErrors!void {
-const self = &prog;
-self.buffer = Buffer.fromInit() catch return error.BufferNotInit;
+pub fn main () !void {
+const allocated    = lib.c.aligned_alloc(8, @sizeOf(Prog)) orelse return error.NeedMoreMemory;
+prog = @ptrCast(*Prog, @alignCast(8, allocated));
+defer lib.c.free(prog);
+try prog.init();
+try prog.run();
+} // end fn main
+// { methods
+pub fn init           (se: *Prog) !void {
+se.working       = true;
+se.need_clear    = true;
+se.need_redraw   = true;
+se.console       = .{};
+se.debug         = .{};
+try se.buffer.init();
 { // load usage text
 const path = "ScalpiEditor_usage.txt";
 const text = @embedFile("ScalpiEditor_usage.txt");
-self.view.init(path, text) catch return error.ViewNotInit;
-self.usage_line = self.view.first;
+se.view.init(path, text) catch return error.ViewNotInit;
+se.usage_line = se.view.first;
 }
-if (std.os.argv.len > 1) { // work with arguments
+se.updatePathToClipboard();
+}
+pub fn run            (se: *Prog) !void {
+se.console.init(); defer {se.console.deInit();}
+if (std.os.argv.len > 1){ // work with arguments
 var   argument            = try lib.getTextFromArgument();
 const parsed_path         = ParsePath.fromText(argument) catch {
 lib.print(
@@ -1373,15 +1388,12 @@ return;
 };
 defer file_data_allocated.deInit() catch unreachable;
 const text                = file_data_allocated.slice orelse unreachable; 
-self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
+se.view.init(file_name_santieled, text) catch return error.ViewNotInit;
 }
-self.console.init(); defer {self.console.deInit();}
-self.updatePathToClipboard();
-self.mainLoop();
-self.console.cursorMoveToEnd();
+se.mainLoop();
+se.console.cursorMoveToEnd();
 lib.print("\r\n");
-} // end fn main
-// { methods
+} // end fn initAndRun
 pub fn mainLoop       (self: *Prog) void {
 while (true) {
 self.console.updateSize();
