@@ -143,7 +143,7 @@
     first:       *Line       = undefined,
     line:        *Line       = undefined,
     symbol:      usize       = 0,
-    offset:      lib.Coor2u  = .{ .y = 1 },
+    offset:      lib.Coor2u  = .{ .y = 5 },
     focus:       bool        = false,
     last_line:   ?*Line      = null,
     selected:    usize       = 0,
@@ -678,26 +678,15 @@
         self.bakup();
         }
       pub fn goToPrevLine     (self: *View) void {
-        if (self.line.prev) |prev| {self.line = prev;} 
-        else {return;}
-        // correct offset_y:
-        if (self.offset.y > 1) self.offset.y -= 1;
-        var count_to_upperest_line: usize = 0;
-        var line: *Line = self.line;
-        while (count_to_upperest_line < 5) {
-          if (line.prev) |prev| {
-            count_to_upperest_line += 1;
-            line = prev;
-            } 
-          else {break;}
-          }
-        if (self.offset.y < count_to_upperest_line + 1) {
-          self.offset.y = count_to_upperest_line + 1;
+        if (self.line.prev) |prev| {
+          self.line = prev;
           prog.need_clear  = true;
-          }
-        prog.need_redraw = true;
+          prog.need_redraw = true;
+        } 
+        else {return;}
+        if (self.offset.y > 5) {self.offset.y -= 1;}
         self.bakup();
-        } // end fn
+      } // end fn
       pub fn goToNextLine     (self: *View) void {
         if (self.line.next) |next| {
           self.line = next;
@@ -779,7 +768,7 @@
         }
       pub fn goToRoot         (self: *View) void {
         self.line = self.first;
-        self.offset.y = 1;
+        self.offset.y = 5;
         self.goToStartOfLine();
         prog.need_clear  = true;
         prog.need_redraw = true;
@@ -1014,38 +1003,38 @@
         prog.need_redraw = true;
         prog.need_clear  = true;
         }
-      pub fn goToIn           (self: *View) void {
-        const line_indent = self.line.text.countIndent(1);
-        const child = self.line.child orelse return;
+      pub fn goToIn            (self: *View) void {
+        const line_indent  = self.line.text.countIndent(1);
+        const child        = self.line.child orelse return;
         const child_indent = child.text.countIndent(1);
         if (line_indent < child_indent) {self.offset.x = child_indent - line_indent;} 
-        else self.offset.x = 1;
-        self.symbol = child_indent;
-        self.line = child;
-        self.offset.y = 6;
-        prog.need_redraw = true;
-        prog.need_clear  = true;
-        }
-      pub fn goToOut          (self: *View) void {
+        else self.offset.x = 0;
+        self.symbol        = child_indent;
+        self.line          = child;
+        self.offset.y      = 6;
+        prog.need_redraw   = true;
+        prog.need_clear    = true;
+      }
+      pub fn goToOut           (self: *View) void {
         if (self.line.getParent()) |parent| {
-          self.symbol = parent.text.countIndent(1);
-          self.line = parent;
+          self.symbol   = parent.text.countIndent(1);
+          self.line     = parent;
           self.offset.y = 6;
           if (parent.getParent()) |grand_parent| {
             const parent_indent = parent.text.countIndent(1);
             const grand_parent_indent = grand_parent.text.countIndent(1);
             if (grand_parent_indent <= parent_indent) {
               self.offset.x = parent_indent - grand_parent_indent;
-              } 
-            else self.offset.x = self.symbol;
             } 
-          else self.offset.x = self.symbol;
+            else self.offset.x = self.symbol;
           } 
+          else self.offset.x = self.symbol;
+        } 
         else self.goToRoot();
         prog.need_redraw = true;
         prog.need_clear  = true;
-        }
-      //}
+      }
+    //}
     // { clipboard
       pub fn duplicate      (self: *View) void {
         const first      = self.line; 
@@ -1364,7 +1353,7 @@ pub fn main () !void {
   defer lib.c.free(prog);
   try prog.init();
   try prog.run();
-  } // end fn main
+} // end fn main
 // { methods
   pub fn init           (se: *Prog) !void {
     se.working       = true;
@@ -1520,10 +1509,10 @@ pub fn main () !void {
                 self.view.insertSymbol(byte) catch {};
                 self.need_redraw = true;
                 },
-              }
-            },
-          }
-        },
+            }
+          },
+        }
+      },
       .to_find => {
         switch (cik) {
           .sequence  => |sequence| {
@@ -1630,11 +1619,11 @@ pub fn main () !void {
             },
           }
         },
-      }
     }
+  }
   pub fn updatePathToClipboard  (self: *Prog) void {
     var len_c_int = lib.c.sprintf(&self.path_to_clipboard.buffer, "%s/clipboard.tmp", lib.c.getenv("HOME"));
     var len = @intCast(usize, len_c_int);
     self.path_to_clipboard.used = len;
     }
-  // }
+// }
