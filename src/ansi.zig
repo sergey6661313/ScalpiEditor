@@ -322,6 +322,7 @@ shift_delete,
 alt_v,
 alt_m,
 alt_M,
+alt_j,
 alt_down,
 alt_up,
 alt_right,
@@ -448,8 +449,8 @@ return parser;
 }
 }
 if (buffer.len >= 2) {
-if (lib.cmp(buffer[0..2], "\x1B\x16") == .equal) { // ctrl_alt_v
-const parser: Parser = .{.sequence = .ctrl_alt_v, .used = 2};
+if (lib.cmp(buffer[0..2], "\x1B\x6A") == .equal) { // alt_j
+const parser: Parser = .{.sequence = .alt_j, .used = 2};
 return parser;
 }
 if (lib.cmp(buffer[0..2], "\x1B\x76") == .equal) { // alt_v
@@ -462,6 +463,10 @@ return parser;
 }
 if (lib.cmp(buffer[0..2], "\x1B\x4D") == .equal) { // alt_M
 const parser: Parser = .{.sequence = .alt_M, .used = 2};
+return parser;
+}
+if (lib.cmp(buffer[0..2], "\x1B\x16") == .equal) { // ctrl_alt_v
+const parser: Parser = .{.sequence = .ctrl_alt_v, .used = 2};
 return parser;
 }
 }

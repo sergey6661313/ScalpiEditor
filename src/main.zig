@@ -277,37 +277,6 @@ prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
 pub fn getLineNum           (self: *View) usize {
 return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
 }
-pub fn indentToCutie        (self: *View) void {
-var current = self.line;
-current.changeIndentToCutie() catch {};
-var first   = current;
-if (first.child) |first_child| {
-current = first_child;
-current.changeIndentToCutie() catch {};
-traversal: while (true) {
-if (current.child)     |child| {
-current = child;
-current.changeIndentToCutie() catch {};
-}
-else if (current.next) |next|  {
-current = next;
-current.changeIndentToCutie() catch {};
-}
-else {
-while (true) { // find parent with next
-current = current.getParent() orelse break :traversal;
-if (current == first) break :traversal;
-if (current.next) |next| {
-current = next; 
-current.changeIndentToCutie() catch {};
-break;
-}
-}
-}
-}
-}
-prog.need_redraw = true;
-}
 // { mark
 pub fn markThisLine         (self: *View) void {
 self.marked_line = self.line;
@@ -464,6 +433,37 @@ if (self.first == self.line) self.first = next_selected_line;
 prog.buffer.delete(self.line);
 self.line = next_selected_line;
 prog.need_redraw  = true;
+}
+pub fn indentToCutie     (self: *View) void {
+var current = self.line;
+current.changeIndentToCutie() catch {};
+var first   = current;
+if (first.child) |first_child| {
+current = first_child;
+current.changeIndentToCutie() catch {};
+traversal: while (true) {
+if (current.child)     |child| {
+current = child;
+current.changeIndentToCutie() catch {};
+}
+else if (current.next) |next|  {
+current = next;
+current.changeIndentToCutie() catch {};
+}
+else {
+while (true) { // find parent with next
+current = current.getParent() orelse break :traversal;
+if (current == first) break :traversal;
+if (current.next) |next| {
+current = next; 
+current.changeIndentToCutie() catch {};
+break;
+}
+}
+}
+}
+}
+prog.need_redraw = true;
 }
 //}
 // { draw
@@ -1459,7 +1459,7 @@ switch (sequence) {
 .right            => {self.view.goToNextSymbol();},
 .alt_v            => {self.view.externalPaste() catch {};},
 .alt_m            => {self.view.markThisLine();},
-.alt_M            => {self.view.goToMarked();},
+.alt_j            => {self.view.goToMarked();},
 .ctrl_shift_left  => {self.view.goToStartOfLine();},
 .ctrl_shift_right => {self.view.goToEndOfLine();},
 .ctrl_left        => {self.view.goToStartOfWord();},

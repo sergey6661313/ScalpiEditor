@@ -39,8 +39,8 @@ edit        {
   move line up           [Alt]   +  [Up]
 }
 mark        {
-  mark                   [Ctrl]  +  [M]
-  jump to mark           [Ctrl]  +  [Shift] + [M]
+  mark                   [Alt]  +  [M]
+  jump to mark           [Alt]  +  [j]
 }
 not implemented yet {
   select left  symbol    [Shift] +  [Left]
