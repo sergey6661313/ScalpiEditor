@@ -163,35 +163,69 @@
         self.first = try prog.buffer.create();
         parse_text_to_lines: {
           if (text.len == 0) break :parse_text_to_lines;
-          var line_num: usize = 0;
-          var line: *Line = self.first;
+          var line_num:   usize = 0;
+          var line:       *Line = self.first;
           var start_line: usize = 0;
-          var data_pos: usize = 0;
-          if (text[0] == '\n') { // add blank line
-            try line.text.set("");
-            start_line = 1;
-            const new_line = try prog.buffer.create();
-            line.pushNext(new_line);
-            line = new_line;
-            line_num += 1;
-            }
-          while (true) { // find other '\n'
-            if (data_pos >= text.len or text[data_pos] == '\n') add_line: {
+          var data_pos:   usize = 0;
+          while (true) { // find first '\n'
+            if (data_pos > text.len - 1) {
               const end_line: usize = data_pos;
-              if (end_line < start_line) break :add_line;
               line.text.set(text[start_line..end_line]) catch {
                 return error.LineIsToLong;
-                };
-              start_line = end_line + 1;
-              const new_line = try prog.buffer.create();
-              line.pushNext(new_line);
-              line = new_line;
+              };
               line_num += 1;
+              break :parse_text_to_lines;
+            }
+            else if (text[data_pos] == '\n') {
+              const end_line: usize = data_pos;
+              if (end_line > start_line) {
+                line.text.set(text[start_line..end_line]) catch {
+                  return error.LineIsToLong;
+                };
               }
+              start_line = end_line + 1;
+              line_num += 1;
+              data_pos += 1;
+              break;
+            }
             data_pos += 1;
-            if (start_line >= text.len) break;
-            } // end while
           }
+          while (true) { // find other '\n'
+            if (data_pos > text.len - 1) {
+              const end_line: usize = data_pos;
+              if (end_line > start_line) {
+                const new_line = try prog.buffer.create();
+                new_line.text.set(text[start_line..end_line]) catch {
+                  return error.LineIsToLong;
+                };
+                line.pushNext(new_line);
+                line = new_line;
+              }
+              start_line = end_line + 1;
+              line_num += 1;
+              break;
+            }
+            else if (text[data_pos] == '\n') {
+              const end_line: usize = data_pos;
+              if (end_line > start_line) {
+                const new_line = try prog.buffer.create();
+                new_line.text.set(text[start_line..end_line]) catch {
+                  return error.LineIsToLong;
+                };
+                line.pushNext(new_line);
+                line = new_line;
+              }
+              else {
+                const new_line = try prog.buffer.create();
+                line.pushNext(new_line);
+                line = new_line;
+              }
+              start_line = end_line + 1;
+              line_num += 1;
+            }
+            data_pos += 1;
+          } // end while
+        }
         self.line = self.first;
         self.bakup_line = try prog.buffer.create();
         } // end fn loadLines
@@ -1413,8 +1447,9 @@ pub fn main () !void {
       }
     se.mainLoop();
     se.console.cursorMoveToEnd();
+    lib.print(ansi.reset);
     lib.print("\r\n");
-    } // end fn initAndRun
+  } // end fn initAndRun
   pub fn mainLoop       (self: *Prog) void {
     while (true) {
       self.console.updateSize();
