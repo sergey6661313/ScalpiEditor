@@ -12,6 +12,29 @@ self.used = 0;
 try self.set(text);
 return self;
 }
+pub fn get                 (self: *const TextLine) []const   u8 {
+    return self.buffer[0 .. self.used];
+}
+pub fn getRunesCount       (self: *const TextLine, rune: u8) usize { // used for folding on brackets
+  var count: usize = 0;
+  var text:  []const u8 = self.get();
+  for (text) |r| {
+    if (r == rune) count += 1; 
+  }
+  return count;
+}
+pub fn find                (self: *const TextLine, text: []const u8, start_pos: usize) ?usize { // pos  
+const self_text = self.get();
+if (self.used < text.len)  return null;
+if (self.used < start_pos) return null;
+var pos: usize = start_pos;
+while (true) {
+if (self.used - pos < text.len) return null;
+if (lib.cmp(self_text, text) == .equal) return pos;
+pos += 1;
+if (pos >= self.used) return null;
+}
+}
 pub fn add                 (self: *TextLine, rune: u8) !void {
 if (self.used >= size) unreachable;
 if (self.used == size - 1) return error.LineIsFull;
@@ -52,6 +75,23 @@ pub fn getSantieled        (self: *TextLine) [:0]const u8 {
 self.buffer[self.used] = 0;
 return self.buffer[0 .. self.used :0];
 }
+// { indent
+pub fn countIndent         (self: *const TextLine, tabsize: usize) usize {
+var count: usize = 0;
+var text = self.get();
+for (text) |r| {
+switch(r) {
+' '  => count += 1,
+'\t' => count += tabsize,
+else => break,
+}
+}
+return count;
+}
+pub fn countNonIndent      (self: *const TextLine) usize {
+const indent = self.countIndent(1);
+return self.used - indent;
+}
 pub fn addIndent           (self: *TextLine, count: usize) !void {
 const last_indent = self.countIndent(1);
 const last_start  = last_indent;
@@ -73,38 +113,16 @@ const new_end     = self.used   - count;
 std.mem.copy(u8, self.buffer[new_start .. new_end], self.buffer[last_start .. last_end]);
 self.used = new_end;
 }
-pub fn get                 (self: *const TextLine) []const   u8 {
-    return self.buffer[0 .. self.used];
-}
-pub fn getRunesCount       (self: *const TextLine, rune: u8) usize { // used for folding on brackets
-  var count: usize = 0;
-  var text:  []const u8 = self.get();
-  for (text) |r| {
-    if (r == rune) count += 1; 
+pub fn changeIndent        (self: *TextLine, new_indent: usize) !void {
+  const indent = self.countIndent(1);
+  if (new_indent == indent) {return;}
+  else if (new_indent > indent) { 
+    const delta = new_indent - indent;
+    try self.addIndent(delta);
+  } 
+  else { // new_indent < indent
+    const delta = indent - new_indent;
+    try self.removeIndent(delta);
   }
-  return count;
 }
-pub fn countIndent         (self: *const TextLine, tabsize: usize) usize {
-var count: usize = 0;
-var text = self.get();
-for (text) |r| {
-switch(r) {
-' '  => count += 1,
-'\t' => count += tabsize,
-else => break,
-}
-}
-return count;
-}
-pub fn find                (self: *const TextLine, text: []const u8, start_pos: usize) ?usize { // pos  
-const self_text = self.get();
-if (self.used < text.len)  return null;
-if (self.used < start_pos) return null;
-var pos: usize = start_pos;
-while (true) {
-if (self.used - pos < text.len) return null;
-if (lib.cmp(self_text, text) == .equal) return pos;
-pos += 1;
-if (pos >= self.used) return null;
-}
-}
+// }

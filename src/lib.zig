@@ -1,3 +1,4 @@
+const do_not_compile_todo = false;
 const std             = @import("std");
 pub const c           = @cImport({
     // canonical c
@@ -129,4 +130,8 @@ switch(state) {
 .enable  => ptr.* |= flag,
 .disable => ptr.* &= ~flag,
 }
+}
+pub fn todo                 () void {
+  if (do_not_compile_todo) @compileError("TODO: implement me");
+  if (std.builtin.mode == .Debug) {std.log.warn("todo this.", .{});}
 }

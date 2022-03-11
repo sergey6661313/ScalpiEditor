@@ -3,19 +3,19 @@ This is ScalpiEditor - "heirarhy" text editor.
 for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
 
-main key bindings {
+main key bindings   {
   exit                   [Ctrl]  +  [q]
   save                   [Ctrl]  +  [s]
   move cursour:          just use arrows
 }
-folding     {
+folding             {
   parse with brackets    [Ctrl]  +  [e]
   parse with indent      [Ctrl]  +  [r]
   unparse                [Ctrl]  +  [u]
   enter block            [Tab]
   leave block            [Esc] 
 }
-navigation  {
+navigation          {
   go to start of line    [Home]
   go to end   of line    [End]
   go to first line       [Ctrl]  +  [Up]
@@ -24,7 +24,7 @@ navigation  {
   go to left   word      [Ctrl]  +  [Left]
   go to right  word      [Ctrl]  +  [Right]
 }
-edit        {
+edit                {
   insert char            [any]
   new line / divide line [Enter]
   delete prev char       [BackSpace]
@@ -38,9 +38,14 @@ edit        {
   move line down         [Alt]   +  [Down]
   move line up           [Alt]   +  [Up]
 }
-mark        {
+mark                {
   mark                   [Alt]  +  [M]
   jump to mark           [Alt]  +  [j]
+}
+to support me:      {
+  monero:  87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B
+  patreon: https://www.patreon.com/cutloose
+  visa:    4279380688862970
 }
 not implemented yet {
   select left  symbol    [Shift] +  [Left]

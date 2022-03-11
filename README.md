@@ -22,4 +22,4 @@ to support me (monero): 87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBb
 
 examples:
 [![asciicast](https://asciinema.org/a/467542.svg)](https://asciinema.org/a/467542)
-
+[https://www.youtube.com/watch?v=51ao2416ioE&t=60s

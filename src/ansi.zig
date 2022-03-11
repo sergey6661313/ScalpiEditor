@@ -323,6 +323,7 @@ alt_v,
 alt_m,
 alt_M,
 alt_j,
+alt_p,
 alt_down,
 alt_up,
 alt_right,
@@ -451,6 +452,10 @@ return parser;
 if (buffer.len >= 2) {
 if (lib.cmp(buffer[0..2], "\x1B\x6A") == .equal) { // alt_j
 const parser: Parser = .{.sequence = .alt_j, .used = 2};
+return parser;
+}
+if (lib.cmp(buffer[0..2], "\x1B\x70") == .equal) { // alt_p
+const parser: Parser = .{.sequence = .alt_p, .used = 2};
 return parser;
 }
 if (lib.cmp(buffer[0..2], "\x1B\x76") == .equal) { // alt_v

@@ -65,20 +65,8 @@ pub fn getLastChild        (self: *Line) ?*Line {
   } else return null;
 }
 pub fn changeIndentToCutie (self: *Line) !void {
-const indent = self.text.countIndent(1);
-
-var new_indent: usize = 0;
-if (self.prev) |prev| {new_indent = prev.text.countIndent(1);}
-else if (self.parent) |parent| {new_indent = parent.text.countIndent(1) + 2;}
-
-// change indent to new_indent
-if (new_indent == indent) {return;}
-else if (new_indent > indent) { 
-const delta = new_indent - indent;
-try self.text.addIndent(delta);
-} 
-else { // new_indent < indent
-const delta = indent - new_indent;
-try self.text.removeIndent(delta);
-}
+  var new_indent: usize = 0;
+  if (self.prev) |prev| {new_indent = prev.text.countIndent(1);}
+  else if (self.parent) |parent| {new_indent = parent.text.countIndent(1) + 2;}
+  try self.text.changeIndent(new_indent);
 }
