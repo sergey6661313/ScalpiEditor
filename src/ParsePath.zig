@@ -7,8 +7,8 @@ pub const findSymbol      = lib.findSymbol;
 pub const u64FromCharsDec = lib.u64FromCharsDec;
 
 file_name: ?Text   = null,
-line:      ?usize  = null,
-column:    ?usize  = null,
+line:      ?u64    = null,
+column:    ?u64    = null,
 
 pub fn fromText(text: []const u8) !ParsePath {
 const comma_symbol = ':';

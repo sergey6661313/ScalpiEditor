@@ -325,7 +325,7 @@
       }
       pub fn goToLineFromNumber   (self: *View) void {
         if (self.line.text.used == 0) return;
-        var num = lib.u64FromCharsDec(self.line.text.get()) catch return;
+        var num: usize = @truncate(usize, lib.u64FromCharsDec(self.line.text.get()) catch return);
         num += prog.buffer.lineToPos(self.first) - 1;
         if (num >= prog.buffer.lineToPos(self.line)) return;
         self.last_line = &prog.buffer.lines[num];
