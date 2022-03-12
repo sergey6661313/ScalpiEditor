@@ -1288,6 +1288,7 @@
           }
           prog.need_redraw = true;
           prog.need_clear  = true;
+          self.foldMode    = .byIndent;  
         }
         pub fn indentToCutie     (self: *View) void {
           var current = self.line;
