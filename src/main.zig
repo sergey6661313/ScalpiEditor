@@ -414,6 +414,7 @@
           self.line.pushNext(new_line);
           self.goToNextLine();
           self.goToStartOfLine();
+          prog.need_clear   = true;
           prog.need_redraw  = true;
         }
         pub fn divide            (self: *View) !void {

@@ -44,8 +44,6 @@ mark                {
 }
 to support me:      {
   monero:  87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B
-  patreon: https://www.patreon.com/cutloose
-  visa:    4279380688862970
 }
 not implemented yet {
   select left  symbol    [Shift] +  [Left]
