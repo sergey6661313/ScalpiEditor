@@ -2,7 +2,7 @@ const TextLine = @This();
 const std      = @import("std");
 const Prog     = @import("root");
 const prog     = Prog.prog;
-const lib      = @import("lib.zig");
+const lib      = Prog.lib;
 pub const  size      = 512;
 used:      usize,
 buffer:    [size]u8,

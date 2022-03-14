@@ -1,11 +1,11 @@
 // { imports
   const     Prog         = @This();
   const     std          = @import("std");
-  pub const ansi         = @import("ansi.zig");
   pub const lib          = @import("lib.zig");
+  pub const ansi         = @import("ansi/src/ansi.zig");
   pub const ParsePath    = @import("ParsePath.zig");
   pub const Line         = @import("Line.zig");
-  pub const Console      = @import("Console.zig");
+  pub const Console      = @import("Console/src/Console.zig");
   pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
   pub const File         = @import("File/src/File.zig");
 // }

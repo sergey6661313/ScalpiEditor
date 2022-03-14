@@ -1,0 +1,15 @@
+[Desktop]
+color=1228957184
+wallpaper_use=1
+wallpaper_mode=2
+wallpaper=
+
+[Icons]
+label_background=216
+label_foreground=255
+label_font=0
+label_fontsize=0
+label_maxwidth=55
+label_transparent=0
+label_visible=1
+one_click_exec=0
