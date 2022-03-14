@@ -1,7 +1,7 @@
 // { imports
   const     Prog         = @This();
   const     std          = @import("std");
-  pub const lib          = @import("lib.zig");
+  pub const lib          = @import("lib/src/lib.zig");
   pub const ansi         = @import("ansi/src/ansi.zig");
   pub const ParsePath    = @import("ParsePath.zig");
   pub const Line         = @import("Line.zig");
@@ -1329,7 +1329,6 @@
           prog.need_redraw = true;
         }
         pub fn deleteIndent      (self: *View) void {
-          if (self.foldMode != .byBrackets) {return;}
           var current = self.line;
           current.text.changeIndent(0) catch {};
           var first   = current;
