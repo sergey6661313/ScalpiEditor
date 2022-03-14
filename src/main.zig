@@ -1251,7 +1251,7 @@
           var line: *Line = self.first.next orelse return;
           while (true) {
             const prev = line.prev orelse unreachable;
-            if (line.text.used == 0) {} // skip blank lines
+            if (line.text.countNonIndent() == 0) {} // skip blank lines
             else { // change to child or parent
               const indent = line.text.countIndent(tabsize);
               if (indent != last_indent) {
