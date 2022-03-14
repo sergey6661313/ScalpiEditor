@@ -725,6 +725,7 @@
           self.symbol        = child_indent;
           self.line          = child;
           self.offset.y      = 6;
+          self.bakup();
           prog.need_redraw   = true;
           prog.need_clear    = true;
         }
@@ -744,6 +745,7 @@
           else {
             self.goToRoot();
           }          
+          self.bakup();
           prog.need_redraw = true;
           prog.need_clear  = true;
         }
@@ -824,6 +826,12 @@
           const indent = self.line.text.countIndent(1);
           if (self.symbol > indent) self.goToSymbol(indent)
           else self.goToStartOfLine();
+          prog.need_redraw = true;
+        }
+        pub fn CtrlShiftRight   (self: *View) void {
+          const indent = self.line.text.countIndent(1);
+          if (self.symbol < indent) self.goToSymbol(indent)
+          else self.goToEndOfLine();
           prog.need_redraw = true;
         }
         pub fn goToStartOfLine  (self: *View) void {
@@ -1582,7 +1590,7 @@ pub fn main () !void {
               .left             => {self.view.goToPrevSymbol();},
               .right            => {self.view.goToNextSymbol();},
               .ctrl_shift_left  => {self.view.CtrlShiftLeft();},
-              .ctrl_shift_right => {self.view.goToEndOfLine();},
+              .ctrl_shift_right => {self.view.CtrlShiftRight();},
               .ctrl_left        => {self.view.goToStartOfWord();},
               .ctrl_right       => {self.view.goToEndOfWord();},
               .ctrl_up          => {self.view.goToFirstLine();},
