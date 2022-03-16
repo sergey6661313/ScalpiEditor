@@ -39,8 +39,12 @@ edit                {
   move line up           [Alt]   +  [Up]
 }
 mark                {
-  mark                   [Alt]  +  [M]
+  mark                   [Alt]  +  [m]
   jump to mark           [Alt]  +  [j]
+}
+indent              {
+  fix indent:    [Ctrl]  +  [p]
+  remove indent: [alt]   +  [p]
 }
 to support me:      {
   monero:  87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B

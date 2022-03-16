@@ -3,9 +3,9 @@ const std      = @import("std");
 const Prog     = @import("root");
 const prog     = Prog.prog;
 const lib      = Prog.lib;
-pub const  size      = 512;
-used:      usize,
-buffer:    [size]u8,
+pub const  size     = 512;
+used:      usize    = 0,
+buffer:    [size]u8 = undefined,
 pub fn fromText            (text: []const u8) !TextLine {
   var self: TextLine = undefined;
   self.used = 0;

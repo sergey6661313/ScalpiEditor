@@ -16,7 +16,7 @@
   pub const Buffer       = struct {
     pub const size = 25000;
     lines:         [size]Line,
-    free:          ?*Line,
+    maybe_free:    ?*Line,
     cutted:        ?*Line,
     find_text:     ?*Line,
     to_goto:       ?*Line,
@@ -27,43 +27,44 @@
       var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
       return buffer;
     }
-    pub fn init         (buffer: *Buffer) !void {
-      buffer.cutted        = null;
-      buffer.find_text     = null;
-      buffer.to_goto       = null;
-      buffer.to_find       = null;
-      buffer.line_for_goto = 0;
-      for (buffer.lines) |*line| { // init all lines:
-        line.* = try Line.fromInit();
+    pub fn init         (self: *Buffer) !void {
+      self.cutted        = null;
+      self.find_text     = null;
+      self.to_goto       = null;
+      self.to_find       = null;
+      self.line_for_goto = 0;
+      for (self.lines) |*line| { // init all lines:
+        line.* = .{};
       }
-      // { tie all lines to "free" chain
-        if (buffer.lines.len < 2) return error.TooSmallLines;
+      self.addBlanks(self.lines[0..]);
+      if (false) { //tie all lines to "free" chain
+        if (self.lines.len < 2) return error.TooSmallLines;
         { // update ends of range
-          const first = &buffer.lines[0];
-          first.next  = &buffer.lines[1];
+          const first = &self.lines[0];
+          first.next  = &self.lines[1];
           
-          const last  = &buffer.lines[size - 1];
-          last.prev   = &buffer.lines[size - 2];
+          const last  = &self.lines[size - 1];
+          last.prev   = &self.lines[size - 2];
         }
         { // update others everything in between first and last
-          for (buffer.lines[1..buffer.lines.len-1]) |*current, id| {
+          for (self.lines[1..self.lines.len-1]) |*current, id| {
             const pos     = id + 1;
-            current.prev  = &buffer.lines[pos - 1];
-            current.next  = &buffer.lines[pos + 1];
+            current.prev  = &self.lines[pos - 1];
+            current.next  = &self.lines[pos + 1];
           }
         }
-      //}
-      buffer.free = &buffer.lines[0];
+      }
+      self.maybe_free = &self.lines[0];
     } // end fn init
-    pub fn delete       (buffer: *Buffer, line: *Line) void {
-      if (line.child) |_| buffer.deleteBlock(line) 
-      else buffer.deleteLine(line);
+    pub fn delete       (self: *Buffer, line: *Line) void {
+      if (line.child) |_| self.deleteBlock(line) 
+      else self.deleteLine(line);
     } // end fn delete
     pub fn create       (self: *Buffer) !*Line {
-      if (self.free) |free| {
-        self.free = free.next; // update self.free
-        const line = free;
-        try line.init();
+      if (self.maybe_free) |free| {
+        self.maybe_free = free.next; // update self.free
+        const line      = free;
+        line.* = .{};
         return line;
       } 
       else return error.NoFreeSlots;
@@ -98,8 +99,8 @@
         line.parent = null;
       //}
       //{ add to free
-        line.next = self.free;
-        self.free = line;
+        line.next = self.maybe_free;
+        self.maybe_free = line;
       //}
     } // end fn deleteLine
     pub fn cut          (self: *Buffer, line: *Line) void {
@@ -130,6 +131,31 @@
       const pos = ptr / @sizeOf(Line);
       return pos;
     }
+    pub fn addBlanks    (self: *Buffer, blanks: []Line) void {
+      if (blanks.len == 0) unreachable;
+      if (blanks.len >  1) {
+        { // update others everything in between first and last
+          for (blanks[1..blanks.len-1]) |*current, id| {
+            const pos     = id + 1;
+            current.prev  = &blanks[pos - 1];
+            current.next  = &blanks[pos + 1];
+          }
+        }
+        { // update ends of range
+          const first = &blanks[0];
+          first.next  = &blanks[1];
+          
+          const last  = &blanks[blanks.len - 1];
+          last.prev   = &blanks[blanks.len - 2];
+        }
+      }
+      if (self.maybe_free) |free| {
+        const last = &blanks[blanks.len - 1];
+        last.next  = free;
+        free.prev  = &blanks[blanks.len];
+      }
+      self.maybe_free = &blanks[0];
+    }
   };
   pub const View         = struct {
     pub const Mode     = enum {
@@ -139,6 +165,8 @@
       history,
       select,
       normal,
+      easy_motion_vertical,
+      easy_motion_horizontal,
     };
     pub const FoldMode = enum {
       byNone,
@@ -298,13 +326,7 @@
       }
       pub fn changeMode           (self: *View, mode: Mode) void {
         switch (mode) {
-          .edit    => {
-            if (self.last_line) |last| {
-              self.line = last;
-              } else {
-              self.line = self.first;
-            }
-          },
+          .edit    => {},
           .to_find => {
             self.last_line = self.line;
           },
@@ -320,6 +342,12 @@
           .history => {},
           .select  => {},
           .normal  => {},
+          .easy_motion_vertical   => {
+            self.draw_vertical_help_motion();
+          },
+          .easy_motion_horizontal => {
+            self.draw_horizontal_help_motion();
+          },
         }
         self.mode = mode;
       }
@@ -336,6 +364,12 @@
           num += prog.buffer.lineToPos(self.first) - 1;
           if (num >= prog.buffer.lineToPos(self.line)) return;
           self.last_line = &prog.buffer.lines[num];
+          if (self.last_line) |last| {
+            self.line = last;
+          } 
+          else {
+            self.line = self.first;
+          }
           self.changeMode(.edit);
           self.offset.y = 6;
           self.goToSymbol(self.line.text.countIndent(1));
@@ -522,6 +556,37 @@
           prog.buffer.delete(self.line);
           self.line = next_selected_line;
           prog.need_redraw  = true;
+        }
+        pub fn deleteWord        (self: *View) void {
+          if (self.symbol > self.line.text.used) {return;}
+          while(true) { // delete current symbol
+            if (self.symbol == self.line.text.used) {break;}
+            switch(self.line.text.buffer[self.symbol]) {
+              ' ', '	', '\\', 
+              '+', '-', '/', '*', '^',
+              '(', ')', 
+              '[', ']', 
+              '{', '}', 
+              '"', '\'',
+              '.'  => {break;},
+              else => {self.deleteSymbol();},
+            }
+          }
+          while(true) { // delete prev    symbol
+            if (self.symbol == 0) {break;}
+            const prev_symbol = self.line.text.buffer[self.symbol -1];
+            switch(prev_symbol) {
+              ' ', '	', '\\', 
+              '+', '-', '/', '*', '^',
+              '(', ')', 
+              '[', ']', 
+              '{', '}', 
+              '"', '\'',
+              '.'  => {break;},
+              else => {self.deletePrevSymbol();},
+            }
+          }
+          prog.need_redraw = true;
         }
       //}
       // { draw
@@ -1375,6 +1440,60 @@
           prog.need_redraw = true;
         }
       // }
+      // { easy motion
+        pub fn draw_horizontal_help_motion   (self: *View) void {
+          var pos:  usize = 0;
+          var rune: u8    = 0x41;
+          lib.print(ansi.color.magenta);
+          while(true) {
+            prog.console.cursorMove(.{ .x = pos, .y = self.offset.y });
+            prog.console.printRune(rune);
+            if (rune >= 0x5A) break;
+            rune += 1;
+            if (pos >= prog.console.size.x - 1) break;
+            pos  += 3;
+          }
+          self.cursorMoveToCurrent();
+        }
+        pub fn draw_vertical_help_motion     (self: *View) void {
+          var pos: usize = 0;
+          lib.print(ansi.color.magenta);
+          while(true) {
+            prog.console.cursorMove(.{ .x = self.offset.x, .y = pos });
+            prog.console.printRune(0x41 + @truncate(u8, pos));
+            if (pos >= 0x5A - 0x41) break;
+            if (pos == prog.console.size.y - 1) break;
+            pos += 1;
+          }
+          self.cursorMoveToCurrent();
+        }
+        pub fn easyMotionHorizontal          (self: *View, key: u8) void {
+          var pos = key - 0x61;
+          self.goToSymbol(self.symbol - self.offset.x + pos * 3);
+          self.changeMode(.edit);
+          prog.need_redraw = true;
+          prog.need_clear  = true;
+        }
+        pub fn easyMotionVertical            (self: *View, key: u8) void {
+          var pos = key - 0x61;
+          if (self.offset.y == pos) {}
+          else if (self.offset.y > pos) {
+            var i = self.offset.y - pos;
+            while (i > 0) : (i -= 1) {
+              self.goToPrevLine();
+            }
+          }
+          else { // (self.offset.y < pos)
+            var i = pos - self.offset.y;
+            while (i > 0) : (i -= 1) {
+              self.goToNextLine();
+            }
+          }
+          self.changeMode(.edit);
+          prog.need_redraw = true;
+          prog.need_clear  = true;
+        }
+      // }
     // }
   }; // end view
   pub const CommandLine  = struct {
@@ -1385,55 +1504,21 @@
     visible: bool = false,
     pub fn draw    (self: *Debug) void {
       if (self.visible == false) {return;}
-      const debug_lines = 7;
+      const debug_lines = 4;
       var buffer: [254]u8 = undefined;
       lib.print(ansi.color.blue2);
       var print_offset: usize = prog.console.size.y - debug_lines;
       prog.console.cursorMove(.{ .x = 0, .y = print_offset });
       { // line
-        const as_num         = prog.view.getLineNum();
+        const as_num         = prog.view.line.num;
         const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
         const buffer_count   = @intCast(usize, sprintf_result);
         prog.console.print(buffer[0..buffer_count]);
         prog.console.fillSpacesToEndLine();
       }
-      { // current line prev
-        prog.console.cursorMoveToNextLine();
-        if (prog.view.line.prev) |prev| {
-          const as_num: usize = (@ptrToInt(prev) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
-          const sprintf_result = lib.c.sprintf(&buffer, "line.prev = %d", as_num);
-          const buffer_count = @intCast(usize, sprintf_result);
-          prog.console.print(buffer[0..buffer_count]);
-        } 
-        else {
-          prog.console.print("line.prev = null");
-        }
-        prog.console.fillSpacesToEndLine();
-      }
-      { // current line next
-        prog.console.cursorMoveToNextLine();
-        if (prog.view.line.next) |next| {
-          const as_num: usize = (@ptrToInt(next) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
-          const sprintf_result = lib.c.sprintf(&buffer, "line.next = %d", as_num);
-          const buffer_count = @intCast(usize, sprintf_result);
-          prog.console.print(buffer[0..buffer_count]);
-        } 
-        else {
-          prog.console.print("line.next = null");
-        }
-        prog.console.fillSpacesToEndLine();
-      }
       { // view.offset
         prog.console.cursorMoveToNextLine();
         const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "view.offset .x = %d, .y = %d", prog.view.offset.x, prog.view.offset.y));
-        prog.console.print(buffer[0..buffer_count]);
-        prog.console.fillSpacesToEndLine();
-      }
-      { // line.used
-        prog.console.cursorMoveToNextLine();
-        const used = prog.view.line.text.used;
-        const sprintf_result = lib.c.sprintf(&buffer, "line.len = %d", used);
-        const buffer_count = @intCast(usize, sprintf_result);
         prog.console.print(buffer[0..buffer_count]);
         prog.console.fillSpacesToEndLine();
       }
@@ -1491,22 +1576,22 @@ pub fn main () !void {
   try prog.run();
 } // end fn main
 // { methods
-  pub fn init           (se: *Prog) !void {
-    se.working       = true;
-    se.need_clear    = true;
-    se.need_redraw   = true;
-    se.console       = .{};
-    se.debug         = .{};
-    try se.buffer.init();
+  pub fn init           (self: *Prog) !void {
+    self.working       = true;
+    self.need_clear    = true;
+    self.need_redraw   = true;
+    self.console       = .{};
+    self.debug         = .{};
+    try self.buffer.init();
     { // load usage text
       const path = "ScalpiEditor_usage.txt";
       const text = @embedFile("ScalpiEditor_usage.txt");
-      se.view.init(path, text) catch return error.ViewNotInit;
-      se.usage_line = se.view.first;
+      self.view.init(path, text) catch return error.ViewNotInit;
+      self.usage_line = self.view.first;
     }
-    se.updatePathToClipboard();
+    self.updatePathToClipboard();
   }
-  pub fn run            (se: *Prog) !void {
+  pub fn run            (self: *Prog) !void {
     if (std.os.argv.len > 1) { // work with arguments
       var   argument            = try lib.getTextFromArgument();
       const parsed_path         = ParsePath.fromText(argument) catch {
@@ -1537,11 +1622,11 @@ pub fn main () !void {
       };
       defer file_data_allocated.deInit() catch unreachable;
       const text                = file_data_allocated.slice orelse unreachable; 
-      se.view.init(file_name_santieled, text) catch return error.ViewNotInit;
+      self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
     }
-    se.console.init(); defer {se.console.deInit();}
-    se.mainLoop();
-    se.console.cursorMoveToEnd();
+    self.console.init(); defer {self.console.deInit();}
+    self.mainLoop();
+    self.console.cursorMoveToEnd();
     lib.print(ansi.reset);
     lib.print("\r\n");
   } // end fn initAndRun
@@ -1643,7 +1728,9 @@ pub fn main () !void {
               .ctrl_t     => {self.view.insertSymbol('\t') catch {};},
               .escape     => {self.view.goToOut();},
               .tab        => {self.view.goToIn();},
-              .ctrl_y     => {self.debug.toggle();},
+              .ctrl_y     => {self.view.deleteWord();},
+              .ctrl_l     => {self.view.changeMode(.easy_motion_horizontal);},
+              .ctrl_k     => {self.view.changeMode(.easy_motion_vertical);},
               .ctrl_z     => {self.view.restore();},
               else        => {
                 var byte = @enumToInt(key);
@@ -1756,6 +1843,36 @@ pub fn main () !void {
               .tab        => {self.view.goToIn();},
               .code_l     => {self.view.goToLastLine();},
               else        => {},
+            }
+          },
+        }
+      },
+      .easy_motion_vertical   => {
+        switch (cik) {
+          .sequence  => |_| {},
+          .byte      => |_| {},
+          .ascii_key => |key|  {
+            const num = @enumToInt(key);
+            if (num >= 0x61 and num <= 0x7A) {self.view.easyMotionVertical(num);}
+            else switch (key) {
+              .escape       => {self.view.changeMode(.edit);},
+              .ctrl_q       => {self.stop();},
+              else          => {},
+            }
+          },
+        }
+      },
+      .easy_motion_horizontal => {
+        switch (cik) {
+          .sequence  => |_| {},
+          .byte      => |_| {},
+          .ascii_key => |key|  {
+            const num = @enumToInt(key);
+            if (num >= 0x61 and num <= 0x7A) {self.view.easyMotionHorizontal(num);}
+            else switch (key) {
+              .escape       => {self.view.changeMode(.edit);},
+              .ctrl_q       => {self.stop();},
+              else          => {},
             }
           },
         }
