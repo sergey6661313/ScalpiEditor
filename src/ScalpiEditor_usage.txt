@@ -48,5 +48,4 @@ to support me:      {
 not implemented yet {
   select left  symbol    [Shift] +  [Left]
   select right symbol    [Shift] +  [Right]
-  swap to commentary     [Alt]   +  [Slash]
 }

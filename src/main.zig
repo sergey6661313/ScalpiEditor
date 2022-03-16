@@ -37,20 +37,19 @@
         line.* = try Line.fromInit();
       }
       // { tie all lines to "free" chain
-        const first = &buffer.lines[0];
-        const last  = &buffer.lines[size - 1];
-        // {  update ends of range
-          first.next = &buffer.lines[1];
-          last.prev  = &buffer.lines[size - 2];
-        // }
+        if (buffer.lines.len < 2) return error.TooSmallLines;
+        { // update ends of range
+          const first = &buffer.lines[0];
+          first.next  = &buffer.lines[1];
+          
+          const last  = &buffer.lines[size - 1];
+          last.prev   = &buffer.lines[size - 2];
+        }
         { // update others everything in between first and last
-          var pos: usize = 1;
-          while (true) {
-            const current = &buffer.lines[pos];
+          for (buffer.lines[1..buffer.lines.len-1]) |*current, id| {
+            const pos     = id + 1;
             current.prev  = &buffer.lines[pos - 1];
             current.next  = &buffer.lines[pos + 1];
-            pos += 1;
-            if (pos == size - 1) break;
           }
         }
       //}
@@ -147,18 +146,25 @@
       byIndent,
     };
     // { fields
+      // modes
       mode:        Mode        = .edit,
       foldMode:    FoldMode    = .byNone,
+      
       file_name:   [1024]u8    = undefined,
       first:       *Line       = undefined,
-      line:        *Line       = undefined,
-      symbol:      usize       = 0,
-      offset:      lib.Coor2u  = .{ .y = 5 },
-      focus:       bool        = false,
       last_line:   ?*Line      = null,
       selected:    usize       = 0,
       marked_line: ?*Line      = null,
       bakup_line:  *Line       = undefined,
+      
+      // current pos
+      line:        *Line       = undefined,
+      offset:      lib.Coor2u  = .{ .y = 5 },
+      symbol:      usize       = 0,
+      
+      // screen
+      screen_size: lib.Coor2u  = .{.x = 1, .y = 1},
+      screen_pos:  lib.Coor2u  = .{.x = 3, .y = 3},
     // }
     // { methods
       pub fn fromAlloc            () !*View {
@@ -320,22 +326,24 @@
       pub fn cursorMoveToCurrent  (self: *View) void {
         prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
       }
-      pub fn getLineNum           (self: *View) usize {
-        return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
-      }
-      pub fn goToLineFromNumber   (self: *View) void {
-        if (self.line.text.used == 0) return;
-        var num: usize = @truncate(usize, lib.u64FromCharsDec(self.line.text.get()) catch return);
-        num += prog.buffer.lineToPos(self.first) - 1;
-        if (num >= prog.buffer.lineToPos(self.line)) return;
-        self.last_line = &prog.buffer.lines[num];
-        self.changeMode(.edit);
-        self.offset.y = 6;
-        self.symbol = self.line.text.countIndent(1);
-        prog.need_clear  = true;
-        prog.need_redraw = true;
-        self.bakup();
-      }
+      // { go to line
+        pub fn getLineNum           (self: *View) usize {
+          return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
+        }
+        pub fn goToLineFromNumber   (self: *View) void {
+          if (self.line.text.used == 0) return;
+          var num: usize = @truncate(usize, lib.u64FromCharsDec(self.line.text.get()) catch return);
+          num += prog.buffer.lineToPos(self.first) - 1;
+          if (num >= prog.buffer.lineToPos(self.line)) return;
+          self.last_line = &prog.buffer.lines[num];
+          self.changeMode(.edit);
+          self.offset.y = 6;
+          self.goToSymbol(self.line.text.countIndent(1));
+          prog.need_clear  = true;
+          prog.need_redraw = true;
+          self.bakup();
+        }
+      // }
       // { mark
         pub fn markThisLine         (self: *View) void {
           self.marked_line = self.line;
@@ -966,7 +974,7 @@
               '+', '-', '/', '*', '^',
               '(', ')', '[', ']', '{', '}', 
               '"', '\'',
-              ':', '.'  
+              ';', ':', '.'  
               => {break;},
               else => {},
             }
