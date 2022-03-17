@@ -468,16 +468,24 @@
             self.offset.x = last_offset;
           } 
           else if (self.symbol >= self.line.text.used) { // just add next line
-            var new_indent = indent;
-            if (self.line.child == null) {
-              if (self.line.text.buffer[self.symbol - 1] == ':') {new_indent += 2;}
+            if (self.line.text.buffer[self.symbol - 1] == ':') {
+              if (self.line.child) |_| return;
+              const new_line  = prog.buffer.create() catch return;
+              // { link
+                self.line.child = new_line;
+                new_line.parent = self.line;
+              // }
+              self.goToIn();
+              self.indentToCutie();
+              self.goToSymbol(self.line.text.used);
+              prog.need_clear  = true;
             }
-            try self.addNextLine();
-            self.goToStartOfLine();
-            for (self.line.text.buffer[0..new_indent]) |*rune| rune.* = ' ';
-            self.line.text.used = new_indent;
-            self.goToSymbol(new_indent);
-            prog.need_redraw  = true;
+            else {
+              try self.addNextLine();
+              self.indentToCutie();
+              self.goToStartOfLine();
+              prog.need_redraw  = true;
+            }
           } 
           else if (self.line.text.buffer[self.symbol] == '}' and self.line.text.buffer[self.symbol - 1] == '{') {
             if (self.line.child) |_| return;
@@ -1089,7 +1097,8 @@
             var open_count = line.text.getRunesCount('{'); // **}
             if (open_count == close_count) {
               current = line.next;
-              } else if (open_count > close_count) {
+            } 
+            else if (open_count > close_count) {
               if (line.next) |next| {
                 next.parent = line;
                 line.child = next;
@@ -1097,7 +1106,8 @@
                 next.prev = null;
               }
               current = line.child;
-              } else { // for close_count > open_count
+            } 
+            else { // for close_count > open_count
               if (line.getParent()) |parent| {
                 if (line.next) |next| {
                   next.prev = parent;
@@ -1105,7 +1115,8 @@
                 parent.next = line.next;
                 current = line.next;
                 line.next = null;
-                } else { // unexpected
+              } 
+              else { // unexpected
                 current = line.next;
                 continue;
               }
