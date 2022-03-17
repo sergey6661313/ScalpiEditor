@@ -358,24 +358,21 @@
         pub fn getLineNum           (self: *View) usize {
           return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
         }
-        pub fn goToLineFromNumber   (self: *View) void {
-          if (self.line.text.used == 0) return;
-          var num: usize = @truncate(usize, lib.u64FromCharsDec(self.line.text.get()) catch return);
-          num += prog.buffer.lineToPos(self.first) - 1;
-          if (num >= prog.buffer.lineToPos(self.line)) return;
-          self.last_line = &prog.buffer.lines[num];
-          if (self.last_line) |last| {
-            self.line = last;
-          } 
-          else {
-            self.line = self.first;
-          }
-          self.changeMode(.edit);
-          self.offset.y = 6;
+        pub fn goToLineFromNumber   (self: *View, _num: usize) void {
+          var num: usize   = _num + prog.buffer.lineToPos(self.first) - 1;
+          if (num >= Buffer.size) return;
+          self.line        = &prog.buffer.lines[num];
           self.goToSymbol(self.line.text.countIndent(1));
+          self.offset.y    = 6;
           prog.need_clear  = true;
           prog.need_redraw = true;
           self.bakup();
+        }
+        pub fn goToLineFromInput    (self: *View) void {
+          if (self.line.text.used == 0) return;
+          var num: usize = @truncate(usize, lib.u64FromCharsDec(self.line.text.get()) catch return);
+          self.changeMode(.edit);
+          self.goToLineFromNumber(num);
         }
       // }
       // { mark
@@ -1572,6 +1569,10 @@ pub fn main () !void {
   const allocated    = lib.c.aligned_alloc(8, @sizeOf(Prog)) orelse return error.NeedMoreMemory;
   prog = @ptrCast(*Prog, @alignCast(8, allocated));
   defer lib.c.free(prog);
+  
+  defer lib.print(ansi.reset);
+  defer lib.print("\r\n");
+  
   try prog.init();
   try prog.run();
 } // end fn main
@@ -1592,10 +1593,11 @@ pub fn main () !void {
     self.updatePathToClipboard();
   }
   pub fn run            (self: *Prog) !void {
+    self.console.init(); defer {self.console.deInit();}
     if (std.os.argv.len > 1) { // work with arguments
       var   argument            = try lib.getTextFromArgument();
       const parsed_path         = ParsePath.fromText(argument) catch {
-        lib.print(
+        const text = (
         \\  file name not parsed. 
         \\
         \\  Scalpi editor does not open multiple files in one time.
@@ -1605,12 +1607,13 @@ pub fn main () !void {
         \\
         \\
         );
+        self.console.printInfo(text);
         return;
       };
       var   file_name           = parsed_path.file_name orelse unreachable;
       const file_name_santieled = file_name.getSantieled();
       var   file_data_allocated = AllocatedFileData.fromName(file_name_santieled) catch {
-        lib.print( 
+        const text = ( 
         \\  File not exist or file blocked by system.
         \\  ScalpiEditor does not create files itself.
         \\  You can create file with "touch" command:
@@ -1618,17 +1621,18 @@ pub fn main () !void {
         \\
         \\
         );
+        self.console.printInfo(text);
         return;
       };
       defer file_data_allocated.deInit() catch unreachable;
       const text                = file_data_allocated.slice orelse unreachable; 
       self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
+      if (parsed_path.line) |line| {
+        self.view.goToLineFromNumber(line);
+      }
     }
-    self.console.init(); defer {self.console.deInit();}
     self.mainLoop();
     self.console.cursorMoveToEnd();
-    lib.print(ansi.reset);
-    lib.print("\r\n");
   } // end fn initAndRun
   pub fn mainLoop       (self: *Prog) void {
     while (true) {
@@ -1791,8 +1795,8 @@ pub fn main () !void {
               .ctrl_q     => self.stop(),
               .back_space => self.view.deletePrevSymbol(),
               .ctrl_bs    => self.view.deletePrevSymbol(),
-              .ctrl_j     => self.view.goToLineFromNumber(),
-              .enter      => self.view.goToLineFromNumber(),
+              .ctrl_j     => self.view.goToLineFromInput(),
+              .enter      => self.view.goToLineFromInput(),
               else        => {
                 var byte = @enumToInt(key);
                 self.view.insertSymbol(byte) catch {};
