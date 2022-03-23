@@ -1451,12 +1451,12 @@
       // { easy motion
         pub fn draw_horizontal_help_motion   (self: *View) void {
           var pos:  usize = 0;
-          var rune: u8    = 0x41;
+          var rune: u8    = 0x61;
           lib.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = pos, .y = self.offset.y });
             prog.console.printRune(rune);
-            if (rune >= 0x5A) break;
+            if (rune >= 0x7A) break;
             rune += 1;
             if (pos >= prog.console.size.x - 1) break;
             pos  += 3;
@@ -1468,8 +1468,8 @@
           lib.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = self.offset.x, .y = pos });
-            prog.console.printRune(0x41 + @truncate(u8, pos));
-            if (pos >= 0x5A - 0x41) break;
+            prog.console.printRune(0x61 + @truncate(u8, pos));
+            if (pos >= 0x7A - 0x61) break;
             if (pos == prog.console.size.y - 1) break;
             pos += 1;
           }

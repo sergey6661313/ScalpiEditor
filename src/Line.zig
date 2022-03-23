@@ -10,7 +10,7 @@ prev:    ?*Line = null,
 parent:  ?*Line = null,
 child:   ?*Line = null,
 num:     usize  = 0,
-folded:  true   = false,
+folded:  bool   = false,
 pub fn pushPrev            (self: *Line, new_line: *Line) void {
   { // update chain
     if (self.prev) |prev| {

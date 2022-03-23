@@ -183,6 +183,7 @@ input:       Input             = .{},
     _ = c.tcsetattr(0, c.TCSANOW, &flags);
     self.updateSize();
     self.initBlankLines();
+    lib.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
     self.clear();
     self.cursorMove(.{.x = 0, .y = 0});
   }
