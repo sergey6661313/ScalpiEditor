@@ -1,5 +1,9 @@
+mouse navigation
+mouse scrolling
+flags folded or unfolded
+highlite blocks inside
+use words instead of lines
+
 selections
 one line mode
-use words instead of lines
 UTF-8
-edit two or more files sometimes
