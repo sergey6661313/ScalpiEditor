@@ -4,7 +4,7 @@ for open existing file just write file name as argument:
 $ ScalpiEditor "~/.bashrc"
 
 main key bindings   {
-  exit                   [Ctrl]  +  [q]
+  exit                   [Ctrl]  +  [q]  or  [F10]
   save                   [Ctrl]  +  [s]
   move cursour:          just use arrows
 }

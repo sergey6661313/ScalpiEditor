@@ -1,3 +1,4 @@
+
 // { imports
   const     Prog         = @This();
   const     std          = @import("std");
@@ -5,13 +6,24 @@
   pub const ansi         = @import("ansi/src/ansi.zig");
   pub const ParsePath    = @import("ParsePath.zig");
   pub const Line         = @import("Line.zig");
+  pub const Word         = @import("Word.zig");
+  pub const Rune         = @import("Rune.zig");
   pub const Console      = @import("Console/src/Console.zig");
   pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
   pub const File         = @import("File/src/File.zig");
 // }
 // { defines
+  pub const BufferWords  = struct {
+    free: ?*Word = null,
+  };
+  pub const BufferRunes  = struct {
+    free: ?*Rune = null,
+    
+  };
   pub const Theme        = struct {
-    const headers_color   = ansi.color.cyan;
+    const current   = ansi.color.green;
+    const folded    = ansi.bg_color.black2;
+    const headers   = ansi.color.cyan;
   };
   pub const Buffer       = struct {
     pub const size = 25000;
@@ -158,6 +170,7 @@
     }
   };
   pub const View         = struct {
+    const Self = @This();
     pub const Mode     = enum {
       edit,
       to_find,
@@ -187,7 +200,7 @@
       
       // current pos
       line:        *Line       = undefined,
-      offset:      lib.Coor2u  = .{ .y = 5 },
+      offset:      lib.Coor2u  = .{ .y = 3 },
       symbol:      usize       = 0,
       
       // screen
@@ -354,7 +367,7 @@
       pub fn cursorMoveToCurrent  (self: *View) void {
         prog.console.cursorMove(.{ .x = self.offset.x, .y = self.offset.y });
       }
-      // { go to line
+      // { go to line from number
         pub fn getLineNum           (self: *View) usize {
           return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
         }
@@ -403,7 +416,6 @@
           if (self.symbol == 0) {
             if (self.line == self.first) return;
             if (self.line.parent) |_| return;
-            if (self.line.child)  |_| self.unFold();
             var next = self.line;
             if (self.line.prev) |prev| {
               if (prev.text.countNonIndent() == 0) {
@@ -483,7 +495,7 @@
             else {
               try self.addNextLine();
               self.indentToCutie();
-              self.goToStartOfLine();
+              self.goToStartOfText();
               prog.need_redraw  = true;
             }
           } 
@@ -569,25 +581,25 @@
             switch(self.line.text.buffer[self.symbol]) {
               ' ', '	', '\\', 
               '+', '-', '/', '*', '^',
-              '(', ')', 
-              '[', ']', 
-              '{', '}', 
-              '"', '\'',
-              '.'  => {break;},
+              '(', ')', '[', ']', '{', '}', 
+              '!', '@', '#', '$', '%', '&',
+              ':', ';', '"', '\'',
+              ',', '.'  
+              => {break;},
               else => {self.deleteSymbol();},
             }
           }
           while(true) { // delete prev    symbol
             if (self.symbol == 0) {break;}
-            const prev_symbol = self.line.text.buffer[self.symbol -1];
+            const prev_symbol = self.line.text.buffer[self.symbol - 1];
             switch(prev_symbol) {
               ' ', '	', '\\', 
               '+', '-', '/', '*', '^',
-              '(', ')', 
-              '[', ']', 
-              '{', '}', 
-              '"', '\'',
-              '.'  => {break;},
+              '(', ')', '[', ']', '{', '}', 
+              '!', '@', '#', '$', '%', '&',
+              ';', ':', '"', '\'',
+              ',', '.'  
+              => {break;},
               else => {self.deletePrevSymbol();},
             }
           }
@@ -602,9 +614,13 @@
           }
           lib.print(ansi.reset);
           lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
-          if (self.line.child) |_| self.drawEditedFoldedLine(self.offset.y) else self.drawEditedLine(self.offset.y);
-          self.drawUpperLines();
-          self.drawDownerLines();
+          self.drawEditedLine(self.offset.y);
+          if (prog.console.size.y > 1) {
+            self.drawUpperLines();
+            self.drawDownerLines();
+          }
+          
+          
         } // end draw lines
         pub fn drawUpperLines   (self: *View) void {
           if (self.offset.y == 0) return;
@@ -614,15 +630,7 @@
             if (pos_y == 0) return;
             var current: ?*Line = self.line.prev;
             while (current) |line| {
-              if (line.child) |_| {
-                lib.print(ansi.reset);
-                lib.print(ansi.bg_color.black2);
-                self.drawLine(line, pos_y);
-              } 
-              else {
-                lib.print(ansi.reset);
-                self.drawLine(line, pos_y);
-              }
+              self.drawLine(line, pos_y);
               if (pos_y == 0) return;
               pos_y -= 1;
               current = line.prev;
@@ -632,7 +640,7 @@
           //{ draw parents
             if (pos_y == 0) return;
             lib.print(ansi.reset);
-            lib.print(Theme.headers_color);
+            lib.print(Theme.headers);
             while (last_line.getParent()) |parent| {
               prog.console.cursorMove(.{ .x = 0, .y = pos_y });
               const text = parent.text.get();
@@ -652,22 +660,14 @@
           //}
         }
         pub fn drawDownerLines  (self: *View) void {
-          lib.print(ansi.reset);
-          var line = self.line;
+          var line  = self.line;
           var pos_y = self.offset.y;
           while (true) {
             if (pos_y < prog.console.size.y - 1) {
               if (line.next) |next| {
                 pos_y += 1;
                 line = next;
-                if (line.child) |_| {
-                  lib.print(ansi.reset);
-                  lib.print(ansi.bg_color.black2);
-                  self.drawLine(line, pos_y);
-                  } else {
-                  lib.print(ansi.reset);
-                  self.drawLine(line, pos_y);
-                }
+                self.drawLine(line, pos_y);
                 continue;
               }
             }
@@ -675,12 +675,16 @@
           }
         }
         pub fn drawLine         (self: *View, line: *Line, offset_y: usize) void {
+          // change color
+          lib.print(ansi.reset);
+          if (line.child) |_| {lib.print(ansi.bg_color.black2);}
+          
           // draw left-to-right from first visible rune
           const text = line.text.get();
           prog.console.cursorMove(.{ .x = 0, .y = offset_y });
           if (self.symbol < self.offset.x) { // unexpected
-            self.offset.x = 0;
-            self.symbol = 0;
+            self.offset.x    = 0;
+            self.symbol      = 0;
             prog.need_redraw = true;
             return;
           }
@@ -692,22 +696,23 @@
             offset_x += 1;
           }
         }
-        pub fn drawEditedLine   (self: *View, offset_y: usize) void {
+        pub fn drawEditedLine   (self: *View, offset_y: usize) void {    // delete?
+          lib.print(ansi.reset);
+          var text_color: []const u8 = Prog.Theme.current; //ansi.color.zero[0..];
+          if (self.line.child) |_| {lib.print(ansi.bg_color.black2);}
+          
           // draw left-to-right from first visible rune
           const text = self.line.text.get();
-          const text_color = ansi.color.green2;
           prog.console.cursorMove(.{ .x = 0, .y = offset_y });
           var pos: usize = self.symbol - self.offset.x;
           var offset_x: usize = 0;
           if (pos > 0) { // draw '<'
-            lib.print(ansi.reset);
             lib.print(ansi.color.magenta);
             prog.console.printRune('<');
             pos += 1;
             offset_x += 1;
           }
           //{ left symbols
-            lib.print(ansi.reset);
             lib.print(text_color);
             while (offset_x < self.offset.x) {
               drawSymbol(text, pos);
@@ -716,14 +721,12 @@
             }
           //}
           //{ current symbol. maybe inverse cursour?
-            lib.print(ansi.reset);
             lib.print(ansi.color.yellow);
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
           //}
           //{ right symbols
-            lib.print(ansi.reset);
             lib.print(text_color);
             while (offset_x < prog.console.size.x - 1) {
               drawSymbol(text, pos);
@@ -734,59 +737,8 @@
           if (text.len > pos) { // draw '>'
             lib.print(ansi.color.magenta);
             prog.console.printRune('>');
-            } else { // draw ' '
-            prog.console.printRune(' ');
-          }
-        }
-        pub fn drawEditedFoldedLine(self: *View, offset_y: usize) void {
-          // draw left-to-right from first visible rune
-          const text = self.line.text.get();
-          const text_color = ansi.color.green2;
-          const bg_color = ansi.bg_color.black2;
-          prog.console.cursorMove(.{ .x = 0, .y = offset_y });
-          var pos: usize = self.symbol - self.offset.x;
-          var offset_x: usize = 0;
-          if (pos > 0) { // draw '<'
-            lib.print(ansi.reset);
-            lib.print(ansi.color.magenta);
-            prog.console.printRune('<');
-            pos += 1;
-            offset_x += 1;
-          }
-          //{ left symbols
-            lib.print(ansi.reset);
-            lib.print(bg_color);
-            lib.print(text_color);
-            while (offset_x < self.offset.x) {
-              drawSymbol(text, pos);
-              pos += 1;
-              offset_x += 1;
-            }
-          //}
-          //{ current symbol. maybe inverse cursour?
-            lib.print(ansi.reset);
-            lib.print(ansi.color.yellow);
-            drawSymbol(text, pos);
-            pos += 1;
-            offset_x += 1;
-          //}
-          //{ right symbols
-            lib.print(ansi.reset);
-            lib.print(bg_color);
-            lib.print(text_color);
-            while (offset_x < prog.console.size.x - 1) {
-              drawSymbol(text, pos);
-              pos += 1;
-              offset_x += 1;
-            }
-          //}
-          if (text.len > pos) { // draw '>'
-            lib.print(ansi.reset);
-            lib.print(ansi.color.magenta);
-            prog.console.printRune('>');
-            } else { // draw ' '
-            prog.console.printRune(' ');
-          }
+          } 
+          prog.console.fillSpacesToEndLine();
         }
         pub fn drawSymbol       (text: []const u8, pos: usize) void {
           if (pos >= text.len) prog.console.printRune(' ') else prog.console.printRune(text[pos]);
@@ -802,7 +754,10 @@
           //else self.offset.x = 0;
           self.symbol        = child_indent;
           self.line          = child;
-          self.offset.y      = 6;
+          if (prog.console.size.y > 6) {self.offset.y = 6;}
+          else if (prog.console.size.y > 3) {self.offset.y = 3;}
+          else if (prog.console.size.y > 1) {self.offset.y = 1;}
+          else {self.offset.y = 0;}
           self.bakup();
           prog.need_redraw   = true;
           prog.need_clear    = true;
@@ -842,26 +797,31 @@
         pub fn goToNextLine     (self: *View) void {
           if (self.line.next) |next| {
             self.line = next;
-            } else {
-            return;
+            //{ correct offset_y:
+              if (self.offset.y < prog.console.size.y - 1) self.offset.y += 1;
+              
+              // count downest_lines
+              var count_to_downest_line: usize = 0;
+              var line: *Line = self.line;
+              while (count_to_downest_line < 5) {
+                if (line.next) |down_next| {
+                  count_to_downest_line += 1;
+                  line = down_next;
+                } 
+                else {break;}
+              }
+              
+              if (prog.console.size.y - self.offset.y < count_to_downest_line) {
+                self.offset.y = prog.console.size.y - count_to_downest_line;
+                prog.need_clear  = true;
+              }
+              prog.need_redraw = true;
+              self.bakup();
+            //}
+          } 
+          else {
+            self.goToEndOfLine();
           }
-          // correct offset_y:
-          if (self.offset.y < prog.console.size.y - 1) self.offset.y += 1;
-          var count_to_downest_line: usize = 0;
-          var line: *Line = self.line;
-          while (count_to_downest_line < 5) {
-            if (line.next) |next| {
-              count_to_downest_line += 1;
-              line = next;
-            } 
-            else {break;}
-          }
-          if (prog.console.size.y - self.offset.y < count_to_downest_line) {
-            self.offset.y = prog.console.size.y - count_to_downest_line;
-            prog.need_clear  = true;
-          }
-          prog.need_redraw = true;
-          self.bakup();
         } // end fn
         pub fn goToPrevSymbol   (self: *View) void {
           const used = self.line.text.used;
@@ -1011,12 +971,12 @@
               const next_symbol = self.line.text.buffer[self.symbol - 1];
               switch(next_symbol){
                 ' ', '	', '\\', 
-                '+', '-', '/', '*', '^',
-                '(', ')', 
-                '[', ']', 
-                '{', '}', 
+                '=', '+', '-', '/', '*', '^',
+                '!', '@', '#', '$', '%', '&',
+                '(', ')', '[', ']', '{', '}', 
                 '"', '\'',
-                '.'  => {break;},
+                ';', ':', '.', ','  
+                => {break;},
                 else => {},
               }
               self.goToPrevSymbol();
@@ -1041,10 +1001,11 @@
             const rune = self.line.text.buffer[self.symbol];
             switch(rune){
               ' ', '	', '\\', 
-              '+', '-', '/', '*', '^',
+              '=', '+', '-', '/', '*', '^',
               '(', ')', '[', ']', '{', '}', 
+              '!', '@', '#', '$', '%', '&',
               '"', '\'',
-              ';', ':', '.'  
+              ';', ':', '.', ','  
               => {break;},
               else => {},
             }
@@ -1502,6 +1463,14 @@
           prog.need_clear  = true;
         }
       // }
+      pub fn drawWords(self: *View) void {
+        var maybe_word = self.line.words;
+        while(maybe_word) |word| {       
+          _ = word;
+          prog.console.cursorMove(.{.x = 0, .y = self.offset.y});
+        }
+        self.cursorMoveToCurrent();
+      }
     // }
   }; // end view
   pub const CommandLine  = struct {
@@ -1582,6 +1551,7 @@ pub fn main () !void {
   defer lib.c.free(prog);
   
   defer lib.print(ansi.reset);
+  defer lib.print(ansi.bg_color.zero);
   defer lib.print("\r\n");
   
   try prog.init();
@@ -1675,17 +1645,61 @@ pub fn main () !void {
       self.onKey(key);
     }
   } // end fn updateKeys
+  pub fn onMouse        (self: *Prog) void {
+    const mode   = self.console.input.buffer[3];
+    if (mode != ' ') return;
+    
+    var coor_x = self.console.input.buffer[4];
+    if (coor_x < 33) {
+      var buffer: [254]u8 = undefined;
+      var count = @intCast(usize, lib.c.sprintf(&buffer, "x = %d", coor_x));
+      lib.print(ansi.color.yellow);
+      lib.print(buffer[0..count]);
+      return;
+    }
+    coor_x -= 33;
+    self.view.goToSymbol(self.view.symbol - self.view.offset.x + coor_x);
+    
+    var coor_y = self.console.input.buffer[5];
+    if (coor_y < 35) {
+      var buffer: [254]u8 = undefined;
+      var count = @intCast(usize, lib.c.sprintf(&buffer, "x = %d", coor_x));
+      lib.print(ansi.color.yellow);
+      lib.print(buffer[0..count]);
+      return;
+    }
+    coor_y -= 35;
+    if (self.view.offset.y == coor_y) {}
+    else if (self.view.offset.y > coor_y) {
+      var i = self.view.offset.y - coor_y;
+      while (i > 0) : (i -= 1) {
+        self.view.goToPrevLine();
+      }
+    }
+    else { // (self.view.offset.y < coor_y)
+      var i = coor_y - self.view.offset.y;
+      while (i > 0) : (i -= 1) {
+        self.view.goToNextLine();
+      }
+    }
+    
+    prog.need_redraw = true;
+  }
   pub fn onKey          (self: *Prog, cik: Console.Input.Key) void {
     switch (self.view.mode) {
       .edit    => {
         switch (cik) {
           .sequence  => |sequence| {
             switch (sequence) {
+              .mouse            => {self.onMouse();},
               .f1               => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
+              .f1_rxvt          => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
               .f1_tty           => {self.view.line = self.usage_line; self.need_clear = true; self.need_redraw = true;},
               .f2               => {self.debug.toggle();},
+              .f2_rxvt          => {self.debug.toggle();},
               .f2_tty           => {self.debug.toggle();},
               .f9               => {self.view.changeMode(.normal);},
+              .f10              => {self.stop();},
               
               .delete           => {self.view.deleteSymbol();},
               .shift_delete     => {self.view.clearLine();},
@@ -1700,7 +1714,9 @@ pub fn main () !void {
               .ctrl_shift_left  => {self.view.CtrlShiftLeft();},
               .ctrl_shift_right => {self.view.CtrlShiftRight();},
               .ctrl_left        => {self.view.goToStartOfWord();},
+              .ctrl_left_rxvt   => {self.view.goToStartOfWord();},
               .ctrl_right       => {self.view.goToEndOfWord();},
+              .ctrl_right_rxvt  => {self.view.goToEndOfWord();},
               .ctrl_up          => {self.view.goToFirstLine();},
               .ctrl_down        => {self.view.goToLastLine();},
               .alt_up           => {self.view.swapWithUpper();},
@@ -1747,6 +1763,8 @@ pub fn main () !void {
               .ctrl_l     => {self.view.changeMode(.easy_motion_horizontal);},
               .ctrl_k     => {self.view.changeMode(.easy_motion_vertical);},
               .ctrl_z     => {self.view.restore();},
+              //.ctrl_o     => {self.debug.toggle();},
+              .ctrl_o     => {self.view.drawWords();},
               else        => {
                 var byte = @enumToInt(key);
                 self.view.insertSymbol(byte) catch {};
@@ -1870,6 +1888,8 @@ pub fn main () !void {
             const num = @enumToInt(key);
             if (num >= 0x61 and num <= 0x7A) {self.view.easyMotionVertical(num);}
             else switch (key) {
+              .ctrl_l       => {self.view.changeMode(.easy_motion_horizontal);},
+              .ctrl_k       => {self.view.changeMode(.easy_motion_vertical);},
               .escape       => {self.view.changeMode(.edit);},
               .ctrl_q       => {self.stop();},
               else          => {},
@@ -1885,6 +1905,8 @@ pub fn main () !void {
             const num = @enumToInt(key);
             if (num >= 0x61 and num <= 0x7A) {self.view.easyMotionHorizontal(num);}
             else switch (key) {
+              .ctrl_l       => {self.view.changeMode(.easy_motion_horizontal);},
+              .ctrl_k       => {self.view.changeMode(.easy_motion_vertical);},
               .escape       => {self.view.changeMode(.edit);},
               .ctrl_q       => {self.stop();},
               else          => {},

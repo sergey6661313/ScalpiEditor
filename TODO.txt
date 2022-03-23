@@ -1,4 +1,3 @@
-mouse navigation
 mouse scrolling
 flags folded or unfolded
 highlite blocks inside

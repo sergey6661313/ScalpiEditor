@@ -90,7 +90,7 @@ pub const Input  = struct {
       self.unreaded -= 1;
     }
     if (self.ungrabed == 0) return null;
-    if (ansi.Sequence.Parser.fromDo(self.buffer[0..])) |parser| {
+    if (ansi.Sequence.Parser.fromDo(self.buffer[0..self.ungrabed])) |parser| {
       self.shift(parser.used);
       const key: Key = .{.sequence = parser.sequence};
       return key;
@@ -104,7 +104,8 @@ pub const Input  = struct {
     else { // return ascii
       const ascii_key = @intToEnum(ansi.AsciiKey, self.buffer[0]);
       self.shift(1);
-      return Key {.ascii_key = ascii_key};
+      const key: Key = .{.ascii_key = ascii_key};
+      return key;
     }
   }
   pub fn shift           (self: *Input, val: usize) void {
@@ -184,11 +185,13 @@ input:       Input             = .{},
     self.updateSize();
     self.initBlankLines();
     lib.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
+    lib.print(ansi.mouse.enable);
     self.clear();
     self.cursorMove(.{.x = 0, .y = 0});
   }
   pub fn deInit               (self: *Console) void {
     _ = c.tcsetattr(0,  c.TCSANOW, &self.last_flags); // restore buffer settings
+    lib.print(ansi.mouse.disable);
   }
   pub fn updateSize           (self: *Console) void {
     var w: c.winsize = undefined;

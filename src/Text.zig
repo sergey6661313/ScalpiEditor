@@ -1,21 +1,31 @@
-const TextLine = @This();
+const Self     = @This();
 const std      = @import("std");
 const Prog     = @import("root");
+const Rune     = @import("Rune.zig");
 const prog     = Prog.prog;
 const lib      = Prog.lib;
-pub const  size     = 512;
-used:      usize    = 0,
-buffer:    [size]u8 = undefined,
-pub fn fromText            (text: []const u8) !TextLine {
-  var self: TextLine = undefined;
+pub const   size     = 512;
+used:       usize    = 0,
+buffer:     [size]u8 = undefined,
+
+// runic :)
+count:    usize        = 0,
+indent:   usize        = 0,
+first:    ?*Rune       = null,
+color:    ?[]const u8  = null,
+next:     ?*Self       = null,
+prev:     ?*Self       = null,
+
+pub fn fromText            (text: []const u8) !Self {
+  var self: Self = undefined;
   self.used = 0;
   try self.set(text);
   return self;
 }
-pub fn get                 (self: *const TextLine) []const   u8 {
+pub fn get                 (self: *const Self) []const   u8 {
   return self.buffer[0 .. self.used];
 }
-pub fn getRunesCount       (self: *const TextLine, rune: u8) usize { // used for folding on brackets
+pub fn getRunesCount       (self: *const Self, rune: u8) usize { // used for folding on brackets
   var count: usize = 0;
   var text:  []const u8 = self.get();
   for (text) |r| {
@@ -23,7 +33,7 @@ pub fn getRunesCount       (self: *const TextLine, rune: u8) usize { // used for
   }
   return count;
 }
-pub fn find                (self: *const TextLine, text: []const u8, start_pos: usize) ?usize { // pos  
+pub fn find                (self: *const Self, text: []const u8, start_pos: usize) ?usize { // pos  
   const self_text = self.get();
   if (self.used < text.len)  return null;
   if (self.used < start_pos) return null;
@@ -35,18 +45,21 @@ pub fn find                (self: *const TextLine, text: []const u8, start_pos: 
     if (pos >= self.used) return null;
   }
 }
-pub fn add                 (self: *TextLine, rune: u8) !void {
+pub fn add                 (self: *Self, rune: u8) !void {
   if (self.used >= size) unreachable;
   if (self.used == size - 1) return error.LineIsFull;
   self.buffer[self.used] = rune;
-  self.used += 1;
+  self.used  += 1;
+  self.count += 1;
 }
-pub fn set                 (self: *TextLine, text: []const u8) !void {
+pub fn set                 (self: *Self, text: []const u8) !void {
   if (text.len > size) return error.TextIsToLong;
   std.mem.copy(u8, self.buffer[0..], text);
-  self.used = text.len;
+  self.count = text.len;
+  self.used  = text.len;
+  self.count = text.len;
 }
-pub fn insert              (self: *TextLine, pos: usize, rune: u8) !void {
+pub fn insert              (self: *Self, pos: usize, rune: u8) !void {
   if (self.used > size) unreachable;
   if (pos       > size) unreachable;
   if (self.used == size - 1) return error.LineIsFull;
@@ -59,7 +72,7 @@ pub fn insert              (self: *TextLine, pos: usize, rune: u8) !void {
   self.buffer[pos] = rune;
   self.used += 1;
 }
-pub fn delete              (self: *TextLine, pos: usize) !void {
+pub fn delete              (self: *Self, pos: usize) !void {
   if (self.used >  size)    unreachable;
   if (self.used == 0)       return error.LineIsEmpty;
   if (pos >  size - 1)      unreachable;
@@ -71,12 +84,12 @@ pub fn delete              (self: *TextLine, pos: usize) !void {
   }
   self.used -= 1;
 } // end fn
-pub fn getSantieled        (self: *TextLine) [:0]const u8 {
+pub fn getSantieled        (self: *Self) [:0]const u8 {
   self.buffer[self.used] = 0;
   return self.buffer[0 .. self.used :0];
 }
-// { indent
-  pub fn countIndent         (self: *const TextLine, tabsize: usize) usize {
+// { indents
+  pub fn countIndent         (self: *const Self, tabsize: usize) usize {
     var count: usize = 0;
     var text = self.get();
     for (text) |r| {
@@ -88,11 +101,11 @@ pub fn getSantieled        (self: *TextLine) [:0]const u8 {
     }
     return count;
   }
-  pub fn countNonIndent      (self: *const TextLine) usize {
+  pub fn countNonIndent      (self: *const Self) usize {
     const indent = self.countIndent(1);
     return self.used - indent;
   }
-  pub fn addIndent           (self: *TextLine, count: usize) !void {
+  pub fn addIndent           (self: *Self, count: usize) !void {
     const last_indent = self.countIndent(1);
     const last_start  = last_indent;
     const last_end    = self.used;
@@ -103,7 +116,7 @@ pub fn getSantieled        (self: *TextLine) [:0]const u8 {
     for (self.buffer[last_indent .. last_indent + count]) |*rune| rune.* = ' '; // fill spaces
     self.used = new_end;
   }
-  pub fn removeIndent        (self: *TextLine, count: usize) !void {
+  pub fn removeIndent        (self: *Self, count: usize) !void {
     const last_indent = self.countIndent(1);
     if (last_indent < count) return error.CountIsBiggerThanExistIndent;
     const last_start  = last_indent;
@@ -113,7 +126,7 @@ pub fn getSantieled        (self: *TextLine) [:0]const u8 {
     std.mem.copy(u8, self.buffer[new_start .. new_end], self.buffer[last_start .. last_end]);
     self.used = new_end;
   }
-  pub fn changeIndent        (self: *TextLine, new_indent: usize) !void {
+  pub fn changeIndent        (self: *Self, new_indent: usize) !void {
     const indent = self.countIndent(1);
     if (new_indent == indent) {return;}
     else if (new_indent > indent) { 
