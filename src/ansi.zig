@@ -296,6 +296,8 @@ pub const AsciiKey     = enum(u7)  {
 pub const Sequence     = enum(u64) {
   // { enum
     mouse,
+    f1_rxvt,
+    f2_rxvt,
     f1_tty,
     f2_tty,
     f1,
@@ -309,27 +311,38 @@ pub const Sequence     = enum(u64) {
     down,
     end,
     home,
-    ctrl_left,
     ctrl_alt_v,
-    ctrl_shift_left,
-    ctrl_shift_right,
-    ctrl_right,
-    ctrl_up,
-    ctrl_down,
-    shift_up,
-    shift_down,
-    shift_left,
-    shift_right,
     shift_delete,
+    
+    // left
+    ctrl_left,
+    ctrl_left_rxvt,
+    ctrl_shift_left,
+    shift_left,
+    alt_left,
+    
+    // right
+    ctrl_right,
+    ctrl_right_rxvt,
+    ctrl_shift_right,
+    shift_right,
+    alt_right,
+    
+    // up
+    ctrl_up,
+    shift_up,
+    alt_up,
+    
+    // down
+    ctrl_down,
+    shift_down,
+    alt_down,
+    
     alt_v,
     alt_m,
     alt_M,
     alt_j,
     alt_p,
-    alt_down,
-    alt_up,
-    alt_right,
-    alt_left,
   // }
   pub const Parser = struct {
     sequence: Sequence = null,
@@ -408,6 +421,14 @@ pub const Sequence     = enum(u64) {
           parser = .{.sequence = .f10, .used = 5};
           return parser;
         }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x31\x7E") == .equal) { // f1_rxvt
+          parser = .{.sequence = .f1_rxvt, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x32\x7E") == .equal) { // f2_rxvt
+          parser = .{.sequence = .f2_rxvt, .used = 5};
+          return parser;
+        }
         else if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x30\x7E") == .equal) { // f9
           parser = .{.sequence = .f9, .used = 5};
           return parser;
@@ -434,6 +455,14 @@ pub const Sequence     = enum(u64) {
         }
         else if (lib.cmp(buffer[0..3], "\x1B\x4F\x51") == .equal) { // f2
           parser = .{.sequence = .f2, .used = 3};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..3], "\x1B\x4F\x64") == .equal) { // ctrl_left_rxvt
+          parser = .{.sequence = .ctrl_left_rxvt, .used = 3};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..3], "\x1B\x4F\x63") == .equal) { // ctrl_right_rxvt
+          parser = .{.sequence = .ctrl_right_rxvt, .used = 3};
           return parser;
         }
         else if (lib.cmp(buffer[0..3], "\x1B\x5B\x44") == .equal) { // left
