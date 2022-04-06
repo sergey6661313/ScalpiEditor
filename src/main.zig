@@ -1722,6 +1722,8 @@ pub fn main () !void {
               .alt_up           => {self.view.swapWithUpper();},
               .alt_down         => {self.view.swapWithBottom();},
               
+              .alt_n            => {self.view.insertSymbol('\n');},
+              .alt_r            => {self.view.insertSymbol('\r');},
               .alt_v            => {self.view.externalPaste() catch {};},
               .alt_m            => {self.view.markThisLine();},
               .alt_j            => {self.view.goToMarked();},
