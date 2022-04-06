@@ -14,11 +14,39 @@
 // }
 // { defines
   pub const BufferWords  = struct {
-    free: ?*Word = null,
+    const  Self = @This();
+    maybe_free: ?*Word = null,
+    pub fn addBlanks    (self: *Self, blanks: []Word) void {
+      if (blanks.len == 0) unreachable; 
+      { // update links
+        { // update others everything in between first and last
+          for (blanks[1..blanks.len-1]) |*current, id| {
+            const pos     = id + 1;
+            current.maybe_prev  = &blanks[pos - 1];
+            current.maybe_next  = &blanks[pos + 1];
+          }
+        }
+        { // update ends of range
+          const first       = &blanks[0];
+          first.maybe_prev  = null;
+          first.maybe_next  = &blanks[1];
+          
+          const last        = &blanks[blanks.len - 1];
+          last.maybe_prev   = &blanks[blanks.len - 2];
+          last.maybe_next   = null;
+        }
+      }
+      if (self.maybe_free) |free| {
+        const last = &blanks[blanks.len - 1];
+        last.maybe_next  = free;
+        free.maybe_prev  = &blanks[blanks.len];
+      }
+      self.maybe_free = &blanks[0];
+    }
   };
   pub const BufferRunes  = struct {
-    free: ?*Rune = null,
-    
+    const Self = @This();
+    free: ?*Rune = null,    
   };
   pub const Theme        = struct {
     const current   = ansi.color.green;
@@ -26,6 +54,7 @@
     const headers   = ansi.color.cyan;
   };
   pub const Buffer       = struct {
+    const Self = @This();
     pub const size = 25000;
     lines:         [size]Line,
     maybe_free:    ?*Line,
@@ -34,12 +63,12 @@
     to_goto:       ?*Line,
     to_find:       ?*Line,
     line_for_goto: usize,
-    pub fn fromAlloc    () !*Buffer {
+    pub fn fromAlloc    () !*Self {
       const allocated    = lib.c.aligned_alloc(8, @sizeOf(Buffer)) orelse return error.NeedMoreMemory;
       var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
       return buffer;
     }
-    pub fn init         (self: *Buffer) !void {
+    pub fn init         (self: *Self) !void {
       self.cutted        = null;
       self.find_text     = null;
       self.to_goto       = null;
@@ -68,11 +97,11 @@
       }
       self.maybe_free = &self.lines[0];
     } // end fn init
-    pub fn delete       (self: *Buffer, line: *Line) void {
+    pub fn delete       (self: *Self, line: *Line) void {
       if (line.child) |_| self.deleteBlock(line) 
       else self.deleteLine(line);
     } // end fn delete
-    pub fn create       (self: *Buffer) !*Line {
+    pub fn create       (self: *Self) !*Line {
       if (self.maybe_free) |free| {
         self.maybe_free = free.next; // update self.free
         const line      = free;
@@ -81,7 +110,7 @@
       } 
       else return error.NoFreeSlots;
     }
-    pub fn deleteBlock  (self: *Buffer, line: *Line) void {
+    pub fn deleteBlock  (self: *Self, line: *Line) void {
       const start_line = line;
       const end_line = start_line.next;
       prog.view.unFold();
@@ -92,7 +121,7 @@
         self.deleteLine(cur_line);
       }
     } // end fn deleteBlock
-    pub fn deleteLine   (self: *Buffer, line: *Line) void {
+    pub fn deleteLine   (self: *Self, line: *Line) void {
       //{ change links
         if (line.prev) |prev| {
           prev.next = line.next;
@@ -115,7 +144,7 @@
         self.maybe_free = line;
       //}
     } // end fn deleteLine
-    pub fn cut          (self: *Buffer, line: *Line) void {
+    pub fn cut          (self: *Self, line: *Line) void {
       //{ change links
         if (line.prev) |prev| {
           prev.next = line.next;
@@ -138,12 +167,12 @@
         self.cutted = line;
       //}
     }
-    pub fn lineToPos    (self: *Buffer, line: *Line) usize {
+    pub fn lineToPos    (self: *Self, line: *Line) usize {
       const ptr = @ptrToInt(line) - @ptrToInt(&self.lines);
       const pos = ptr / @sizeOf(Line);
       return pos;
     }
-    pub fn addBlanks    (self: *Buffer, blanks: []Line) void {
+    pub fn addBlanks    (self: *Self, blanks: []Line) void {
       if (blanks.len == 0) unreachable;
       if (blanks.len >  1) {
         { // update others everything in between first and last
@@ -1282,6 +1311,7 @@
             }
           }
           self.line = line;
+          prog.need_clear  = true;
           prog.need_redraw = true;
         }
       //}
@@ -1417,10 +1447,8 @@
           while(true) {
             prog.console.cursorMove(.{ .x = pos, .y = self.offset.y });
             prog.console.printRune(rune);
-            if (rune >= 0x7A) break;
-            rune += 1;
-            if (pos >= prog.console.size.x - 1) break;
-            pos  += 3;
+            if (rune >= 0x7A) break; rune += 1;
+            if (pos >= prog.console.size.x - 3) break; pos  += 3;
           }
           self.cursorMoveToCurrent();
         }
@@ -1487,7 +1515,7 @@
       var print_offset: usize = prog.console.size.y - debug_lines;
       prog.console.cursorMove(.{ .x = 0, .y = print_offset });
       { // line
-        const as_num         = prog.view.line.num;
+        const as_num         = prog.view.line.countNum();
         const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
         const buffer_count   = @intCast(usize, sprintf_result);
         prog.console.print(buffer[0..buffer_count]);
@@ -1722,8 +1750,8 @@ pub fn main () !void {
               .alt_up           => {self.view.swapWithUpper();},
               .alt_down         => {self.view.swapWithBottom();},
               
-              .alt_n            => {self.view.insertSymbol('\n');},
-              .alt_r            => {self.view.insertSymbol('\r');},
+              .alt_n            => {self.view.insertSymbol('\n') catch {};},
+              .alt_r            => {self.view.insertSymbol('\r') catch {};},
               .alt_v            => {self.view.externalPaste() catch {};},
               .alt_m            => {self.view.markThisLine();},
               .alt_j            => {self.view.goToMarked();},

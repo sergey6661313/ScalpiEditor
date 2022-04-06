@@ -5,15 +5,22 @@ const prog                 = Prog.prog;
 const ansi                 = Prog.ansi;
 pub const Text             = @import("Text.zig");
 pub const Word             = @import("Word.zig");
-text:    Text   = .{},
-next:    ?*Self = null,
-prev:    ?*Self = null,
-parent:  ?*Self = null,
-child:   ?*Self = null,
-num:     usize  = 0,
 
-words:   ?*Word = null,
-size:    usize  = 0,
+text:    Text   = .{},
+
+// tree-like
+next:      ?*Self = null,
+prev:      ?*Self = null,
+parent:    ?*Self = null,
+child:     ?*Self = null,
+
+// flat
+flat_next: ?*Self = null,
+flat_prev: ?*Self = null,
+
+
+words:     ?*Word = null,
+size:      usize  = 0,
 
 pub fn pushPrev            (self: *Self, new_line: *Self) void {
   { // update chain
@@ -63,4 +70,9 @@ pub fn changeIndentToCutie (self: *Self) !void  {
   if (self.prev) |prev| {new_indent = prev.text.countIndent(1);}
   else if (self.parent) |parent| {new_indent = parent.text.countIndent(1) + 2;}
   try self.text.changeIndent(new_indent);
+}
+pub fn countNum            (self: *Self) usize {
+  var num: usize = 0;
+  var current = self;
+  while(true){current = current.flat_prev orelse return num;}
 }

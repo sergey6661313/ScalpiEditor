@@ -8,14 +8,6 @@ pub const   size     = 512;
 used:       usize    = 0,
 buffer:     [size]u8 = undefined,
 
-// runic :)
-count:    usize        = 0,
-indent:   usize        = 0,
-first:    ?*Rune       = null,
-color:    ?[]const u8  = null,
-next:     ?*Self       = null,
-prev:     ?*Self       = null,
-
 pub fn fromText            (text: []const u8) !Self {
   var self: Self = undefined;
   self.used = 0;
@@ -50,14 +42,11 @@ pub fn add                 (self: *Self, rune: u8) !void {
   if (self.used == size - 1) return error.LineIsFull;
   self.buffer[self.used] = rune;
   self.used  += 1;
-  self.count += 1;
 }
 pub fn set                 (self: *Self, text: []const u8) !void {
   if (text.len > size) return error.TextIsToLong;
   std.mem.copy(u8, self.buffer[0..], text);
-  self.count = text.len;
   self.used  = text.len;
-  self.count = text.len;
 }
 pub fn insert              (self: *Self, pos: usize, rune: u8) !void {
   if (self.used > size) unreachable;
