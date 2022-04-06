@@ -341,8 +341,10 @@ pub const Sequence     = enum(u64) {
     alt_v,
     alt_m,
     alt_M,
+    alt_n,
     alt_j,
     alt_p,
+    alt_r,
   // }
   pub const Parser = struct {
     sequence: Sequence = null,
@@ -509,6 +511,14 @@ pub const Sequence     = enum(u64) {
         }
         else if (lib.cmp(buffer[0..2], "\x1B\x4D") == .equal) { // alt_M
           parser = .{.sequence = .alt_M, .used = 2};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..2], "\x1B\x6E") == .equal) { // alt_n
+          parser = .{.sequence = .alt_n, .used = 2};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..2], "\x1B\x72") == .equal) { // alt_r
+          parser = .{.sequence = .alt_r, .used = 2};
           return parser;
         }
         else if (lib.cmp(buffer[0..2], "\x1B\x16") == .equal) { // ctrl_alt_v
