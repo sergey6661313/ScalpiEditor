@@ -1,22 +1,36 @@
-
+// { TODO:
+  // remove buffer.size
+  // rename buffer to beffer_lines
+// }
 // { imports
   const     Prog         = @This();
   const     std          = @import("std");
   pub const lib          = @import("lib/src/lib.zig");
   pub const ansi         = @import("ansi/src/ansi.zig");
   pub const ParsePath    = @import("ParsePath.zig");
+  
   pub const Line         = @import("Line.zig");
   pub const Word         = @import("Word.zig");
   pub const Rune         = @import("Rune.zig");
+  pub const Glyph        = @import("Glyph.zig");
+  
   pub const Console      = @import("Console/src/Console.zig");
   pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
   pub const File         = @import("File/src/File.zig");
 // }
 // { defines
+  pub const BufferGlyphs = struct {
+    const Self = @This();
+    free: ?*Glyph = null,    
+  };
+  pub const BufferRunes  = struct {
+    const Self = @This();
+    free: ?*Rune = null,    
+  };
   pub const BufferWords  = struct {
     const  Self = @This();
     maybe_free: ?*Word = null,
-    pub fn addBlanks    (self: *Self, blanks: []Word) void {
+    pub fn addBlanks (self: *Self, blanks: []Word) void {
       if (blanks.len == 0) unreachable; 
       { // update links
         { // update others everything in between first and last
@@ -44,28 +58,23 @@
       self.maybe_free = &blanks[0];
     }
   };
-  pub const BufferRunes  = struct {
-    const Self = @This();
-    free: ?*Rune = null,    
-  };
-  pub const Theme        = struct {
-    const current   = ansi.color.green;
-    const folded    = ansi.bg_color.black2;
-    const headers   = ansi.color.cyan;
-  };
   pub const Buffer       = struct {
     const Self = @This();
     pub const size = 25000;
     lines:         [size]Line,
+    
     maybe_free:    ?*Line,
     cutted:        ?*Line,
     find_text:     ?*Line,
     to_goto:       ?*Line,
     to_find:       ?*Line,
     line_for_goto: usize,
+    pub fn allocateNewLines (self: *Self) void {
+      _ = self;
+    }
     pub fn fromAlloc    () !*Self {
-      const allocated    = lib.c.aligned_alloc(8, @sizeOf(Buffer)) orelse return error.NeedMoreMemory;
-      var buffer: *Buffer = @ptrCast(*Buffer, @alignCast(8, allocated));
+      const allocated    = lib.c.aligned_alloc(8, @sizeOf(Self)) orelse return error.NeedMoreMemory;
+      var buffer: *Self = @ptrCast(*Self, @alignCast(8, allocated));
       return buffer;
     }
     pub fn init         (self: *Self) !void {
@@ -197,6 +206,11 @@
       }
       self.maybe_free = &blanks[0];
     }
+  };
+  pub const Theme        = struct {
+    const current   = ansi.color.green;
+    const folded    = ansi.bg_color.black2;
+    const headers   = ansi.color.cyan;
   };
   pub const View         = struct {
     const Self = @This();
@@ -402,7 +416,6 @@
         }
         pub fn goToLineFromNumber   (self: *View, _num: usize) void {
           var num: usize   = _num + prog.buffer.lineToPos(self.first) - 1;
-          if (num >= Buffer.size) return;
           self.line        = &prog.buffer.lines[num];
           self.goToSymbol(self.line.text.countIndent(1));
           self.offset.y    = 6;
@@ -1563,12 +1576,12 @@
 // }
 pub var prog: *Prog = undefined;
 // { fields
+  buffer:            Buffer = .{},
   working:           bool,
   console:           Console,
   debug:             Debug,
   need_clear:        bool,
   need_redraw:       bool,
-  buffer:            Buffer,
   view:              View,
   path_to_clipboard: Line.Text,
   usage_line:        *Line,
