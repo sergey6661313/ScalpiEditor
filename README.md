@@ -14,20 +14,14 @@ github: https://github.com/sergey6661313/ScalpiEditor
 
 # download and compile: 
   ## download:
-    ```bash
     git clone --recurse https://github.com/sergey6661313/ScalpiEditor.git
     cd ScalpiEditor
-    ```
   ## compile: (use zig language ver. 0.9 (https://ziglang.org)):
-    ```
     zig build
-    ```
   and find binary in "zig-out/bin"...
   
 # usage:
-  ```bash
-  $ ScalpiEditor FILENAME
-  ```  
+  ScalpiEditor FILENAME
 you may copy and rename binary to "~/bin/se" like this:
   ```bash
     $ cp ./zig-out/bin/ScalpiEditor ~/bin/se
@@ -39,9 +33,7 @@ and this lines to config (".bashrc" file) for easy use:
   ```  
 
 ## to support me (monero): 
-  ```
   87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B
-  ```
 
 # examples:
   https://www.youtube.com/watch?v=51ao2416ioE&t=60s

@@ -1,6 +1,12 @@
 // { TODO:
-  // remove buffer.size
-  // rename buffer to beffer_lines
+  // rename buffer to buffer_lines
+  // move buffer.cutted to view.maybe_cutted
+  // remove buffer_lines.lines (use allocated memory and "first") {
+    // create "flat_next"
+    // fix "go to line from number" to work without '&'
+    // rename buffer.size to buffer.count
+    // defragmentate lines in memory for deinit (if need free)
+  // }
 // }
 // { imports
   const     Prog         = @This();
@@ -58,7 +64,7 @@
       self.maybe_free = &blanks[0];
     }
   };
-  pub const Buffer       = struct {
+  pub const BufferLines  = struct {
     const Self = @This();
     pub const size = 25000;
     lines:         [size]Line,
@@ -259,7 +265,7 @@
       pub fn init                 (self: *View, file_name: [:0]const u8, text: []const u8) !void {
         self.* = .{};
         self.setFileName(file_name);
-        self.first = try prog.buffer.create();
+        self.first = try prog.buffer_lines.create();
         parse_text_to_lines: {
           if (text.len == 0) break :parse_text_to_lines;
           var line_num:   usize = 0;
@@ -293,7 +299,7 @@
             if (data_pos > text.len - 1) {
               const end_line: usize = data_pos;
               if (end_line > start_line) {
-                const new_line = try prog.buffer.create();
+                const new_line = try prog.buffer_lines.create();
                 new_line.text.set(text[start_line..end_line]) catch {
                   return error.LineIsToLong;
                 };
@@ -307,7 +313,7 @@
             else if (text[data_pos] == '\n') {
               const end_line: usize = data_pos;
               if (end_line > start_line) {
-                const new_line = try prog.buffer.create();
+                const new_line = try prog.buffer_lines.create();
                 new_line.text.set(text[start_line..end_line]) catch {
                   return error.LineIsToLong;
                 };
@@ -315,7 +321,7 @@
                 line = new_line;
               }
               else {
-                const new_line = try prog.buffer.create();
+                const new_line = try prog.buffer_lines.create();
                 line.pushNext(new_line);
                 line = new_line;
               }
@@ -326,7 +332,7 @@
           } // end while
         }
         self.line = self.first;
-        self.bakup_line = try prog.buffer.create();
+        self.bakup_line = try prog.buffer_lines.create();
       } // end fn loadLines
       pub fn save                 (self: *View) !void {
         prog.need_redraw = false;
@@ -388,11 +394,11 @@
           },
           .to_line => {
             self.last_line = self.line;
-            if (prog.buffer.to_goto == null) { // create
-              const new_line = prog.buffer.create() catch return;
-              prog.buffer.to_goto = new_line;
+            if (prog.buffer_lines.to_goto == null) { // create
+              const new_line = prog.buffer_lines.create() catch return;
+              prog.buffer_lines.to_goto = new_line;
             }
-            self.line = prog.buffer.to_goto.?;
+            self.line = prog.buffer_lines.to_goto.?;
             self.goToEndOfLine();
           },
           .history => {},
@@ -415,8 +421,8 @@
           return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
         }
         pub fn goToLineFromNumber   (self: *View, _num: usize) void {
-          var num: usize   = _num + prog.buffer.lineToPos(self.first) - 1;
-          self.line        = &prog.buffer.lines[num];
+          var num: usize   = _num + prog.buffer_lines.lineToPos(self.first) - 1;
+          self.line        = &prog.buffer_lines.lines[num];
           self.goToSymbol(self.line.text.countIndent(1));
           self.offset.y    = 6;
           prog.need_clear  = true;
@@ -462,7 +468,7 @@
             if (self.line.prev) |prev| {
               if (prev.text.countNonIndent() == 0) {
                 if (prev == self.first) self.first = self.line;
-                prog.buffer.delete(prev);
+                prog.buffer_lines.delete(prev);
               }
               else {
                 const next_used = next.text.used;
@@ -495,7 +501,7 @@
           prog.need_redraw  = true;
         }
         pub fn addPrevLine       (self: *View) !void {
-          const new_line = try prog.buffer.create();
+          const new_line = try prog.buffer_lines.create();
           self.line.pushPrev(new_line);
           if (self.first == self.line) self.first = new_line;
           self.goToPrevLine();
@@ -503,7 +509,7 @@
           prog.need_redraw  = true;
         }
         pub fn addNextLine       (self: *View) !void {
-          const new_line = try prog.buffer.create();
+          const new_line = try prog.buffer_lines.create();
           self.line.pushNext(new_line);
           self.goToNextLine();
           self.goToStartOfLine();
@@ -524,7 +530,7 @@
           else if (self.symbol >= self.line.text.used) { // just add next line
             if (self.line.text.buffer[self.symbol - 1] == ':') {
               if (self.line.child) |_| return;
-              const new_line  = prog.buffer.create() catch return;
+              const new_line  = prog.buffer_lines.create() catch return;
               // { link
                 self.line.child = new_line;
                 new_line.parent = self.line;
@@ -546,7 +552,7 @@
             const pos       = self.symbol;
             const last_line = self.line;
             
-            const new_line          = prog.buffer.create() catch return;
+            const new_line          = prog.buffer_lines.create() catch return;
             // { link
               self.line.child = new_line;
               new_line.parent = self.line;
@@ -612,7 +618,7 @@
           }
           self.clearLine();
           if (self.first == self.line) self.first = next_selected_line;
-          prog.buffer.delete(self.line);
+          prog.buffer_lines.delete(self.line);
           self.line = next_selected_line;
           prog.need_redraw  = true;
         }
@@ -1133,18 +1139,18 @@
       // { clipboard
         pub fn duplicate      (self: *View) void {
           const first      = self.line; 
-          const copy_first = prog.buffer.create() catch return;
+          const copy_first = prog.buffer_lines.create() catch return;
           copy_first.text.set(first.text.get()) catch unreachable;
           self.line.pushNext(copy_first);
           if (first.child) |first_child| {
             var current         = first_child;
-            var copy_current    = prog.buffer.create() catch return;
+            var copy_current    = prog.buffer_lines.create() catch return;
             copy_current.text.set(current.text.get()) catch unreachable;
             copy_current.parent = copy_first;
             copy_first.child    = copy_current;
             copying: while (true) {
               if (current.child) |child| {
-                var copy_child = prog.buffer.create() catch return;
+                var copy_child = prog.buffer_lines.create() catch return;
                 copy_child.text.set(child.text.get()) catch unreachable;
                 copy_child.parent  = copy_current;
                 copy_current.child = copy_child;
@@ -1152,7 +1158,7 @@
                 copy_current  = copy_child;
               } 
               else if (current.next) |next| {
-                var copy_next = prog.buffer.create() catch return;
+                var copy_next = prog.buffer_lines.create() catch return;
                 copy_next.text.set(next.text.get()) catch unreachable;
                 copy_next.prev    = copy_current;
                 copy_current.next = copy_next;
@@ -1168,7 +1174,7 @@
                   next        = current.next orelse continue;
                   break;
                 }
-                var copy_next     = prog.buffer.create() catch return;
+                var copy_next     = prog.buffer_lines.create() catch return;
                 copy_next.text.set(next.text.get()) catch unreachable;
                 copy_next.prev    = copy_current;
                 copy_current.next = copy_next;
@@ -1198,14 +1204,14 @@
             }
           // }
           if (self.first == self.line) self.first = next_selected_line;
-          prog.buffer.cut(self.line);
+          prog.buffer_lines.cut(self.line);
           self.line = next_selected_line;
           prog.need_clear  = true;
           prog.need_redraw = true;
         }
         pub fn pasteLine      (self: *View) void {
-          if (prog.buffer.cutted) |cutted| {
-            prog.buffer.cutted = cutted.next;
+          if (prog.buffer_lines.cutted) |cutted| {
+            prog.buffer_lines.cutted = cutted.next;
             cutted.next = null;
             self.line.pushPrev(cutted);
             if (self.first == self.line) self.first = cutted;
@@ -1218,7 +1224,7 @@
         pub fn externalCopy   (self: *View) !void {
           var file = File.fromOpen(prog.path_to_clipboard.getSantieled(), .toWrite) catch return;
           defer file.close() catch unreachable;
-          if (prog.buffer.cutted) |cutted| {
+          if (prog.buffer_lines.cutted) |cutted| {
             // { working with lines
               var current: *Line = cutted;
               try file.write(current.text.get());
@@ -1576,7 +1582,7 @@
 // }
 pub var prog: *Prog = undefined;
 // { fields
-  buffer:            Buffer = .{},
+  buffer_lines:      BufferLines,
   working:           bool,
   console:           Console,
   debug:             Debug,
@@ -1605,7 +1611,7 @@ pub fn main () !void {
     self.need_redraw   = true;
     self.console       = .{};
     self.debug         = .{};
-    try self.buffer.init();
+    try self.buffer_lines.init();
     { // load usage text
       const path = "ScalpiEditor_usage.txt";
       const text = @embedFile("ScalpiEditor_usage.txt");
