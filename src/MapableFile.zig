@@ -1,19 +1,20 @@
 const Self = @This();
 const std  = @import("std");
-const Allocator = std.mem.Allocator;
-const Allocator = std.heap.page_allocator;
-
-// depensies
-const file = @import("File/src/File.zig");
+const MemAllocator = std.mem.Allocator;
+const HeapPageAllocator = std.heap.page_allocator;
 
 // fields
-file: File    = {},
-data: ?[]u8   = null,
+file: std.fs.File = undefined,
+data: ?[]u8       = null,
 
-fn read(self: *Self, allocator: Allocator, name: []u8) !void {
-  self.file.setName(name);
-  try self.file.open();
-  const size   = self.file.getSize();
-  const buffer = allocator.alloc(u8, size);
-  self.data    = buffer;
+pub fn fromRead(allocator: std.mem.Allocator, name: []const u8) !Self {
+  var self: Self = .{};
+  var cwd        = std.fs.cwd();
+  self.file      = try cwd.openFile(name, .{.mode = .read_only});
+  const size     = try self.file.getEndPos();
+  if (size == 0) return self;
+  self.data      = try allocator.alloc(u8, size);
+  const readed = try self.file.readAll(self.data.?);
+  if (readed < size) unreachable;
+  return self;
 }
