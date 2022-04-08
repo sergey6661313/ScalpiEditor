@@ -585,6 +585,6 @@ pub const bg_color     = struct {
   pub const white2    = control ++ "107;1m";
 };
 pub const mouse        = struct {      
-  pub const enable  = control ++ "?1000h"; 
-  pub const disable = control ++ "?1000l"; 
+  pub const grab    = control ++ "?1000h"; 
+  pub const release = control ++ "?1000l"; 
 };
