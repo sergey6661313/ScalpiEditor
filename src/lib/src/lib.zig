@@ -18,15 +18,17 @@ pub const c           = @cImport({
     @cInclude("signal.h");
 });
 pub const Coor2u      = struct {
+    const Self = @This();
+    
     x: usize = 0,
     y: usize = 0,
 
-    pub fn isNotSmaller  (self: *Coor2u, target: *Coor2u) bool {
+    pub fn isNotSmaller  (self: *const Self, target: *const Self) bool {
         if (self.x < target.x) return false;
         if (self.y < target.y) return false;
         return true;
     }
-    pub fn isBigger      (self: *Coor2u, target: *Coor2u) bool {
+    pub fn isBigger      (self: *const Self, target: *const Self) bool {
         if (self.x > target.x) return true;
         if (self.y > target.y) return true;
         return false;

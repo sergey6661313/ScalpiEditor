@@ -15,16 +15,22 @@
   pub const ansi         = @import("ansi/src/ansi.zig");
   pub const ParsePath    = @import("ParsePath.zig");
   
+  pub const Text         = @import("Text.zig"); // old
   pub const Line         = @import("Line.zig");
   pub const Word         = @import("Word.zig");
   pub const Rune         = @import("Rune.zig");
   pub const Glyph        = @import("Glyph.zig");
   
   pub const Console      = @import("Console/src/Console.zig");
+  pub const MapableFile  = @import("MapableFile/src/MapableFile.zig");
   pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
   pub const File         = @import("File/src/File.zig");
 // }
 // { defines
+  pub const Window       = struct {
+    size: lib.Coor2u = .{},
+    pos:  lib.Coor2u = .{},
+  };
   pub const BufferGlyphs = struct {
     const Self = @This();
     free: ?*Glyph = null,    
@@ -220,6 +226,14 @@
   };
   pub const View         = struct {
     const Self = @This();
+    pub const Indent   = struct {
+      pub const IndentType = enum {
+        space,
+        tab,
+      };
+      indent_type: IndentType = .space,
+      size:        usize      = 4,
+    };
     pub const Mode     = enum {
       edit,
       to_find,
@@ -236,11 +250,16 @@
       byIndent,
     };
     // { fields
+      window:      Window      = .{.size = .{.x=3, .y=1}, .pos = .{.x=0, .y=0}},
+      //screen_size: lib.Coor2u  = .{.x = 1, .y = 1},
+      //screen_pos:  lib.Coor2u  = .{.x = 3, .y = 3},
+      
       // modes
       mode:        Mode        = .edit,
       foldMode:    FoldMode    = .byNone,
+      indent:      Indent      = .{},
       
-      file_name:   [1024]u8    = undefined,
+      file_name:   Text        = .{},
       first:       *Line       = undefined,
       last_line:   ?*Line      = null,
       selected:    usize       = 0,
@@ -251,10 +270,6 @@
       line:        *Line       = undefined,
       offset:      lib.Coor2u  = .{ .y = 3 },
       symbol:      usize       = 0,
-      
-      // screen
-      screen_size: lib.Coor2u  = .{.x = 1, .y = 1},
-      screen_pos:  lib.Coor2u  = .{.x = 3, .y = 3},
     // }
     // { methods
       pub fn fromAlloc            () !*View {
@@ -262,9 +277,9 @@
         var view: *View = @ptrCast(*View, @alignCast(8, allocated));
         return view;
       }
-      pub fn init                 (self: *View, file_name: [:0]const u8, text: []const u8) !void {
+      pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
         self.* = .{};
-        self.setFileName(file_name);
+        self.file_name.set(file_name) catch unreachable; 
         self.first = try prog.buffer_lines.create();
         parse_text_to_lines: {
           if (text.len == 0) break :parse_text_to_lines;
@@ -344,7 +359,7 @@
           prog.console.fillSpacesToEndLine();
           lib.print(ansi.reset);
         }
-        const file_name = @ptrCast([*:0]const u8,  &self.file_name);
+        const file_name = self.file_name.getSantieled();
         var file = File.fromOpen(file_name, .toWrite) catch unreachable;
         defer file.close() catch unreachable;
         //{ write
@@ -382,9 +397,6 @@
           prog.console.fillSpacesToEndLine();
           prog.console.cursorMoveToEnd();
         }
-      }
-      pub fn setFileName          (self: *View, name: [:0]const u8) void {
-        std.mem.copy(u8, self.file_name[0..], name);
       }
       pub fn changeMode           (self: *View, mode: Mode) void {
         switch (mode) {
@@ -1310,7 +1322,7 @@
         }
         pub fn externalPaste  (self: *View) !void {
           const line = self.line;
-          const file_data_allocated = AllocatedFileData.fromName(prog.path_to_clipboard.getSantieled()) catch {
+          var mapable_file = MapableFile.fromRead(prog.allocator, prog.path_to_clipboard.get()) catch |e| {
             { // change status
               prog.console.cursorMove(.{ .x = 0, .y = 0 });
               lib.print(ansi.reset);
@@ -1319,10 +1331,11 @@
               prog.console.fillSpacesToEndLine();
               lib.print(ansi.reset);
             }
-            return;
+            return e;
           };
+          defer prog.allocator.free(mapable_file.data.?);
           try self.addPrevLine();
-          const slice = file_data_allocated.slice orelse unreachable;
+          const slice = mapable_file.data.?;
           for (slice) |rune| { // parse lines
             switch(rune) {
               10, 13 => {try self.addNextLine();},
@@ -1582,10 +1595,18 @@
 // }
 pub var prog: *Prog = undefined;
 // { fields
+  
+
+  // mem
+  arena:             std.heap.ArenaAllocator,
+  allocator:         std.mem.Allocator,
+  
+  // beffers
   buffer_lines:      BufferLines,
   buffer_words:      BufferWords,
   buffer_runes:      BufferRunes,
   buffer_glyphs:     BufferGlyphs,
+  
   working:           bool,
   console:           Console,
   debug:             Debug,
@@ -1610,6 +1631,8 @@ pub fn main () !void {
 } // end fn main
 // { methods
   pub fn init           (self: *Prog) !void {
+    self.arena         = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    self.allocator     = self.arena.allocator();
     self.working       = true;
     self.need_clear    = true;
     self.need_redraw   = true;
@@ -1635,35 +1658,39 @@ pub fn main () !void {
       var   argument            = try lib.getTextFromArgument();
       const parsed_path         = ParsePath.fromText(argument) catch {
         const text = (
-        \\  file name not parsed. 
-        \\
-        \\  Scalpi editor does not open multiple files in one time.
-        \\  you can use [Ctrl] + [F2] to change tty.
-        \\  or use tmux, byobu, GNU_Screen, dtach, abduco, mtm, or eny you want terminal multiplexor...
-        \\  or if you use X or wayland just open multiple terminals and use it...
-        \\
-        \\
+          \\  file name not parsed. 
+          \\
+          \\  Scalpi editor does not open multiple files in one time.
+          \\  you can use [Ctrl] + [F2] to change tty.
+          \\  or use tmux, byobu, GNU_Screen, dtach, abduco, mtm, or eny you want terminal multiplexor...
+          \\  or if you use X or wayland just open multiple terminals and use it...
+          \\
+          \\
         );
         self.console.printInfo(text);
         return;
       };
-      var   file_name           = parsed_path.file_name orelse unreachable;
-      const file_name_santieled = file_name.getSantieled();
-      var   file_data_allocated = AllocatedFileData.fromName(file_name_santieled) catch {
+      const file_name           = parsed_path.file_name.?.get();
+      
+      self.console.printInfo("FILE NAME HERE");
+      self.console.printInfo(file_name);
+      self.console.printInfo("FILE NAME HERE");
+      
+      var   mapable_file        = MapableFile.fromRead(prog.allocator, file_name) catch {
         const text = ( 
-        \\  File not exist or file blocked by system.
-        \\  ScalpiEditor does not create files itself.
-        \\  You can create file with "touch" command:
-        \\     touch file_name
-        \\
-        \\
+          \\  File not exist or blocked by system.
+          \\  ScalpiEditor does not create files itself.
+          \\  You can create file with "touch" command:
+          \\     touch file_name
+          \\
+          \\
         );
         self.console.printInfo(text);
         return;
       };
-      defer file_data_allocated.deInit() catch unreachable;
-      const text                = file_data_allocated.slice orelse unreachable; 
-      self.view.init(file_name_santieled, text) catch return error.ViewNotInit;
+      const text                = mapable_file.data.?;
+      defer prog.allocator.free(text);
+      self.view.init(file_name, text) catch return error.ViewNotInit;
       if (parsed_path.line) |line| {
         self.view.goToLineFromNumber(line);
       }
