@@ -1583,6 +1583,9 @@
 pub var prog: *Prog = undefined;
 // { fields
   buffer_lines:      BufferLines,
+  buffer_words:      BufferWords,
+  buffer_runes:      BufferRunes,
+  buffer_glyphs:     BufferGlyphs,
   working:           bool,
   console:           Console,
   debug:             Debug,
@@ -1603,6 +1606,7 @@ pub fn main () !void {
   
   try prog.init();
   try prog.run();
+  try prog.deinit();
 } // end fn main
 // { methods
   pub fn init           (self: *Prog) !void {
@@ -1619,6 +1623,11 @@ pub fn main () !void {
       self.usage_line = self.view.first;
     }
     self.updatePathToClipboard();
+    //lib.print(ansi.mouse.grab);
+  }
+  pub fn deinit         (self: *Prog) !void {
+    _ = self;
+    lib.print(ansi.mouse.release);
   }
   pub fn run            (self: *Prog) !void {
     self.console.init(); defer {self.console.deInit();}

@@ -60,6 +60,11 @@ pub const Cursor = struct {
   }
 };
 pub const Input  = struct {
+  // { usage:
+    // just call update unreaded
+    // and use grab in loop for get keys
+  // } 
+  
   pub const KeyTag      = enum {
     sequence,
     byte,
@@ -108,7 +113,8 @@ pub const Input  = struct {
       return key;
     }
   }
-  pub fn shift           (self: *Input, val: usize) void {
+  
+  fn shift (self: *Input, val: usize) void {
     std.mem.copy(u8, self.debug_buffer[0..],     self.debug_buffer[val..]);
     std.mem.copy(u8, self.debug_buffer[8-val..], self.buffer      [0..val]);
     std.mem.copy(u8, self.buffer      [0..],     self.buffer      [val..]);
@@ -185,13 +191,11 @@ input:       Input             = .{},
     self.updateSize();
     self.initBlankLines();
     lib.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
-    lib.print(ansi.mouse.enable);
     self.clear();
     self.cursorMove(.{.x = 0, .y = 0});
   }
   pub fn deInit               (self: *Console) void {
     _ = c.tcsetattr(0,  c.TCSANOW, &self.last_flags); // restore buffer settings
-    lib.print(ansi.mouse.disable);
   }
   pub fn updateSize           (self: *Console) void {
     var w: c.winsize = undefined;
