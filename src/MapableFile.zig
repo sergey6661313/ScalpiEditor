@@ -5,7 +5,7 @@ const std  = @import("std");
 file: std.fs.File = undefined,
 data: ?[]u8       = null,
 
-pub fn fromRead(allocator: std.mem.Allocator, name: []const u8) !Self {
+pub fn fromRead  (allocator: std.mem.Allocator, name: []const u8) !Self {
   var self: Self = .{};
   var cwd        = std.fs.cwd();
   self.file      = try cwd.openFile(name, .{.mode = .read_only});
@@ -16,4 +16,7 @@ pub fn fromRead(allocator: std.mem.Allocator, name: []const u8) !Self {
   const readed = try self.file.readAll(self.data.?);
   if (readed < size) unreachable;
   return self;
+}
+pub fn deInit    (self: *Self, allocator: std.mem.Allocator) void {
+  if (self.data) |data| allocator.free(data);
 }
