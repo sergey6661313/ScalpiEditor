@@ -1,12 +1,10 @@
-// { TODO:
-  // rename buffer to buffer_lines
-  // move buffer.cutted to view.maybe_cutted
-  // remove buffer_lines.lines (use allocated memory and "first") {
-    // create "flat_next"
-    // fix "go to line from number" to work without '&'
-    // rename buffer.size to buffer.count
-    // defragmentate lines in memory for deinit (if need free)
-  // }
+// TODO: remove buffer_lines.lines (use allocated memory and "first") {
+  // rename "buffer_lines.maybe_free to blanks"
+  // rename "view.first to view.lines"
+  // create "flat_next" and "flat_prev" fix used functions and test this
+  // fix "go to line from number" to work without '&' (use loop from first line and flat_next in loop)
+  // defragmentate lines in memory for deinit (if need free)
+  // rename buffer_lines.find_text to line_for_text_finding
 // }
 // { imports
   const     Prog         = @This();
@@ -32,15 +30,15 @@
   };
   pub const BufferGlyphs = struct {
     const Self = @This();
-    free: ?*Glyph = null,    
+    blanks: ?*Glyph = null,    
   };
   pub const BufferRunes  = struct {
     const Self = @This();
-    free: ?*Rune = null,    
+    blanks: ?*Rune = null,    
   };
   pub const BufferWords  = struct {
     const  Self = @This();
-    maybe_free: ?*Word = null,
+    blanks: ?*Word = null,
     pub fn addBlanks (self: *Self, blanks: []Word) void {
       if (blanks.len == 0) unreachable; 
       { // update links
@@ -74,12 +72,11 @@
     pub const size = 25000;
     lines:         [size]Line,
     
-    maybe_free:    ?*Line,
+    maybe_free:          ?*Line,    //blanks:        ?*Line,
     cutted:        ?*Line,
-    find_text:     ?*Line,
     to_goto:       ?*Line,
     to_find:       ?*Line,
-    line_for_goto: usize,
+    
     pub fn allocateNewLines (self: *Self) void {
       _ = self;
     }
@@ -90,10 +87,8 @@
     }
     pub fn init         (self: *Self) !void {
       self.cutted        = null;
-      self.find_text     = null;
       self.to_goto       = null;
       self.to_find       = null;
-      self.line_for_goto = 0;
       for (self.lines) |*line| { // init all lines:
         line.* = .{};
       }
@@ -260,10 +255,11 @@
       
       file_name:   Text        = .{},
       first:       *Line       = undefined,
-      last_line:   ?*Line      = null,
-      selected:    usize       = 0,
-      marked_line: ?*Line      = null,
       bakup_line:  *Line       = undefined,
+      last_line:   ?*Line      = null,
+      marked_line: ?*Line      = null,
+      
+      selected:    usize       = 0,
       
       // current pos
       line:        *Line       = undefined,
@@ -1594,8 +1590,6 @@
 // }
 pub var prog: *Prog = undefined;
 // { fields
-  
-
   // mem
   arena:             std.heap.ArenaAllocator,
   allocator:         std.mem.Allocator,

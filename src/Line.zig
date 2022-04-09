@@ -20,7 +20,6 @@ child:     ?*Self = null,
 flat_next: ?*Self = null,
 flat_prev: ?*Self = null,
 
-
 words:     ?*Word = null,
 size:      usize  = 0,
 // }
