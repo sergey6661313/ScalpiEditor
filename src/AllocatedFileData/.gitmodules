@@ -1,6 +1,0 @@
-[submodule "src/Allocated"]
-	path = src/Allocated
-	url = /run/media/user/files/bare_repos/Allocated.git
-[submodule "src/File"]
-	path = src/File
-	url = /run/media/user/files/bare_repos/File.git/
