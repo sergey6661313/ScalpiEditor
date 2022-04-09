@@ -3,4 +3,4 @@
 	url = https://github.com/sergey6661313/ansi
 [submodule "src/MapableFile"]
 	path = src/MapableFile
-	url = /run/media/user/files/bare_repos/MapableFile.git
+	url = https://github.com/sergey6661313/MapableFile.git
