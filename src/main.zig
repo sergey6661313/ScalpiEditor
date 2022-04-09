@@ -1,5 +1,4 @@
 // TODO: remove buffer_lines.lines (use allocated memory and "first") {
-  // rename "view.first to view.lines"
   // create "flat_next" and "flat_prev" fix used functions and test this
   // fix "go to line from number" to work without '&' (use loop from first line and flat_next in loop)
   // defragmentate lines in memory for deinit (if need free)
@@ -243,25 +242,23 @@
       byIndent,
     };
     // { fields
+      file_name:   Text        = .{},
       window:      Window      = .{.size = .{.x=3, .y=1}, .pos = .{.x=0, .y=0}},
-      //screen_size: lib.Coor2u  = .{.x = 1, .y = 1},
-      //screen_pos:  lib.Coor2u  = .{.x = 3, .y = 3},
       
       // modes
       mode:        Mode        = .edit,
       foldMode:    FoldMode    = .byNone,
       indent:      Indent      = .{},
       
-      file_name:          Text    = .{},
-      first:              *Line   = undefined,
+      selected:    usize       = 0,
+      
+      lines:              *Line   = undefined,
+      line:               *Line   = undefined, // current working line
       bakup_line:         *Line   = undefined,
       last_working_line:  ?*Line  = null,
       marked_line:        ?*Line  = null,
       
-      selected:    usize       = 0,
-      
       // current pos
-      line:        *Line       = undefined,
       offset:      lib.Coor2u  = .{ .y = 3 },
       symbol:      usize       = 0,
     // }
@@ -274,11 +271,11 @@
       pub fn init                 (self: *View, file_name: []const u8, text: []const u8) !void {
         self.* = .{};
         self.file_name.set(file_name) catch unreachable; 
-        self.first = try prog.buffer_lines.create();
+        self.lines = try prog.buffer_lines.create();
         parse_text_to_lines: {
           if (text.len == 0) break :parse_text_to_lines;
           var line_num:   usize = 0;
-          var line:       *Line = self.first;
+          var line:       *Line = self.lines;
           var start_line: usize = 0;
           var data_pos:   usize = 0;
           while (true) { // find first '\n'
@@ -340,7 +337,7 @@
             data_pos += 1;
           } // end while
         }
-        self.line = self.first;
+        self.line = self.lines;
         self.bakup_line = try prog.buffer_lines.create();
       } // end fn loadLines
       pub fn save                 (self: *View) !void {
@@ -357,7 +354,7 @@
         var file = File.fromOpen(file_name, .toWrite) catch unreachable;
         defer file.close() catch unreachable;
         //{ write
-          var line: *Line = self.first;
+          var line: *Line = self.lines;
           var count: usize = 0;
           writing: while (true) {
             const text = line.text.get();
@@ -427,7 +424,7 @@
           return (@ptrToInt(self.line) - @ptrToInt(&prog.buffer.lines)) / @sizeOf(Line);
         }
         pub fn goToLineFromNumber   (self: *View, _num: usize) void {
-          var num: usize   = _num + prog.buffer_lines.lineToPos(self.first) - 1;
+          var num: usize   = _num + prog.buffer_lines.lineToPos(self.lines) - 1;
           self.line        = &prog.buffer_lines.lines[num];
           self.goToSymbol(self.line.text.countIndent(1));
           self.offset.y    = 6;
@@ -468,12 +465,12 @@
         }
         pub fn deletePrevSymbol  (self: *View) void {
           if (self.symbol == 0) {
-            if (self.line == self.first) return;
+            if (self.line == self.lines) return;
             if (self.line.parent) |_| return;
             var next = self.line;
             if (self.line.prev) |prev| {
               if (prev.text.countNonIndent() == 0) {
-                if (prev == self.first) self.first = self.line;
+                if (prev == self.lines) self.lines = self.line;
                 prog.buffer_lines.delete(prev);
               }
               else {
@@ -509,7 +506,7 @@
         pub fn addPrevLine       (self: *View) !void {
           const new_line = try prog.buffer_lines.create();
           self.line.pushPrev(new_line);
-          if (self.first == self.line) self.first = new_line;
+          if (self.lines == self.line) self.lines = new_line;
           self.goToPrevLine();
           self.goToStartOfLine();
           prog.need_redraw  = true;
@@ -623,7 +620,7 @@
             return;
           }
           self.clearLine();
-          if (self.first == self.line) self.first = next_selected_line;
+          if (self.lines == self.line) self.lines = next_selected_line;
           prog.buffer_lines.delete(self.line);
           self.line = next_selected_line;
           prog.need_redraw  = true;
@@ -945,7 +942,7 @@
           else {self.offset.x = self.symbol;}
         }
         pub fn goToRoot         (self: *View) void {
-          self.line = self.first;
+          self.line = self.lines;
           self.offset.y = 5;
           self.goToStartOfLine();
           prog.need_clear  = true;
@@ -1073,7 +1070,7 @@
       //}
       // { folding
         pub fn unFold            (self: *View) void {
-          var current = self.first;
+          var current = self.lines;
           while (true) {
             if (current.child) |child| {
               current.child = null;
@@ -1106,7 +1103,7 @@
         } // end fn
         pub fn foldFromBrackets  (self: *View) void {
           self.unFold();
-          var current: ?*Line = self.first;
+          var current: ?*Line = self.lines;
           while (current) |line| {
             var close_count = line.text.getRunesCount('}'); // **{
             var open_count = line.text.getRunesCount('{'); // **}
@@ -1209,7 +1206,7 @@
               return;
             }
           // }
-          if (self.first == self.line) self.first = next_selected_line;
+          if (self.lines == self.line) self.lines = next_selected_line;
           prog.buffer_lines.cut(self.line);
           self.line = next_selected_line;
           prog.need_clear  = true;
@@ -1220,7 +1217,7 @@
             prog.buffer_lines.cutted = cutted.next;
             cutted.next = null;
             self.line.pushPrev(cutted);
-            if (self.first == self.line) self.first = cutted;
+            if (self.lines == self.line) self.lines = cutted;
             self.offset.y += 1;
             self.goToPrevLine();
             self.indentToCutie();
@@ -1353,8 +1350,8 @@
       // { indent
         pub fn foldFromIndent    (self: *View, tabsize: usize) void {
           self.unFold();
-          var last_indent = self.first.text.countIndent(tabsize);
-          var line: *Line = self.first.next orelse return;
+          var last_indent = self.lines.text.countIndent(tabsize);
+          var line: *Line = self.lines.next orelse return;
           while (true) {
             const prev = line.prev orelse unreachable;
             if (line.text.countNonIndent() == 0) {} // skip blank lines
@@ -1635,7 +1632,7 @@ pub fn main () !void {
       const path = "ScalpiEditor_usage.txt";
       const text = @embedFile("ScalpiEditor_usage.txt");
       self.view.init(path, text) catch return error.ViewNotInit;
-      self.usage_line = self.view.first;
+      self.usage_line = self.view.lines;
     }
     self.updatePathToClipboard();
     //lib.print(ansi.mouse.grab);
