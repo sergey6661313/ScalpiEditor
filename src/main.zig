@@ -23,7 +23,6 @@
   
   pub const Console      = @import("Console/src/Console.zig");
   pub const MapableFile  = @import("MapableFile/src/MapableFile.zig");
-  pub const AllocatedFileData = @import("AllocatedFileData/src/AllocatedFileData.zig");
   pub const File         = @import("File/src/File.zig");
 // }
 // { defines
@@ -1688,8 +1687,10 @@ pub fn main () !void {
         self.console.printInfo(text);
         return;
       };
-      const text                = mapable_file.data.?;
-      defer prog.allocator.free(text);
+      defer mapable_file.deInit(prog.allocator);
+      var   text: []const u8 = undefined;
+      if (mapable_file.data) |data| {text = data;}
+      else {text = "";}
       self.view.init(file_name, text) catch return error.ViewNotInit;
       if (parsed_path.line) |line| {
         self.view.goToLineFromNumber(line);

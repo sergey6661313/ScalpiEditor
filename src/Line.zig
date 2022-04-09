@@ -1,3 +1,4 @@
+// { import
 const Self                 = @This();
 const std                  = @import("std");
 const Prog                 = @import("root");
@@ -5,7 +6,8 @@ const prog                 = Prog.prog;
 const ansi                 = Prog.ansi;
 pub const Text             = @import("Text.zig");
 pub const Word             = @import("Word.zig");
-
+// }
+// { fields
 text:    Text   = .{},
 
 // tree-like
@@ -21,7 +23,8 @@ flat_prev: ?*Self = null,
 
 words:     ?*Word = null,
 size:      usize  = 0,
-
+// }
+// { methods
 pub fn pushPrev            (self: *Self, new_line: *Self) void {
   { // update chain
     if (self.prev) |prev| {
@@ -76,3 +79,4 @@ pub fn countNum            (self: *Self) usize {
   var current = self;
   while(true){current = current.flat_prev orelse return num;}
 }
+// }
