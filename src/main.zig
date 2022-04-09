@@ -1,5 +1,4 @@
 // TODO: remove buffer_lines.lines (use allocated memory and "first") {
-  // rename "buffer_lines.maybe_free to blanks"
   // rename "view.first to view.lines"
   // create "flat_next" and "flat_prev" fix used functions and test this
   // fix "go to line from number" to work without '&' (use loop from first line and flat_next in loop)
@@ -72,7 +71,7 @@
     pub const size = 25000;
     lines:         [size]Line,
     
-    maybe_free:          ?*Line,    //blanks:        ?*Line,
+    blanks:        ?*Line,
     cutted:        ?*Line,
     to_goto:       ?*Line,
     to_find:       ?*Line,
@@ -110,16 +109,16 @@
           }
         }
       }
-      self.maybe_free = &self.lines[0];
+      self.blanks = &self.lines[0];
     } // end fn init
     pub fn delete       (self: *Self, line: *Line) void {
       if (line.child) |_| self.deleteBlock(line) 
       else self.deleteLine(line);
     } // end fn delete
     pub fn create       (self: *Self) !*Line {
-      if (self.maybe_free) |free| {
-        self.maybe_free = free.next; // update self.free
-        const line      = free;
+      if (self.blanks) |blank| {
+        self.blanks   = blank.next; // update self.free
+        const line    = blank;
         line.* = .{};
         return line;
       } 
@@ -155,8 +154,8 @@
         line.parent = null;
       //}
       //{ add to free
-        line.next = self.maybe_free;
-        self.maybe_free = line;
+        line.next   = self.blanks;
+        self.blanks = line;
       //}
     } // end fn deleteLine
     pub fn cut          (self: *Self, line: *Line) void {
@@ -205,12 +204,12 @@
           last.prev   = &blanks[blanks.len - 2];
         }
       }
-      if (self.maybe_free) |free| {
-        const last = &blanks[blanks.len - 1];
-        last.next  = free;
-        free.prev  = &blanks[blanks.len];
+      if (self.blanks) |blank| {
+        const last  = &blanks[blanks.len - 1];
+        last.next   = blank;
+        blank.prev  = &blanks[blanks.len];
       }
-      self.maybe_free = &blanks[0];
+      self.blanks = &blanks[0];
     }
   };
   pub const Theme        = struct {
@@ -253,11 +252,11 @@
       foldMode:    FoldMode    = .byNone,
       indent:      Indent      = .{},
       
-      file_name:   Text        = .{},
-      first:       *Line       = undefined,
-      bakup_line:  *Line       = undefined,
-      last_line:   ?*Line      = null,
-      marked_line: ?*Line      = null,
+      file_name:          Text    = .{},
+      first:              *Line   = undefined,
+      bakup_line:         *Line   = undefined,
+      last_working_line:  ?*Line  = null,
+      marked_line:        ?*Line  = null,
       
       selected:    usize       = 0,
       
@@ -397,10 +396,10 @@
         switch (mode) {
           .edit    => {},
           .to_find => {
-            self.last_line = self.line;
+            self.last_working_line = self.line;
           },
           .to_line => {
-            self.last_line = self.line;
+            self.last_working_line = self.line;
             if (prog.buffer_lines.to_goto == null) { // create
               const new_line = prog.buffer_lines.create() catch return;
               prog.buffer_lines.to_goto = new_line;
