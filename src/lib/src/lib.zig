@@ -42,15 +42,6 @@ pub const ToggleState = enum {
 enable,
 disable,
 };
-pub fn printRune            (rune: u8) void {
-    _ = c.fputc(rune, c.stdout);
-    _ = c.fflush(c.stdout);
-}
-pub fn print                (text: []const u8) void {
-    for (text) |ch| {
-        printRune(ch);
-    }
-}
 pub fn cmp                  (a: []const u8, b: []const u8) CmpResult {
     if (a.len != b.len) return .various;
     var pos: usize = 0;
@@ -133,7 +124,20 @@ switch(state) {
 .disable => ptr.* &= ~flag,
 }
 }
-pub fn todo                 () void {
+pub fn todo                 (text: []u8) void {
   if (do_not_compile_todo) @compileError("TODO: implement me");
-  if (std.builtin.mode == .Debug) {std.log.warn("todo this.", .{});}
+  if (std.builtin.mode == .Debug) {std.log.warn("TODO: {s}", .{text});}
+}
+
+// print
+pub fn printRune            (rune: u8) void {
+  _ = c.fputc(rune, c.stdout);
+}
+pub fn print                (text: []const u8) void {
+  for (text) |ch| {
+    printRune(ch);
+  }
+}
+pub fn printFlush           () void {
+  _ = c.fflush(c.stdout);
 }

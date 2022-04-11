@@ -1,4 +1,4 @@
-// { defines
+// { import
   const Console    = @This();
   const std        = @import("std");
   const asBytes    = std.mem.asBytes;
@@ -9,118 +9,120 @@
   const Coor2u     = lib.Coor2u;
   const cmp        = lib.cmp;
 // }
-pub const Cursor = struct {
-  pos: Coor2u = .{},
-  pub fn init        (pos: Coor2u) Cursor {
-    return .{
-      .pos = pos
-    };
-  }
-  pub fn move        (self: *Cursor, new_pos: Coor2u) void {
-    move_from_x: {
-      if (new_pos.x == self.pos.x) break :move_from_x;
-      if (new_pos.x > self.pos.x) {
-        self.shiftRight(new_pos.x - self.pos.x);
-        } else {
-        self.shiftLeft(self.pos.x - new_pos.x);
+// { defines
+  pub const Cursor = struct {
+    pos: Coor2u = .{},
+    pub fn init        (pos: Coor2u) Cursor {
+      return .{
+        .pos = pos
+      };
+    }
+    pub fn move        (self: *Cursor, new_pos: Coor2u) void {
+      move_from_x: {
+        if (new_pos.x == self.pos.x) break :move_from_x;
+        if (new_pos.x > self.pos.x) {
+          self.shiftRight(new_pos.x - self.pos.x);
+          } else {
+          self.shiftLeft(self.pos.x - new_pos.x);
+        }
+      }
+      move_from_y: {
+        if (new_pos.y == self.pos.y) break :move_from_y; 
+        if (new_pos.y > self.pos.y) {
+          self.shiftDown(new_pos.y - self.pos.y);
+          } else {
+          self.shiftUp(self.pos.y - new_pos.y);
+        }
       }
     }
-    move_from_y: {
-      if (new_pos.y == self.pos.y) break :move_from_y; 
-      if (new_pos.y > self.pos.y) {
-        self.shiftDown(new_pos.y - self.pos.y);
-        } else {
-        self.shiftUp(self.pos.y - new_pos.y);
-      }
+    pub fn shiftLeft   (self: *Cursor, pos: usize) void {
+      var buffer: [254]u8 = undefined;
+      const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dD", pos));
+      lib.print(buffer[0..buffer_count]);
+      self.pos.x -= pos;
     }
-  }
-  pub fn shiftLeft   (self: *Cursor, pos: usize) void {
-    var buffer: [254]u8 = undefined;
-    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dD", pos));
-    lib.print(buffer[0..buffer_count]);
-    self.pos.x -= pos;
-  }
-  pub fn shiftRight  (self: *Cursor, pos: usize) void {
-    var buffer: [254]u8 = undefined;
-    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos)); // ^ESC[6C
-    lib.print(buffer[0..buffer_count]);
-    self.pos.x += pos;
-  }
-  pub fn shiftUp     (self: *Cursor, pos: usize) void {
-    var buffer: [254]u8 = undefined;
-    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dA", pos));
-    lib.print(buffer[0..buffer_count]);
-    self.pos.y -= pos;
-  }
-  pub fn shiftDown   (self: *Cursor, pos: usize) void {
-    var buffer: [254]u8 = undefined;
-    const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dB", pos));
-    lib.print(buffer[0..buffer_count]);
-    self.pos.y += pos;
-  }
-};
-pub const Input  = struct {
-  // { usage:
-    // just call update unreaded
-    // and use grab in loop for get keys
-  // } 
-  
-  pub const KeyTag      = enum {
-    sequence,
-    byte,
-    ascii_key,
+    pub fn shiftRight  (self: *Cursor, pos: usize) void {
+      var buffer: [254]u8 = undefined;
+      const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos)); // ^ESC[6C
+      lib.print(buffer[0..buffer_count]);
+      self.pos.x += pos;
+    }
+    pub fn shiftUp     (self: *Cursor, pos: usize) void {
+      var buffer: [254]u8 = undefined;
+      const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dA", pos));
+      lib.print(buffer[0..buffer_count]);
+      self.pos.y -= pos;
+    }
+    pub fn shiftDown   (self: *Cursor, pos: usize) void {
+      var buffer: [254]u8 = undefined;
+      const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dB", pos));
+      lib.print(buffer[0..buffer_count]);
+      self.pos.y += pos;
+    }
   };
-  pub const Key         = union(KeyTag) {
-    sequence:   ansi.Sequence,
-    byte:       u8,
-    ascii_key:  ansi.AsciiKey,
-  }; 
-  ungrabed:     usize   = 0,
-  unreaded:     usize   = 0,
-  buffer:       [8]u8   = .{0}**8,
-  debug_buffer: [8]u8   = .{0}**8,
-  is_paste:     bool    = false,
-  pub fn updateUnreaded  (self: *Input) void  {
-    var bytesWaiting: c_int = undefined;
-    _ = lib.c.ioctl(0, lib.c.FIONREAD, &bytesWaiting);
-    var count = @intCast(usize, bytesWaiting);
-    self.unreaded = count;
-    if (self.unreaded > 8) {self.is_paste = true;}
-    else {self.is_paste = false;}
-  }
-  pub fn grab            (self: *Input) ?Key  {
-    while (self.ungrabed <  8 and self.unreaded >  0) {
-      _ = lib.c.read(0, &self.buffer[self.ungrabed], 1);
-      self.ungrabed += 1;
-      self.unreaded -= 1;
+  pub const Input  = struct {
+    // { usage:
+      // just call update unreaded
+      // and use grab in loop for get keys
+    // } 
+    
+    pub const KeyTag      = enum {
+      sequence,
+      byte,
+      ascii_key,
+    };
+    pub const Key         = union(KeyTag) {
+      sequence:   ansi.Sequence,
+      byte:       u8,
+      ascii_key:  ansi.AsciiKey,
+    }; 
+    ungrabed:     usize   = 0,
+    unreaded:     usize   = 0,
+    buffer:       [8]u8   = .{0}**8,
+    debug_buffer: [8]u8   = .{0}**8,
+    is_paste:     bool    = false,
+    pub fn updateUnreaded  (self: *Input) void  {
+      var bytesWaiting: c_int = undefined;
+      _ = lib.c.ioctl(0, lib.c.FIONREAD, &bytesWaiting);
+      var count = @intCast(usize, bytesWaiting);
+      self.unreaded = count;
+      if (self.unreaded > 8) {self.is_paste = true;}
+      else {self.is_paste = false;}
     }
-    if (self.ungrabed == 0) return null;
-    if (ansi.Sequence.Parser.fromDo(self.buffer[0..self.ungrabed])) |parser| {
-      self.shift(parser.used);
-      const key: Key = .{.sequence = parser.sequence};
-      return key;
+    pub fn grab            (self: *Input) ?Key  {
+      while (self.ungrabed <  8 and self.unreaded >  0) {
+        _ = lib.c.read(0, &self.buffer[self.ungrabed], 1);
+        self.ungrabed += 1;
+        self.unreaded -= 1;
+      }
+      if (self.ungrabed == 0) return null;
+      if (ansi.Sequence.Parser.fromDo(self.buffer[0..self.ungrabed])) |parser| {
+        self.shift(parser.used);
+        const key: Key = .{.sequence = parser.sequence};
+        return key;
+      }
+      else if (self.buffer[0] > 127) {
+        const byte = self.buffer[0];
+        self.shift(1);
+        const key: Key = .{.byte = byte};
+        return key;
+      }
+      else { // return ascii
+        const ascii_key = @intToEnum(ansi.AsciiKey, self.buffer[0]);
+        self.shift(1);
+        const key: Key = .{.ascii_key = ascii_key};
+        return key;
+      }
     }
-    else if (self.buffer[0] > 127) {
-      const byte = self.buffer[0];
-      self.shift(1);
-      const key: Key = .{.byte = byte};
-      return key;
+    
+    fn shift (self: *Input, val: usize) void {
+      std.mem.copy(u8, self.debug_buffer[0..],     self.debug_buffer[val..]);
+      std.mem.copy(u8, self.debug_buffer[8-val..], self.buffer      [0..val]);
+      std.mem.copy(u8, self.buffer      [0..],     self.buffer      [val..]);
+      self.ungrabed -= val;
     }
-    else { // return ascii
-      const ascii_key = @intToEnum(ansi.AsciiKey, self.buffer[0]);
-      self.shift(1);
-      const key: Key = .{.ascii_key = ascii_key};
-      return key;
-    }
-  }
-  
-  fn shift (self: *Input, val: usize) void {
-    std.mem.copy(u8, self.debug_buffer[0..],     self.debug_buffer[val..]);
-    std.mem.copy(u8, self.debug_buffer[8-val..], self.buffer      [0..val]);
-    std.mem.copy(u8, self.buffer      [0..],     self.buffer      [val..]);
-    self.ungrabed -= val;
-  }
-};
+  };
+// }
 size:        Coor2u            = .{ .x = 0, .y = 0 },
 cursor:      Cursor            = .{},
 last_flags:  c.struct_termios  = undefined,
@@ -239,7 +241,6 @@ input:       Input             = .{},
         lib.printRune(rune);
       },
     }
-    //~ lib.printRune(rune);
     self.cursor.pos.x += 1;
   }
   pub fn print                (self: *Console, text: []const u8) void {

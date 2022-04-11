@@ -1,3 +1,4 @@
+// TODO: add words instead lines.text
 // TODO: remove buffer_lines.lines (use allocated memory and "first") {
   // create "flat_next" and "flat_prev" fix used functions and test this
   // fix "go to line from number" to work without '&' (use loop from first line and flat_next in loop)
@@ -342,6 +343,7 @@
       } // end fn loadLines
       pub fn save                 (self: *View) !void {
         prog.need_redraw = false;
+        defer {lib.printFlush();}
         { // change status
           prog.console.cursorMove(.{ .x = 0, .y = 0 });
           lib.print(ansi.reset);
@@ -664,14 +666,21 @@
             self.symbol = 0;
           }
           lib.print(ansi.reset);
-          lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
+          lib.print(ansi.cyrsor_style.hide); 
+          if (prog.need_clear  == true) {
+            prog.need_clear = false;
+            prog.console.clear();
+          }
+          defer {
+            self.cursorMoveToCurrent();
+            lib.print(ansi.cyrsor_style.show);
+            lib.printFlush();
+          }
           self.drawEditedLine(self.offset.y);
           if (prog.console.size.y > 1) {
             self.drawUpperLines();
             self.drawDownerLines();
           }
-          
-          
         } // end draw lines
         pub fn drawUpperLines   (self: *View) void {
           if (self.offset.y == 0) return;
@@ -1066,6 +1075,12 @@
         pub fn goToStartOfText  (self: *View) void {
           const indent = self.line.text.countIndent(1);
           self.goToSymbol(indent);
+        }
+        pub fn goToNextFlatLine (self: *View) void {
+          self.line = self.line.flat_next orelse return;
+        }
+        pub fn goToPrevFlatLine (self: *View) void {
+          self.line = self.line.flat_prev orelse return;
         }
       //}
       // { folding
@@ -1534,7 +1549,14 @@
       if (self.visible == false) {return;}
       const debug_lines = 4;
       var buffer: [254]u8 = undefined;
+      lib.print(ansi.reset);
       lib.print(ansi.color.blue2);
+      lib.print(ansi.cyrsor_style.hide); 
+      defer {
+        lib.print(ansi.cyrsor_style.show);
+        lib.printFlush();
+      }
+      
       var print_offset: usize = prog.console.size.y - debug_lines;
       prog.console.cursorMove(.{ .x = 0, .y = print_offset });
       { // line
@@ -1576,7 +1598,6 @@
         prog.console.print(buffer[0..buffer_pos]);
         prog.console.fillSpacesToEndLine();
       }
-      lib.print(ansi.reset);
     }
     pub fn toggle  (self: *Debug) void {
       self.visible = !self.visible;
@@ -1630,7 +1651,7 @@ pub fn main () !void {
     try self.buffer_lines.init();
     { // load usage text
       const path = "ScalpiEditor_usage.txt";
-      const text = @embedFile("ScalpiEditor_usage.txt");
+      const text = @embedFile(path);
       self.view.init(path, text) catch return error.ViewNotInit;
       self.usage_line = self.view.lines;
     }
@@ -1694,10 +1715,6 @@ pub fn main () !void {
       try self.console.updateSize();
       self.updateKeys();
       if (self.working == false) return;
-      if (self.need_clear  == true) {
-        self.need_clear = false;
-        prog.console.clear();
-      }
       if (self.need_redraw == true) {
         self.need_redraw = false;
         self.view.draw();
@@ -1772,6 +1789,9 @@ pub fn main () !void {
               .f2               => {self.debug.toggle();},
               .f2_rxvt          => {self.debug.toggle();},
               .f2_tty           => {self.debug.toggle();},
+              .f3               => {self.view.goToPrevFlatLine();},
+              .f4               => {self.view.goToNextFlatLine();},
+              .f5               => {self.view.drawWords();},
               .f9               => {self.view.changeMode(.normal);},
               .f10              => {self.stop();},
               
@@ -1839,8 +1859,7 @@ pub fn main () !void {
               .ctrl_l     => {self.view.changeMode(.easy_motion_horizontal);},
               .ctrl_k     => {self.view.changeMode(.easy_motion_vertical);},
               .ctrl_z     => {self.view.restore();},
-              //.ctrl_o     => {self.debug.toggle();},
-              .ctrl_o     => {self.view.drawWords();},
+              .ctrl_o     => {self.debug.toggle();},
               else        => {
                 var byte = @enumToInt(key);
                 self.view.insertSymbol(byte) catch {};
