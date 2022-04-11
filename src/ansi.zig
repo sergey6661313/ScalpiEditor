@@ -296,14 +296,25 @@ pub const AsciiKey     = enum(u7)  {
 pub const Sequence     = enum(u64) {
   // { enum
     mouse,
+    
     f1_rxvt,
     f2_rxvt,
     f1_tty,
     f2_tty,
+    
     f1,
     f2,
+    f3,
+    f4,
+    f5,
+    f6,
+    f7,
+    f8,
     f9,
     f10,
+    f11,
+    f12,
+    
     delete,
     left,
     right,
@@ -419,10 +430,7 @@ pub const Sequence     = enum(u64) {
         }
       }
       if (buffer.len >= 5) {
-        if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x31\x7E") == .equal) { // f10
-          parser = .{.sequence = .f10, .used = 5};
-          return parser;
-        }
+        if (false) {}
         else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x31\x7E") == .equal) { // f1_rxvt
           parser = .{.sequence = .f1_rxvt, .used = 5};
           return parser;
@@ -431,8 +439,36 @@ pub const Sequence     = enum(u64) {
           parser = .{.sequence = .f2_rxvt, .used = 5};
           return parser;
         }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x35\x7E") == .equal) { // f5
+          parser = .{.sequence = .f5, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x37\x7E") == .equal) { // f6
+          parser = .{.sequence = .f6, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x38\x7E") == .equal) { // f7
+          parser = .{.sequence = .f7, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x31\x39\x7E") == .equal) { // f8
+          parser = .{.sequence = .f8, .used = 5};
+          return parser;
+        }
         else if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x30\x7E") == .equal) { // f9
           parser = .{.sequence = .f9, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x31\x7E") == .equal) { // f10
+          parser = .{.sequence = .f10, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x33\x7E") == .equal) { // f11
+          parser = .{.sequence = .f11, .used = 5};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..5], "\x1B\x5B\x32\x34\x7E") == .equal) { // f12
+          parser = .{.sequence = .f12, .used = 5};
           return parser;
         }
       }
@@ -457,6 +493,14 @@ pub const Sequence     = enum(u64) {
         }
         else if (lib.cmp(buffer[0..3], "\x1B\x4F\x51") == .equal) { // f2
           parser = .{.sequence = .f2, .used = 3};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..3], "\x1B\x4F\x52") == .equal) { // f3
+          parser = .{.sequence = .f3, .used = 3};
+          return parser;
+        }
+        else if (lib.cmp(buffer[0..3], "\x1B\x4F\x53") == .equal) { // f4
+          parser = .{.sequence = .f4, .used = 3};
           return parser;
         }
         else if (lib.cmp(buffer[0..3], "\x1B\x4F\x64") == .equal) { // ctrl_left_rxvt
@@ -584,7 +628,7 @@ pub const bg_color     = struct {
   pub const cyan2     = control ++ "106;1m";
   pub const white2    = control ++ "107;1m";
 };
-pub const mouse        = struct {      
+pub const mouse        = struct {
   pub const grab    = control ++ "?1000h"; 
   pub const release = control ++ "?1000l"; 
 };
