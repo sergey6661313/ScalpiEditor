@@ -126,40 +126,44 @@ cursor:      Cursor            = .{},
 last_flags:  c.struct_termios  = undefined,
 input:       Input             = .{},
 // { methods
-  pub fn init                 (self: *Console) void {
+  pub fn init                 (self: *Console) !void {
     lib.print(ansi.reset);
-    var flags: c.struct_termios = undefined;
-    _ = c.tcgetattr(0, &flags);
     _ = c.tcgetattr(0, &self.last_flags); // save for restore
+    
     { // configure flags
+      var flags: c.struct_termios = undefined;
+      _ = c.tcgetattr(0, &flags); // copy current
+      
       const cflag = &flags.c_cflag;
       const iflag = &flags.c_iflag;
       const lflag = &flags.c_lflag;
       const oflag = &flags.c_oflag;
-      
       
       // use 8 bit
       lib.toggleU32(cflag, c.CS8,    .enable);  // use 8 bit
       lib.toggleU32(iflag, c.ISTRIP, .disable); // do not strip
       lib.toggleU32(cflag, c.CSTOPB, .disable); // do not use two stops bits 
       
-      
       // non canonical
       lib.toggleU32(lflag, c.ICANON, .disable); // no wait '\n'
       
+      // no auto CR
+      lib.toggleU32(oflag, c.ONOCR,  .disable); // on start line
+      lib.toggleU32(oflag, c.ONLRET, .disable); // on end line
       
-      // disable all converts
-      lib.toggleU32(oflag, c.OPOST,   .disable); // do not convert any
+      // disable all converts for input
       lib.toggleU32(iflag, c.INLCR,   .disable); // do not convert NL to CR
-      lib.toggleU32(oflag, c.ONLCR,   .disable); // --//--
       lib.toggleU32(iflag, c.ICRNL,   .disable); // do not convert CR to NL
-      lib.toggleU32(oflag, c.OCRNL,   .disable); // --//--
-      lib.toggleU32(iflag, c.XCASE,   .disable); // do not convert register
-      lib.toggleU32(iflag, c.IUCLC,   .disable); // --//--
+      lib.toggleU32(iflag, c.XCASE,   .disable); // do not convert register to UP
+      lib.toggleU32(iflag, c.IUCLC,   .disable); // do not convert register to down
+      
+      // disable all converts for output
+      lib.toggleU32(oflag, c.OPOST,   .disable); // 
+      lib.toggleU32(oflag, c.ONLCR,   .disable); // NL to CR
+      lib.toggleU32(oflag, c.OCRNL,   .disable); // CR to NL
       lib.toggleU32(oflag, c.OLCUC,   .disable); // --//--
       lib.toggleU32(oflag, c.XTABS,   .disable); // do not convert tab
       lib.toggleU32(oflag, c.TAB3,    .disable); // do not convert tab
-      
       
       // disable flow control
       lib.toggleU32(iflag, c.IGNBRK,  .enable);  // ignore break control
@@ -182,13 +186,20 @@ input:       Input             = .{},
       lib.toggleU32(lflag, c.ECHOPRT, .disable); // no print BS (BS SP BS)
       lib.toggleU32(lflag, c.IEXTEN,  .disable); // no any special funcs
       
+      // disable bel
+      lib.toggleU32(iflag, c.IMAXBEL,  .disable); // no bel
+      
+      // deleted symbol: enable for del else nul
+      lib.toggleU32(oflag, c.OFDEL,   .disable); // use null for deleted symbol
       
       for (flags.c_cc) |*conf| conf.* = 0; // clear c_cc
       flags.c_cc[c.VTIME] = 1;
       flags.c_cc[c.VMIN]  = 0;
+      
+      _ = c.tcsetattr(0, c.TCSANOW, &flags); // apply
     }
-    _ = c.tcsetattr(0, c.TCSANOW, &flags);
-    self.updateSize();
+    
+    try self.updateSize();
     self.initBlankLines();
     lib.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
     self.clear();
@@ -197,11 +208,14 @@ input:       Input             = .{},
   pub fn deInit               (self: *Console) void {
     _ = c.tcsetattr(0,  c.TCSANOW, &self.last_flags); // restore buffer settings
   }
-  pub fn updateSize           (self: *Console) void {
+  pub fn updateSize           (self: *Console) !void {
     var w: c.winsize = undefined;
     _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
-    self.size.x = w.ws_col - 1;
-    self.size.y = w.ws_row - 3;
+    if (w.ws_col >= 4) {self.size.x = w.ws_col - 3;}
+    else return error.ConsoleSizeXIsTooSmall;
+    if (w.ws_col >= 4) {self.size.y = w.ws_row - 3;}
+    else if (w.ws_col >= 1) {self.size.y = 1;}
+    else return error.ConsoleSizeYIsTooSmall;
   }
   pub fn printRune            (self: *Console, rune: u8) void {
     if (self.cursor.pos.x >= self.size.x) unreachable;

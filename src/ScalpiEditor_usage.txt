@@ -9,15 +9,15 @@ main key bindings   {
   move cursour:          just use arrows
 }
 folding             {
-  parse with brackets    [Ctrl]  +  [e]
-  parse with indent      [Ctrl]  +  [r]
+  parse from brackets    [Ctrl]  +  [e]
+  parse from indent      [Ctrl]  +  [r]
   unparse                [Ctrl]  +  [u]
   enter block            [Tab]
   leave block            [Esc] 
 }
 navigation          {
-  go to start of line    [Home]
-  go to end   of line    [End]
+  go to start of line    [Home] or  [Ctrl] + [Shift] + [Left]
+  go to end   of line    [End]  or  [Ctrl] + [Shift] + [Right]
   go to first line       [Ctrl]  +  [Up]
   go to last  line       [Ctrl]  +  [Down]
   go to line from number [Ctrl]  +  [g]
@@ -25,26 +25,28 @@ navigation          {
   go to right  word      [Ctrl]  +  [Right]
 }
 edit                {
-  insert char            [any]
+  insert symbol          [any symbol]
   new line / divide line [Enter]
   delete prev char       [BackSpace]
   delete next char       [Del]
   clear line             [Shift] +  [Del]
   duplicate              [Ctrl]  +  [d]
   cut                    [Ctrl]  +  [x]
-  copy (external)        [Ctrl]  +  [c]
   paste                  [Ctrl]  +  [v]
-  paste (external)       [Alt]   +  [v]
   move line down         [Alt]   +  [Down]
   move line up           [Alt]   +  [Up]
 }
+clipboard.txt       {
+  copy  (to txt)         [Ctrl]  +  [c]
+  paste (from txt)       [Alt]   +  [v]
+}
 mark                {
-  mark                   [Alt]  +  [m]
-  jump to mark           [Alt]  +  [j]
+  mark                   [Alt]   +  [m]
+  jump to mark           [Alt]   +  [j]
 }
 indent              {
-  fix indent:    [Ctrl]  +  [p]
-  remove indent: [alt]   +  [p]
+  fix indent:            [Ctrl]  +  [p]
+  remove indent:         [alt]   +  [p]
 }
 to support me:      {
   monero:  87T7qGbATrM3a6BrDyeCjQQfNWtUu3iZbHVBMC6WmEbNNE13QrrtKhBbe4vF58NR8PTFdYk2SozcHexX4Q69jbdQAsrsP7B

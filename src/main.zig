@@ -1642,7 +1642,7 @@ pub fn main () !void {
     lib.print(ansi.mouse.release);
   }
   pub fn run            (self: *Prog) !void {
-    self.console.init(); defer {self.console.deInit();}
+    try self.console.init(); defer {self.console.deInit();}
     if (std.os.argv.len > 1) { // work with arguments
       var   argument            = try lib.getTextFromArgument();
       const parsed_path         = ParsePath.fromText(argument) catch {
@@ -1686,12 +1686,12 @@ pub fn main () !void {
         self.view.goToLineFromNumber(line);
       }
     }
-    self.mainLoop();
+    try self.mainLoop();
     self.console.cursorMoveToEnd();
   } // end fn initAndRun
-  pub fn mainLoop       (self: *Prog) void {
+  pub fn mainLoop       (self: *Prog) !void {
     while (true) {
-      self.console.updateSize();
+      try self.console.updateSize();
       self.updateKeys();
       if (self.working == false) return;
       if (self.need_clear  == true) {
