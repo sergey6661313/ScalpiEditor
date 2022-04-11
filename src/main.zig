@@ -5,6 +5,7 @@ pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+    
     var mapable_file = MapableFile.fromRead(allocator, "README.md") catch |e| {
       std.log.info("error = {}", .{e});
       return;
