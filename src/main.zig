@@ -349,7 +349,7 @@
           lib.print(ansi.reset);
           lib.print(ansi.color.blue2);
           prog.console.print("saving...");
-          prog.console.fillSpacesToEndLine();
+          Console.Output.print(ansi.clear_to_end_line);
           lib.print(ansi.reset);
         }
         const file_name = self.file_name.getSantieled();
@@ -387,7 +387,7 @@
           lib.print(ansi.reset);
           lib.print(ansi.color.blue2);
           prog.console.print(buffer[0..buffer_count]);
-          prog.console.fillSpacesToEndLine();
+          Console.Output.print(ansi.clear_to_end_line);
           prog.console.cursorMoveToEnd();
         }
       }
@@ -768,7 +768,7 @@
           var offset_x: usize = 0;
           if (pos > 0) { // draw '<'
             lib.print(ansi.color.magenta);
-            prog.console.printRune('<');
+            prog.console.printRune('<') catch unreachable;
             pos += 1;
             offset_x += 1;
           }
@@ -796,12 +796,13 @@
           //}
           if (text.len > pos) { // draw '>'
             lib.print(ansi.color.magenta);
-            prog.console.printRune('>');
+            prog.console.printRune('>') catch unreachable;
           } 
-          prog.console.fillSpacesToEndLine();
+          Console.Output.print(ansi.clear_to_end_line);
         }
         pub fn drawSymbol       (text: []const u8, pos: usize) void {
-          if (pos >= text.len) prog.console.printRune(' ') else prog.console.printRune(text[pos]);
+          if (pos >= text.len) {prog.console.printRune(' ') catch unreachable;} 
+          else {prog.console.printRune(text[pos]) catch unreachable;}
         }
       //}
       // { navigation
@@ -1276,7 +1277,7 @@
               lib.print(ansi.reset);
               lib.print(ansi.color.blue2);
               prog.console.print("cuted text saved to ~/clipboard.tmp");
-              prog.console.fillSpacesToEndLine();
+              Console.Output.print(ansi.clear_to_end_line);
               lib.print(ansi.reset);
             }
           }
@@ -1320,7 +1321,7 @@
               lib.print(ansi.reset);
               lib.print(ansi.color.blue2);
               prog.console.print("this block saved to ~/clipboard.tmp");
-              prog.console.fillSpacesToEndLine();
+              Console.Output.print(ansi.clear_to_end_line);
               lib.print(ansi.reset);
             }
           }
@@ -1334,7 +1335,7 @@
               lib.print(ansi.reset);
               lib.print(ansi.color.red2);
               prog.console.print("file ~/clipboard.tmp not reedable.");
-              prog.console.fillSpacesToEndLine();
+              Console.Output.print(ansi.clear_to_end_line);
               lib.print(ansi.reset);
             }
             return e;
@@ -1484,7 +1485,7 @@
           lib.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = pos, .y = self.offset.y });
-            prog.console.printRune(rune);
+            prog.console.printRune(rune) catch unreachable;
             if (rune >= 0x7A) break; rune += 1;
             if (pos >= prog.console.size.x - 3) break; pos  += 3;
           }
@@ -1495,7 +1496,7 @@
           lib.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = self.offset.x, .y = pos });
-            prog.console.printRune(0x61 + @truncate(u8, pos));
+            prog.console.printRune(0x61 + @truncate(u8, pos)) catch unreachable;
             if (pos >= 0x7A - 0x61) break;
             if (pos == prog.console.size.y - 1) break;
             pos += 1;
@@ -1564,13 +1565,13 @@
         const sprintf_result = lib.c.sprintf(&buffer, "line = %d", as_num);
         const buffer_count   = @intCast(usize, sprintf_result);
         prog.console.print(buffer[0..buffer_count]);
-        prog.console.fillSpacesToEndLine();
+        Console.Output.print(ansi.clear_to_end_line);
       }
       { // view.offset
         prog.console.cursorMoveToNextLine();
         const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "view.offset .x = %d, .y = %d", prog.view.offset.x, prog.view.offset.y));
         prog.console.print(buffer[0..buffer_count]);
-        prog.console.fillSpacesToEndLine();
+        Console.Output.print(ansi.clear_to_end_line);
       }
       { // symbol
         prog.console.cursorMoveToNextLine();
@@ -1584,7 +1585,7 @@
         }
         const buffer_count = @intCast(usize, sprintf_result);
         prog.console.print(buffer[0..buffer_count]);
-        prog.console.fillSpacesToEndLine();
+        Console.Output.print(ansi.clear_to_end_line);
       }
       { // input
         prog.console.cursorMoveToNextLine();
@@ -1596,7 +1597,7 @@
           pos += 1;
         }
         prog.console.print(buffer[0..buffer_pos]);
-        prog.console.fillSpacesToEndLine();
+        Console.Output.print(ansi.clear_to_end_line);
       }
     }
     pub fn toggle  (self: *Debug) void {

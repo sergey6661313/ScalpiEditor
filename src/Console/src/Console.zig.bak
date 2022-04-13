@@ -71,7 +71,7 @@ size:        Coor2u            = .{ .x = 0, .y = 0 },
 cursor:      Cursor            = .{},
 last_flags:  c.struct_termios  = undefined,
 input:       Input             = .{},
-color:       ?[]u8             = null,
+color:       ?[]const u8       = null,
 // { methods
   pub fn init                 (self: *Self) !void {
     lib.print(ansi.reset);
@@ -168,26 +168,36 @@ color:       ?[]u8             = null,
     Output.print(color);
     self.color = color;
   }
-  pub fn printRune            (self: *Self, rune: u8) void {
-    if (self.cursor.pos.x >= self.size.x) unreachable;
-    if (self.cursor.pos.y >= self.size.y) unreachable;
+  pub fn printRune            (self: *Self, rune: u8) !void {
+    if (self.cursor.pos.x >= self.size.x) return error.CursorOverflow;
+    if (self.cursor.pos.y >= self.size.y) return error.CursorOverflow;
     switch (rune) {
       10, 13 => {
-        lib.print(ansi.bg_color.red2);
-        lib.printRune(' ');
-        lib.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.blue);
+        Output.printRune(' ');
+        if (last_color) |color| self.changeColor(color);
       },
       0...9, 
       11...12,
-      14...31,
+      14...31
+      => {
+        Output.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.yellow);
+        Output.printRune(' ');
+        if (last_color) |color| self.changeColor(color);
+      },
       127...255
       =>  {
-        lib.print(ansi.bg_color.black2);
-        lib.printRune(' ');
-        lib.print(ansi.reset);
+        Output.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.green);
+        Output.printRune(' ');
+        if (last_color) |color| self.changeColor(color);
       },
       else => {
-        lib.printRune(rune);
+        Output.printRune(rune);
       },
     }
     self.cursor.pos.x += 1;
@@ -195,15 +205,15 @@ color:       ?[]u8             = null,
   pub fn print                (self: *Self, text: []const u8) void {
     if (text.len > self.size.x) {
       for (text[0..self.size.x - 1]) |rune| {
-        self.printRune(rune);
+        self.printRune(rune) catch unreachable;
       }
       lib.print(ansi.color.red);
-      self.printRune('>');
+      self.printRune('>') catch unreachable;
       lib.print(ansi.reset);
     } 
     else {
       for (text) |rune| {
-        self.printRune(rune);
+        self.printRune(rune) catch unreachable;
       }
     }
   }
@@ -239,14 +249,8 @@ color:       ?[]u8             = null,
     } // end while
   } // end fn clear
   // prints
-  
-  pub fn fillSpacesToEndLine  (self: *Self) void {
-    while (self.cursor.pos.x < self.size.x) {
-      lib.printRune(' ');
-      self.cursor.pos.x += 1;
-    }
-  }
-  
+
+
   pub fn printLine            (self: *Self, text: []const u8, pos_y: usize) void {
     self.cursorMove(.{.x = 0, .y = pos_y});
     self.print(text);
@@ -255,8 +259,8 @@ color:       ?[]u8             = null,
   pub fn printInfo            (self: *Self, text: []const u8) void {
     for (text) |rune| {
       switch(rune) {
-        10, 13 => self.cursorMoveToNextLine(),
-        else   => self.printRune(rune)
+        10, 13 => {self.cursorMoveToNextLine();},
+        else   => {self.printRune(rune) catch unreachable;}
       }
     }
   }
