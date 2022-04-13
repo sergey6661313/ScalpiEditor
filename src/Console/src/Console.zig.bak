@@ -164,26 +164,36 @@ color:       ?[]u8             = null,
     else if (w.ws_col >= 1) {self.size.y = 1;}
     else return error.ConsoleSizeYIsTooSmall;
   }
-  pub fn printRune            (self: *Console, rune: u8) void {
-    if (self.cursor.pos.x >= self.size.x) unreachable;
-    if (self.cursor.pos.y >= self.size.y) unreachable;
+  pub fn printRune            (self: *Console, rune: u8) !void {
+    if (self.cursor.pos.x >= self.size.x) return error.CursorOverflow;
+    if (self.cursor.pos.y >= self.size.y) return error.CursorOverflow;
     switch (rune) {
       10, 13 => {
-        lib.print(ansi.bg_color.red2);
-        lib.printRune(' ');
-        lib.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.blue);
+        Output.printRune(' ');
+        self.changeColor(last_color);
       },
       0...9, 
       11...12,
-      14...31,
+      14...31
+      =>  {
+        self.output.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.yellow);
+        Output.printRune(' ');
+        self.changeColor(last_color);
+      },
       127...255
       =>  {
-        lib.print(ansi.bg_color.black2);
-        lib.printRune(' ');
-        lib.print(ansi.reset);
+        self.output.print(ansi.reset);
+        const last_color = self.color;
+        self.changeColor(ansi.bg_color.green);
+        Output.printRune(' ');
+        self.changeColor(last_color);
       },
       else => {
-        lib.printRune(rune);
+        Output.printRune(rune);
       },
     }
     self.cursor.pos.x += 1;
