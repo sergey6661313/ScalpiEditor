@@ -3,7 +3,7 @@
   // REMOVE printRune
   // REMOVE print
 // { import
-  const Console    = @This();
+  const Self       = @This();
   const std        = @import("std");
   const asBytes    = std.mem.asBytes;
   const Prog       = @import("root");
@@ -73,7 +73,7 @@ last_flags:  c.struct_termios  = undefined,
 input:       Input             = .{},
 color:       ?[]u8             = null,
 // { methods
-  pub fn init                 (self: *Console) !void {
+  pub fn init                 (self: *Self) !void {
     lib.print(ansi.reset);
     _ = c.tcgetattr(0, &self.last_flags); // save for restore
     
@@ -152,10 +152,10 @@ color:       ?[]u8             = null,
     self.clear();
     self.cursorMove(.{.x = 0, .y = 0});
   }
-  pub fn deInit               (self: *Console) void {
+  pub fn deInit               (self: *Self) void {
     _ = c.tcsetattr(0,  c.TCSANOW, &self.last_flags); // restore buffer settings
   }
-  pub fn updateSize           (self: *Console) !void {
+  pub fn updateSize           (self: *Self) !void {
     var w: c.winsize = undefined;
     _ = c.ioctl(c.STDOUT_FILENO, c.TIOCGWINSZ, &w);
     if (w.ws_col >= 4) {self.size.x = w.ws_col - 3;}
@@ -164,7 +164,11 @@ color:       ?[]u8             = null,
     else if (w.ws_col >= 1) {self.size.y = 1;}
     else return error.ConsoleSizeYIsTooSmall;
   }
-  pub fn printRune            (self: *Console, rune: u8) void {
+  pub fn changeColor          (self: *Self, color: []const u8) void {
+    Output.print(color);
+    self.color = color;
+  }
+  pub fn printRune            (self: *Self, rune: u8) void {
     if (self.cursor.pos.x >= self.size.x) unreachable;
     if (self.cursor.pos.y >= self.size.y) unreachable;
     switch (rune) {
@@ -188,7 +192,7 @@ color:       ?[]u8             = null,
     }
     self.cursor.pos.x += 1;
   }
-  pub fn print                (self: *Console, text: []const u8) void {
+  pub fn print                (self: *Self, text: []const u8) void {
     if (text.len > self.size.x) {
       for (text[0..self.size.x - 1]) |rune| {
         self.printRune(rune);
@@ -203,20 +207,20 @@ color:       ?[]u8             = null,
       }
     }
   }
-  pub fn cursorMoveToEnd      (self: *Console) void {
+  pub fn cursorMoveToEnd      (self: *Self) void {
     self.cursor.move(.{.x = 0, .y = self.size.y});
   }
-  pub fn cursorMove           (self: *Console, pos: Coor2u) void {
+  pub fn cursorMove           (self: *Self, pos: Coor2u) void {
     if (pos.x > self.size.x) unreachable;
     if (pos.y > self.size.y) unreachable;
     self.cursor.move(pos);
   }
-  pub fn cursorMoveToNextLine (self: *Console) void {
+  pub fn cursorMoveToNextLine (self: *Self) void {
     self.cursor.move(.{.x = 0, .y = self.cursor.pos.y + 1});
     if (self.cursor.pos.x > self.size.x) unreachable;
     if (self.cursor.pos.y > self.size.y) unreachable;
   }
-  pub fn clear                (self: *Console) void {
+  pub fn clear                (self: *Self) void {
     lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
     var pos_y: usize = 0; 
     while (pos_y < self.size.y) {
@@ -225,7 +229,7 @@ color:       ?[]u8             = null,
       pos_y += 1;
     } // end while
   } // end fn clear
-  pub fn initBlankLines       (self: *Console) void {
+  pub fn initBlankLines       (self: *Self) void {
     self.cursorMove(.{.x = 0, .y = 0});
     var pos_y: usize = 0; 
     while (pos_y < self.size.y) {
@@ -234,18 +238,21 @@ color:       ?[]u8             = null,
       self.cursor.pos.y += 1;
     } // end while
   } // end fn clear
-  pub fn fillSpacesToEndLine  (self: *Console) void {
+  // prints
+
+  pub fn fillSpacesToEndLine  (self: *Self) void {
     while (self.cursor.pos.x < self.size.x) {
       lib.printRune(' ');
       self.cursor.pos.x += 1;
     }
   }
-  pub fn printLine            (self: *Console, text: []const u8, pos_y: usize) void {
+  
+  pub fn printLine            (self: *Self, text: []const u8, pos_y: usize) void {
     self.cursorMove(.{.x = 0, .y = pos_y});
     self.print(text);
     lib.print(ansi.clear_to_end_line);
   } 
-  pub fn printInfo            (self: *Console, text: []const u8) void {
+  pub fn printInfo            (self: *Self, text: []const u8) void {
     for (text) |rune| {
       switch(rune) {
         10, 13 => self.cursorMoveToNextLine(),
