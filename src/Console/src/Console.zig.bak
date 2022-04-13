@@ -254,7 +254,7 @@ color:       ?[]const u8       = null,
   pub fn printLine            (self: *Self, text: []const u8, pos_y: usize) void {
     self.cursorMove(.{.x = 0, .y = pos_y});
     self.print(text);
-    lib.print(ansi.clear_to_end_line);
+    Output.print(ansi.clear_to_end_line);
   } 
   pub fn printInfo            (self: *Self, text: []const u8) void {
     for (text) |rune| {

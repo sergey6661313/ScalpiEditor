@@ -343,14 +343,14 @@
       } // end fn loadLines
       pub fn save                 (self: *View) !void {
         prog.need_redraw = false;
-        defer {lib.printFlush();}
+        defer {Console.Output.flush();}
         { // change status
           prog.console.cursorMove(.{ .x = 0, .y = 0 });
-          lib.print(ansi.reset);
-          lib.print(ansi.color.blue2);
+          Console.Output.print(ansi.reset);
+          Console.Output.print(ansi.color.blue2);
           prog.console.print("saving...");
           Console.Output.print(ansi.clear_to_end_line);
-          lib.print(ansi.reset);
+          Console.Output.print(ansi.reset);
         }
         const file_name = self.file_name.getSantieled();
         var file = File.fromOpen(file_name, .toWrite) catch unreachable;
@@ -384,8 +384,8 @@
           prog.console.cursorMove(.{ .x = 0, .y = 0 });
           var buffer: [254]u8 = undefined;
           const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, "file saved. %d lines writed.", count));
-          lib.print(ansi.reset);
-          lib.print(ansi.color.blue2);
+          Console.Output.print(ansi.reset);
+          Console.Output.print(ansi.color.blue2);
           prog.console.print(buffer[0..buffer_count]);
           Console.Output.print(ansi.clear_to_end_line);
           prog.console.cursorMoveToEnd();
@@ -665,16 +665,16 @@
             self.offset.x = 0;
             self.symbol = 0;
           }
-          lib.print(ansi.reset);
-          lib.print(ansi.cyrsor_style.hide); 
+          Console.Output.print(ansi.reset);
+          Console.Output.print(ansi.cyrsor_style.hide); 
           if (prog.need_clear  == true) {
             prog.need_clear = false;
             prog.console.clear();
           }
           defer {
             self.cursorMoveToCurrent();
-            lib.print(ansi.cyrsor_style.show);
-            lib.printFlush();
+            Console.Output.print(ansi.cyrsor_style.show);
+            Console.Output.flush();
           }
           self.drawEditedLine(self.offset.y);
           if (prog.console.size.y > 1) {
@@ -699,8 +699,8 @@
           //}
           //{ draw parents
             if (pos_y == 0) return;
-            lib.print(ansi.reset);
-            lib.print(Theme.headers);
+            Console.Output.print(ansi.reset);
+            Console.Output.print(Theme.headers);
             while (last_line.getParent()) |parent| {
               prog.console.cursorMove(.{ .x = 0, .y = pos_y });
               const text = parent.text.get();
@@ -736,8 +736,8 @@
         }
         pub fn drawLine         (self: *View, line: *Line, offset_y: usize) void {
           // change color
-          lib.print(ansi.reset);
-          if (line.child) |_| {lib.print(ansi.bg_color.black2);}
+          Console.Output.print(ansi.reset);
+          if (line.child) |_| {Console.Output.print(ansi.bg_color.black2);}
           
           // draw left-to-right from first visible rune
           const text = line.text.get();
@@ -757,9 +757,9 @@
           }
         }
         pub fn drawEditedLine   (self: *View, offset_y: usize) void {    // delete?
-          lib.print(ansi.reset);
+          Console.Output.print(ansi.reset);
           var text_color: []const u8 = Prog.Theme.current; //ansi.color.zero[0..];
-          if (self.line.child) |_| {lib.print(ansi.bg_color.black2);}
+          if (self.line.child) |_| {Console.Output.print(ansi.bg_color.black2);}
           
           // draw left-to-right from first visible rune
           const text = self.line.text.get();
@@ -767,13 +767,13 @@
           var pos: usize = self.symbol - self.offset.x;
           var offset_x: usize = 0;
           if (pos > 0) { // draw '<'
-            lib.print(ansi.color.magenta);
+            Console.Output.print(ansi.color.magenta);
             prog.console.printRune('<') catch unreachable;
             pos += 1;
             offset_x += 1;
           }
           //{ left symbols
-            lib.print(text_color);
+            Console.Output.print(text_color);
             while (offset_x < self.offset.x) {
               drawSymbol(text, pos);
               pos += 1;
@@ -781,13 +781,13 @@
             }
           //}
           //{ current symbol. maybe inverse cursour?
-            lib.print(ansi.color.yellow);
+            Console.Output.print(ansi.color.yellow);
             drawSymbol(text, pos);
             pos += 1;
             offset_x += 1;
           //}
           //{ right symbols
-            lib.print(text_color);
+            Console.Output.print(text_color);
             while (offset_x < prog.console.size.x - 1) {
               drawSymbol(text, pos);
               pos += 1;
@@ -795,7 +795,7 @@
             }
           //}
           if (text.len > pos) { // draw '>'
-            lib.print(ansi.color.magenta);
+            Console.Output.print(ansi.color.magenta);
             prog.console.printRune('>') catch unreachable;
           } 
           Console.Output.print(ansi.clear_to_end_line);
@@ -1274,11 +1274,11 @@
             { // change status
               prog.need_redraw = false;
               prog.console.cursorMove(.{ .x = 0, .y = 0 });
-              lib.print(ansi.reset);
-              lib.print(ansi.color.blue2);
+              Console.Output.print(ansi.reset);
+              Console.Output.print(ansi.color.blue2);
               prog.console.print("cuted text saved to ~/clipboard.tmp");
               Console.Output.print(ansi.clear_to_end_line);
-              lib.print(ansi.reset);
+              Console.Output.print(ansi.reset);
             }
           }
           else {
@@ -1318,11 +1318,11 @@
             { // change status
               prog.need_redraw = false;
               prog.console.cursorMove(.{ .x = 0, .y = 0 });
-              lib.print(ansi.reset);
-              lib.print(ansi.color.blue2);
+              Console.Output.print(ansi.reset);
+              Console.Output.print(ansi.color.blue2);
               prog.console.print("this block saved to ~/clipboard.tmp");
               Console.Output.print(ansi.clear_to_end_line);
-              lib.print(ansi.reset);
+              Console.Output.print(ansi.reset);
             }
           }
           prog.need_redraw = true;
@@ -1332,11 +1332,11 @@
           var mapable_file = MapableFile.fromRead(prog.allocator, prog.path_to_clipboard.get()) catch |e| {
             { // change status
               prog.console.cursorMove(.{ .x = 0, .y = 0 });
-              lib.print(ansi.reset);
-              lib.print(ansi.color.red2);
+              Console.Output.print(ansi.reset);
+              Console.Output.print(ansi.color.red2);
               prog.console.print("file ~/clipboard.tmp not reedable.");
               Console.Output.print(ansi.clear_to_end_line);
-              lib.print(ansi.reset);
+              Console.Output.print(ansi.reset);
             }
             return e;
           };
@@ -1482,7 +1482,7 @@
         pub fn draw_horizontal_help_motion   (self: *View) void {
           var pos:  usize = 0;
           var rune: u8    = 0x61;
-          lib.print(ansi.color.magenta);
+          Console.Output.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = pos, .y = self.offset.y });
             prog.console.printRune(rune) catch unreachable;
@@ -1493,7 +1493,7 @@
         }
         pub fn draw_vertical_help_motion     (self: *View) void {
           var pos: usize = 0;
-          lib.print(ansi.color.magenta);
+          Console.Output.print(ansi.color.magenta);
           while(true) {
             prog.console.cursorMove(.{ .x = self.offset.x, .y = pos });
             prog.console.printRune(0x61 + @truncate(u8, pos)) catch unreachable;
@@ -1550,12 +1550,12 @@
       if (self.visible == false) {return;}
       const debug_lines = 4;
       var buffer: [254]u8 = undefined;
-      lib.print(ansi.reset);
-      lib.print(ansi.color.blue2);
-      lib.print(ansi.cyrsor_style.hide); 
+      Console.Output.print(ansi.reset);
+      Console.Output.print(ansi.color.blue2);
+      Console.Output.print(ansi.cyrsor_style.hide); 
       defer {
-        lib.print(ansi.cyrsor_style.show);
-        lib.printFlush();
+        Console.Output.print(ansi.cyrsor_style.show);
+        Console.Output.flush();
       }
       
       var print_offset: usize = prog.console.size.y - debug_lines;
@@ -1632,9 +1632,9 @@ pub fn main () !void {
   prog = @ptrCast(*Prog, @alignCast(8, allocated));
   defer lib.c.free(prog);
   
-  defer lib.print(ansi.reset);
-  defer lib.print(ansi.bg_color.zero);
-  defer lib.print("\r\n");
+  defer Console.Output.print(ansi.reset);
+  defer Console.Output.print(ansi.bg_color.zero);
+  defer Console.Output.print("\r\n");
   
   try prog.init();
   try prog.run();
@@ -1661,7 +1661,7 @@ pub fn main () !void {
   }
   pub fn deinit         (self: *Prog) !void {
     _ = self;
-    lib.print(ansi.mouse.release);
+    Console.Output.print(ansi.mouse.release);
   }
   pub fn run            (self: *Prog) !void {
     try self.console.init(); defer {self.console.deInit();}
@@ -1745,8 +1745,8 @@ pub fn main () !void {
     if (coor_x < 33) {
       var buffer: [254]u8 = undefined;
       var count = @intCast(usize, lib.c.sprintf(&buffer, "x = %d", coor_x));
-      lib.print(ansi.color.yellow);
-      lib.print(buffer[0..count]);
+      Console.Output.print(ansi.color.yellow);
+      Console.Output.print(buffer[0..count]);
       return;
     }
     coor_x -= 33;
@@ -1756,8 +1756,8 @@ pub fn main () !void {
     if (coor_y < 35) {
       var buffer: [254]u8 = undefined;
       var count = @intCast(usize, lib.c.sprintf(&buffer, "x = %d", coor_x));
-      lib.print(ansi.color.yellow);
-      lib.print(buffer[0..count]);
+      Console.Output.print(ansi.color.yellow);
+      Console.Output.print(buffer[0..count]);
       return;
     }
     coor_y -= 35;

@@ -1,7 +1,3 @@
-// TODO:
-  // REMOVE fillSpacesToEndLine
-  // REMOVE printRune
-  // REMOVE print
 // { import
   const Self       = @This();
   const std        = @import("std");
@@ -42,25 +38,25 @@
     pub fn shiftLeft   (self: *Cursor, pos: usize) void {
       var buffer: [254]u8 = undefined;
       const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dD", pos));
-      lib.print(buffer[0..buffer_count]);
+      Output.print(buffer[0..buffer_count]);
       self.pos.x -= pos;
     }
     pub fn shiftRight  (self: *Cursor, pos: usize) void {
       var buffer: [254]u8 = undefined;
       const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dC", pos)); // ^ESC[6C
-      lib.print(buffer[0..buffer_count]);
+      Output.print(buffer[0..buffer_count]);
       self.pos.x += pos;
     }
     pub fn shiftUp     (self: *Cursor, pos: usize) void {
       var buffer: [254]u8 = undefined;
       const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dA", pos));
-      lib.print(buffer[0..buffer_count]);
+      Output.print(buffer[0..buffer_count]);
       self.pos.y -= pos;
     }
     pub fn shiftDown   (self: *Cursor, pos: usize) void {
       var buffer: [254]u8 = undefined;
       const buffer_count: usize = @intCast(usize, lib.c.sprintf(&buffer, ansi.control ++ "%dB", pos));
-      lib.print(buffer[0..buffer_count]);
+      Output.print(buffer[0..buffer_count]);
       self.pos.y += pos;
     }
   };
@@ -74,7 +70,7 @@ input:       Input             = .{},
 color:       ?[]const u8       = null,
 // { methods
   pub fn init                 (self: *Self) !void {
-    lib.print(ansi.reset);
+    Output.print(ansi.reset);
     _ = c.tcgetattr(0, &self.last_flags); // save for restore
     
     { // configure flags
@@ -148,7 +144,7 @@ color:       ?[]const u8       = null,
     
     try self.updateSize();
     self.initBlankLines();
-    lib.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
+    Output.print(ansi.cyrsor_style.blinking_I_beam); // change cursour type
     self.clear();
     self.cursorMove(.{.x = 0, .y = 0});
   }
@@ -207,9 +203,9 @@ color:       ?[]const u8       = null,
       for (text[0..self.size.x - 1]) |rune| {
         self.printRune(rune) catch unreachable;
       }
-      lib.print(ansi.color.red);
+      Output.print(ansi.color.red);
       self.printRune('>') catch unreachable;
-      lib.print(ansi.reset);
+      Output.print(ansi.reset);
     } 
     else {
       for (text) |rune| {

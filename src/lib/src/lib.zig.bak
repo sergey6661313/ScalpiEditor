@@ -133,3 +133,8 @@ pub fn todo                 (text: []u8) void {
 pub fn printRune            (rune: u8) void {
   _ = c.fputc(rune, c.stdout);
 }
+pub fn print                (text: []const u8) void {
+  for (text) |ch| {
+    printRune(ch);
+  }
+}

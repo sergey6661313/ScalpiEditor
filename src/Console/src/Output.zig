@@ -8,7 +8,7 @@ pub const c = @cImport({
 pub fn printRune (rune: u8) void {
   _ = c.fputc(rune, c.stdout);
 }
-pub fn Flush     () void {
+pub fn flush     () void {
   _ = c.fflush(c.stdout);
 }
 pub fn print     (text: []const u8) void {
