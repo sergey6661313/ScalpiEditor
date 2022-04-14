@@ -5,7 +5,6 @@
   // defragmentate lines in memory for deinit (if need free)
   // rename buffer_lines.find_text to line_for_text_finding
 // }
-
 // { imports
   const     Prog         = @This();
   const     std          = @import("std");
@@ -691,63 +690,57 @@
           
         } // end draw lines
         pub fn drawUpperLines   (self: *View) void {
-          var pos_y: usize = self.offset.y;
-          var line: *Line  = self.line;
-          while (true) { // draw lines
+          if (self.offset.y == 0) return;
+          var pos_y: usize = self.offset.y - 1;
+          var last_line: *Line = self.line;
+          // { draw lines
             if (pos_y == 0) return;
-            line = line.prev orelse break;
-            pos_y -= 1;
-            prog.console.cursorMove(.{ .x = 0, .y = pos_y });
-            self.drawLine(line);
-          }
-          while (true) { // draw parents
+            var current: ?*Line = self.line.prev;
+            while (current) |line| {
+              self.drawLine(line, pos_y);
+              if (pos_y == 0) return;
+              pos_y -= 1;
+              current = line.prev;
+              last_line = line;
+            }
             if (pos_y == 0) return;
-            line = line.getParent() orelse break;
-            pos_y -= 1;
-            prog.console.cursorMove(.{ .x = 0, .y = pos_y });
-            self.drawParentLine(line);
-          }
-          Console.Output.print(ansi.reset);
-          while (true) { // clear other upp lines
-            if (pos_y == 0) return;
-            pos_y -= 1;
-            prog.console.cursorMove(.{ .x = 0, .y = pos_y });
-            Console.Output.print(ansi.clear_line);
-          } 
+          //}
+          // { draw parents
+            Console.Output.print(ansi.reset);
+            Console.Output.print(Theme.headers);
+            while (last_line.getParent()) |parent| {
+              prog.console.cursorMove(.{ .x = 0, .y = pos_y });
+              self.drawParentLine(parent, pos_y);
+              pos_y -= 1;
+              if (pos_y == 0) return;
+	          pos_y -= 1;
+	          last_line = parent;
+            }
+          // }
         }
-        pub fn drawDownerLines   (self: *View) void {
-          var pos_y: usize = self.offset.y;
-          var line: *Line  = self.line;
-          while (true) { // draw lines
-            if (pos_y >= prog.console.size.y - 1) return;
-            line = line.next orelse break;
-            pos_y += 1;
-            prog.console.cursorMove(.{ .x = 0, .y = pos_y });
-            self.drawLine(line);
+        pub fn drawDownerLines  (self: *View) void {
+          var line  = self.line;
+          var pos_y = self.offset.y;
+          while (true) {
+            if (pos_y < prog.console.size.y - 1) {
+              if (line.next) |next| {
+                pos_y += 1;
+                line = next;
+                self.drawLine(line, pos_y);
+                continue;
+              }
+            }
+            break;
           }
-          Console.Output.print(ansi.reset);
-          while (true) { // clear other upp lines
-            if (pos_y >= prog.console.size.y - 1) return;
-            pos_y += 1;
-            prog.console.cursorMove(.{ .x = 0, .y = pos_y });
-            Console.Output.print(ansi.clear_line);
-          } 
         }
-        pub fn drawLine         (self: *View, line: *Line) void {
-          
+        pub fn drawLine         (self: *View, line: *Line, offset_y: usize) void {
           // change color
           Console.Output.print(ansi.reset);
           if (line.child) |_| {Console.Output.print(ansi.bg_color.black2);}
           
-          
-          if (line.text.used == 0) {
-            Console.Output.print(ansi.clear_line);
-            return;
-          }
-          
           // draw left-to-right from first visible rune
-          prog.console.cursorMoveToStartLine();
           const text = line.text.get();
+          prog.console.cursorMove(.{ .x = 0, .y = offset_y });
           if (self.symbol < self.offset.x) { // unexpected
             self.offset.x    = 0;
             self.symbol      = 0;
@@ -759,27 +752,19 @@
           while (true) {
             if (pos >= text.len) break;
             if (offset_x >= prog.console.size.x - 1) break;
-            prog.console.printRune(text[pos]) catch unreachable;
+            prog.console.printRune(text[pos]);
             pos += 1;
             offset_x += 1;
           }
           Console.Output.print(ansi.clear_to_end_line);
-          
         }
         pub fn drawEditedLine   (self: *View) void {    // delete?
-          
-          // change color
+          prog.console.cursorMoveToStartLine();
           Console.Output.print(ansi.reset);
-          var text_color: []const u8 = Prog.Theme.current; 
+          var text_color: []const u8 = Prog.Theme.current; //ansi.color.zero[0..];
           if (self.line.child) |_| {Console.Output.print(ansi.bg_color.black2);}
           
-          if (self.line.text.used == 0) {
-            Console.Output.print(ansi.clear_line);
-            return;
-          }
-          
           // draw left-to-right from first visible rune
-          prog.console.cursorMoveToStartLine();
           const text = self.line.text.get();
           var pos: usize = self.symbol - self.offset.x;
           var offset_x: usize = 0;
@@ -792,10 +777,9 @@
           //{ left symbols
             Console.Output.print(text_color);
             while (true) {
-              if (offset_x >= self.offset.x) break;
               if (offset_x >= prog.console.size.x - 1) break;
               if (pos >= text.len) break;
-              prog.console.printRune(text[pos]) catch unreachable;
+              prog.console.printRune(text[pos]);
               pos += 1;
               offset_x += 1;
             }
@@ -803,7 +787,7 @@
           //{ current symbol. maybe inverse cursour?
             if (offset_x >= prog.console.size.x - 1) return;
             Console.Output.print(ansi.color.yellow);
-            if (pos < text.len) {prog.console.printRune(text[pos]) catch unreachable;}
+            if (pos < text.len) prog.console.printRune(text[pos]);
             pos += 1;
             offset_x += 1;
           //}
@@ -812,7 +796,7 @@
             while (true) {
               if (offset_x >= prog.console.size.x - 1) break;
               if (pos >= text.len) break;
-              prog.console.printRune(text[pos]) catch unreachable;
+              prog.console.printRune(text[pos]);
               pos += 1;
               offset_x += 1;
             }
@@ -824,15 +808,14 @@
           else {
             Console.Output.print(ansi.clear_to_end_line);
           }
-          
         } // drawEditedLine
-        pub fn drawParentLine   (self: *View, parent: *Line) void {
-          // change color
-          Console.Output.print(ansi.reset);
-          Console.Output.print(Theme.headers);
-          
-          // draw
-          prog.console.cursorMoveToStartLine();
+        
+        pub fn drawSymbol       (text: []const u8, pos: usize) void {
+          if (pos >= text.len) {prog.console.printRune(' ') catch unreachable;} 
+          else {prog.console.printRune(text[pos]) catch unreachable;}
+        }
+        pub fn drawParentLine      (self: *View, parent: *Line, pos_y: usize) void {
+          prog.Console.cursorMoveToStartOfLine();
           const text = parent.text.get();
           var indent = parent.text.countIndent(1);
           var symbol: usize = indent;
@@ -840,15 +823,28 @@
           var offset_x: usize = 0;
           while (true) { 
             if (symbol   >= text.len) {
-              Prog.Console.Output.print(ansi.clear_to_end_line);
+              while (symbol < prog.console.size.x) {
+                prog.console.printRune(' ');
+              }
               break;
             }
-            if (offset_x >= prog.console.size.x) break; 
-            prog.console.printRune(text[symbol]) catch unreachable;
+            if (offset_x == prog.console.size.x) {
+              self.drawRightOverSymbol();
+              break;
+            }            
+            prog.console.printRune(text[symbol]);
 
             symbol += 1;
             offset_x += 1;
           }
+        }
+        pub fn drawLeftOverSymbol  (self: *View) void {
+          lib.print(ansi.color.red);
+          self.printRune('<');  
+        }
+        pub fn drawRightOverSymbol (self: *View) void {
+          lib.print(ansi.color.red);
+          self.printRune('>');  
         }
       // }
       // { navigation
@@ -1536,7 +1532,7 @@
             if (pos >= prog.console.size.x - 3) break; pos  += 3;
           }
           self.cursorMoveToCurrent();
-          Console.Output.flush();
+          prog.console.output.flush();
         }
         pub fn draw_vertical_help_motion     (self: *View) void {
           var pos: usize = 0;
@@ -1549,7 +1545,7 @@
             pos += 1;
           }
           self.cursorMoveToCurrent();
-          Console.Output.flush();
+          prog.console.output.flush();
         }
         pub fn easyMotionHorizontal          (self: *View, key: u8) void {
           var pos = key - 0x61;
@@ -1685,8 +1681,8 @@ pub fn main () !void {
   defer Console.Output.print("\r\n");
   
   try prog.init();
-  defer (prog.deinit() catch {});
   try prog.run();
+  try prog.deinit();
 } // end fn main
 // { methods
   pub fn init           (self: *Prog) !void {

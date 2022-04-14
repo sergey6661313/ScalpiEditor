@@ -128,8 +128,3 @@ pub fn todo                 (text: []u8) void {
   if (do_not_compile_todo) @compileError("TODO: implement me");
   if (std.builtin.mode == .Debug) {std.log.warn("TODO: {s}", .{text});}
 }
-
-// print
-pub fn printRune            (rune: u8) void {
-  _ = c.fputc(rune, c.stdout);
-}

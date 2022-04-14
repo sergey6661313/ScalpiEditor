@@ -164,6 +164,55 @@ color:       ?[]const u8       = null,
     Output.print(color);
     self.color = color;
   }
+  pub fn initBlankLines       (self: *Self) void {
+    self.cursorMove(.{.x = 0, .y = 0});
+    var pos_y: usize = 0; 
+    while (pos_y < self.size.y) {
+      Output.printRune('\n');
+      pos_y += 1;
+      self.cursor.pos.y += 1;
+    } // end while
+  } // end fn clear
+  
+  // cursor
+  pub fn cursorMoveToEnd      (self: *Self) void {
+    self.cursor.move(.{.x = 0, .y = self.size.y});
+  }
+  pub fn cursorMoveToStartLine(self: *Self) void {
+    self.cursor.move(.{.x = 0, .y = self.cursor.pos.y});
+  }
+  pub fn cursorMove           (self: *Self, pos: Coor2u) void {
+    if (pos.x > self.size.x) unreachable;
+    if (pos.y > self.size.y) unreachable;
+    self.cursor.move(pos);
+  }
+  pub fn cursorMoveToNextLine (self: *Self) void {
+    self.cursor.move(.{.x = 0, .y = self.cursor.pos.y + 1});
+    if (self.cursor.pos.x > self.size.x) unreachable;
+    if (self.cursor.pos.y > self.size.y) unreachable;
+  }
+  
+  // prints
+  pub fn print                (self: *Self, text: []const u8) void {
+    if (text.len > self.size.x) {
+      for (text[0..self.size.x - 1]) |rune| {
+        self.printRune(rune) catch unreachable;
+      }
+      Output.print(ansi.color.red);
+      self.printRune('>') catch unreachable;
+      Output.print(ansi.reset);
+    } 
+    else {
+      for (text) |rune| {
+        self.printRune(rune) catch unreachable;
+      }
+    }
+  }
+  pub fn printLine            (self: *Self, text: []const u8, pos_y: usize) void {
+    self.cursorMove(.{.x = 0, .y = pos_y});
+    self.print(text);
+    Output.print(ansi.clear_to_end_line);
+  } 
   pub fn printRune            (self: *Self, rune: u8) !void {
     if (self.cursor.pos.x >= self.size.x) return error.CursorOverflow;
     if (self.cursor.pos.y >= self.size.y) return error.CursorOverflow;
@@ -198,60 +247,6 @@ color:       ?[]const u8       = null,
     }
     self.cursor.pos.x += 1;
   }
-  pub fn print                (self: *Self, text: []const u8) void {
-    if (text.len > self.size.x) {
-      for (text[0..self.size.x - 1]) |rune| {
-        self.printRune(rune) catch unreachable;
-      }
-      Output.print(ansi.color.red);
-      self.printRune('>') catch unreachable;
-      Output.print(ansi.reset);
-    } 
-    else {
-      for (text) |rune| {
-        self.printRune(rune) catch unreachable;
-      }
-    }
-  }
-  pub fn cursorMoveToEnd      (self: *Self) void {
-    self.cursor.move(.{.x = 0, .y = self.size.y});
-  }
-  pub fn cursorMove           (self: *Self, pos: Coor2u) void {
-    if (pos.x > self.size.x) unreachable;
-    if (pos.y > self.size.y) unreachable;
-    self.cursor.move(pos);
-  }
-  pub fn cursorMoveToNextLine (self: *Self) void {
-    self.cursor.move(.{.x = 0, .y = self.cursor.pos.y + 1});
-    if (self.cursor.pos.x > self.size.x) unreachable;
-    if (self.cursor.pos.y > self.size.y) unreachable;
-  }
-  pub fn clear                (self: *Self) void {
-    lib.print(ansi.cyrsor_style.hide); defer {lib.print(ansi.cyrsor_style.show);}
-    var pos_y: usize = 0; 
-    while (pos_y < self.size.y) {
-      self.cursorMove(.{.x = 0, .y = pos_y});
-      Output.clearLine();
-      pos_y += 1;
-    } // end while
-  } // end fn clear
-  pub fn initBlankLines       (self: *Self) void {
-    self.cursorMove(.{.x = 0, .y = 0});
-    var pos_y: usize = 0; 
-    while (pos_y < self.size.y) {
-      lib.printRune('\n');
-      pos_y += 1;
-      self.cursor.pos.y += 1;
-    } // end while
-  } // end fn clear
-  // prints
-
-
-  pub fn printLine            (self: *Self, text: []const u8, pos_y: usize) void {
-    self.cursorMove(.{.x = 0, .y = pos_y});
-    self.print(text);
-    Output.print(ansi.clear_to_end_line);
-  } 
   pub fn printInfo            (self: *Self, text: []const u8) void {
     for (text) |rune| {
       switch(rune) {
@@ -260,4 +255,13 @@ color:       ?[]const u8       = null,
       }
     }
   }
+  pub fn clear                (self: *Self) void {
+    Output.print(ansi.cyrsor_style.hide); defer {Output.print(ansi.cyrsor_style.show);}
+    var pos_y: usize = 0; 
+    while (pos_y < self.size.y) {
+      self.cursorMove(.{.x = 0, .y = pos_y});
+      Output.clearLine();
+      pos_y += 1;
+    } // end while
+  } // end fn clear
 // }
