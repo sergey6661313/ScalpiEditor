@@ -1,8 +1,6 @@
-mouse scrolling
-flags folded or unfolded
-highlite blocks inside
 use words instead of lines
-
+flags folded or unfolded
 selections
 one line mode
 UTF-8
+-- mouse scrolling - bad idea becouse i use scroling for view terminal history

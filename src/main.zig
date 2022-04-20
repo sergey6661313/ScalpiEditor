@@ -15,7 +15,6 @@
   
   pub const Text         = @import("Text.zig"); // old
   pub const Line         = @import("Line.zig");
-  pub const Word         = @import("Word.zig");
   pub const Rune         = @import("Rune.zig");
   pub const Glyph        = @import("Glyph.zig");
   
@@ -35,37 +34,6 @@
   pub const BufferRunes  = struct {
     const Self = @This();
     blanks: ?*Rune = null,    
-  };
-  pub const BufferWords  = struct {
-    const  Self = @This();
-    blanks: ?*Word = null,
-    pub fn addBlanks (self: *Self, blanks: []Word) void {
-      if (blanks.len == 0) unreachable; 
-      { // update links
-        { // update others everything in between first and last
-          for (blanks[1..blanks.len-1]) |*current, id| {
-            const pos     = id + 1;
-            current.maybe_prev  = &blanks[pos - 1];
-            current.maybe_next  = &blanks[pos + 1];
-          }
-        }
-        { // update ends of range
-          const first       = &blanks[0];
-          first.maybe_prev  = null;
-          first.maybe_next  = &blanks[1];
-          
-          const last        = &blanks[blanks.len - 1];
-          last.maybe_prev   = &blanks[blanks.len - 2];
-          last.maybe_next   = null;
-        }
-      }
-      if (self.maybe_free) |free| {
-        const last = &blanks[blanks.len - 1];
-        last.maybe_next  = free;
-        free.maybe_prev  = &blanks[blanks.len];
-      }
-      self.maybe_free = &blanks[0];
-    }
   };
   pub const BufferLines  = struct {
     const Self = @This();
@@ -1578,10 +1546,11 @@
           prog.need_clear  = true;
         }
       // }
-      pub fn drawWords(self: *View) void {
-        var maybe_word = self.line.words;
-        while(maybe_word) |word| {       
-          _ = word;
+      pub fn drawRunes(self: *View) void {
+        var maybe_rune = self.line.text.runes;
+        Prog.Console.Output.print(ansi.color.red);
+        while(maybe_rune) |rune| {       
+          _ = rune;
           prog.console.cursorMove(.{.x = 0, .y = self.offset.y});
         }
         self.cursorMoveToCurrent();
@@ -1662,7 +1631,6 @@ pub var prog: *Prog = undefined;
   
   // beffers
   buffer_lines:      BufferLines,
-  buffer_words:      BufferWords,
   buffer_runes:      BufferRunes,
   buffer_glyphs:     BufferGlyphs,
   
@@ -1731,9 +1699,8 @@ pub fn main () !void {
       };
       const file_name           = parsed_path.file_name.?.get();
       
-      self.console.printInfo("FILE NAME HERE");
-      self.console.printInfo(file_name);
-      self.console.printInfo("FILE NAME HERE");
+      Prog.Console.Output.print(" - - - - - - - - - - - - - - ");
+      Prog.Console.Output.flush();
       
       var   mapable_file        = MapableFile.fromRead(prog.allocator, file_name) catch {
         const text = ( 
@@ -1749,10 +1716,10 @@ pub fn main () !void {
       };
       defer mapable_file.deInit(prog.allocator);
       var   text: []const u8 = undefined;
-      if (mapable_file.data) |data| {text = data;}
-      else {text = "";}
+      if    (mapable_file.data) |data| {text = data;}
+      else  {text = "";}
       self.view.init(file_name, text) catch return error.ViewNotInit;
-      if (parsed_path.line) |line| {
+      if    (parsed_path.line) |line| {
         self.view.goToLineFromNumber(line);
       }
     }
@@ -1840,7 +1807,7 @@ pub fn main () !void {
               .f2_tty           => {self.debug.toggle();},
               .f3               => {self.view.goToPrevFlatLine();},
               .f4               => {self.view.goToNextFlatLine();},
-              .f5               => {self.view.drawWords();},
+              .f5               => {self.view.drawRunes();},
               .f9               => {self.view.changeMode(.normal);},
               .f10              => {self.stop();},
               

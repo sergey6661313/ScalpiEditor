@@ -1,14 +1,14 @@
 // { import
-const Self                 = @This();
-const std                  = @import("std");
-const Prog                 = @import("root");
-const prog                 = Prog.prog;
-const ansi                 = Prog.ansi;
-pub const Text             = @import("Text.zig");
-pub const Word             = @import("Word.zig");
+const Self      = @This();
+const std       = @import("std");
+const Prog      = @import("root");
+const prog      = Prog.prog;
+const ansi      = Prog.ansi;
+pub const Rune  = @import("Rune.zig");
+pub const Text  = @import("Text.zig");
 // }
 // { fields
-text:    Text   = .{},
+text:      Text   = .{},
 
 // tree-like
 next:      ?*Self = null,
@@ -20,7 +20,8 @@ child:     ?*Self = null,
 flat_next: ?*Self = null,
 flat_prev: ?*Self = null,
 
-words:     ?*Word = null,
+ident:     ?*Rune = null,
+runes:     ?*Rune = null,
 size:      usize  = 0,
 // }
 // { methods

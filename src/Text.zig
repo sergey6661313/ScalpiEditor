@@ -8,6 +8,10 @@ pub const   size     = 512;
 used:       usize    = 0,
 buffer:     [size]u8 = undefined,
 
+// TODO
+runes:     ?*Rune = null,
+
+
 pub fn fromText            (text: []const u8) !Self {
   var self: Self = undefined;
   self.used = 0;

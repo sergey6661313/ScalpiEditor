@@ -10,10 +10,10 @@ pub fn fromRead  (allocator: std.mem.Allocator, name: []const u8) !Self {
   var cwd        = std.fs.cwd();
   self.file      = try cwd.openFile(name, .{.mode = .read_only});
   defer self.file.close();
-  const size     = try self.file.getEndPos();
+  const size: usize = @truncate(usize, try self.file.getEndPos());
   if (size == 0) return self;
   self.data      = try allocator.alloc(u8, size);
-  const readed = try self.file.readAll(self.data.?);
+  const readed   = try self.file.readAll(self.data.?);
   if (readed < size) unreachable;
   return self;
 }

@@ -1,6 +1,11 @@
 const Self    = @This();
 const Glyph   = @import("Glyph.zig");
 
-maybe_glyph:  ?*Glyph = null,
-maybe_prev:   ?*Self  = null,
-maybe_next:   ?*Self  = null,
+glyph:       ?*Glyph = null,
+color:       ?[]u8   = null,
+tree_child:  ?*Self  = null,
+tree_parent: ?*Self  = null,
+tree_prev:   ?*Self  = null,
+tree_next:   ?*Self  = null,
+flat_prev:   ?*Self  = null,
+flat_next:   ?*Self  = null,

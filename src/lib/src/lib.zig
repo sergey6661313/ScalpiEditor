@@ -85,6 +85,32 @@ pub fn u64FromCharsDec      (data: []const u8) error{NotNumber, Unexpected,}!u64
         pos -= 1;
     }
 }
+pub fn u32FromCharsDec      (data: []const u8) error{NotNumber, Unexpected,}!u32 {
+    const MAX_LEN = "4294967295".len; // UINT32_MAX
+    if (data.len > MAX_LEN) return error.Unexpected;
+    var result: u32 = 0;
+    var numerical_place: usize = 1;
+    var pos: usize = data.len - 1; // last symbol
+    while(true) {
+        const value: usize = switch(data[pos]) {
+            '0' => 0,
+            '1' => 1,
+            '2' => 2,
+            '3' => 3,
+            '4' => 4,
+            '5' => 5,
+            '6' => 6,
+            '7' => 7,
+            '8' => 8,
+            '9' => 9,
+            else => return error.NotNumber,
+        };
+        result += value * numerical_place;
+        if (pos == 0) return result;
+        numerical_place *= 10;
+        pos -= 1;
+    }
+}
 pub fn getTextFromArgument  () error{Unexpected} ![]const u8 {
     var argIterator_packed = std.process.ArgIterator.init();
     var argIterator        = &argIterator_packed.inner;
