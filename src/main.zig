@@ -1339,7 +1339,8 @@
               Console.Output.print(ansi.reset);
             }
           }
-          prog.need_redraw = true;
+          prog.need_redraw = false;
+          Console.Output.flush();
         }
         pub fn externalPaste  (self: *View) !void {
           const line = self.line;

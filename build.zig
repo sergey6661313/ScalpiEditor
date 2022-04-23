@@ -1,6 +1,6 @@
 const std = @import("std");
 pub fn build(b: *std.build.Builder) void {
-    var target = b.standardTargetOptions(.{});
+    var target    = b.standardTargetOptions(.{});
     target.abi    = .musl;
     target.os_tag = .linux;
     const mode = b.standardReleaseOptions();
