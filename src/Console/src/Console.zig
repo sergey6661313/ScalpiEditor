@@ -165,6 +165,7 @@ color:       ?[]const u8       = null,
     self.color = color;
   }
   pub fn initBlankLines       (self: *Self) void {
+    Output.print("\r\n");
     self.cursorMove(.{.x = 0, .y = 0});
     var pos_y: usize = 0; 
     while (pos_y < self.size.y) {

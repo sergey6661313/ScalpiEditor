@@ -229,7 +229,7 @@
       marked_line:        ?*Line  = null,
       
       // current pos
-      offset:      lib.Coor2u  = .{ .y = 3 },
+      offset:      lib.Coor2u  = .{.x = 0, .y = 3 },
       symbol:      usize       = 0,
     // }
     // { methods
