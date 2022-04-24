@@ -1645,6 +1645,9 @@ pub var prog: *Prog = undefined;
   usage_line:        *Line,
 // }
 pub fn main () !void {
+  Prog.Console.Output.print(" - - - - - - - - - - - - - - ");
+  Prog.Console.Output.flush();
+  
   const allocated    = lib.c.aligned_alloc(8, @sizeOf(Prog)) orelse return error.NeedMoreMemory;
   prog = @ptrCast(*Prog, @alignCast(8, allocated));
   defer lib.c.free(prog);
@@ -1699,10 +1702,6 @@ pub fn main () !void {
         return;
       };
       const file_name           = parsed_path.file_name.?.get();
-      
-      Prog.Console.Output.print(" - - - - - - - - - - - - - - ");
-      Prog.Console.Output.flush();
-      
       var   mapable_file        = MapableFile.fromRead(prog.allocator, file_name) catch {
         const text = ( 
           \\  File not exist or blocked by system.
