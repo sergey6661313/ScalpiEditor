@@ -20,9 +20,8 @@ child:     ?*Self = null,
 flat_next: ?*Self = null,
 flat_prev: ?*Self = null,
 
-ident:     ?*Rune = null,
+len:       usize  = 0,
 runes:     ?*Rune = null,
-size:      usize  = 0,
 // }
 // { methods
 pub fn pushPrev            (self: *Self, new_line: *Self) void {

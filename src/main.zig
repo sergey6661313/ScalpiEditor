@@ -1548,13 +1548,27 @@
         }
       // }
       pub fn drawRunes(self: *View) void {
-        var maybe_rune = self.line.text.runes;
-        Prog.Console.Output.print(ansi.color.red);
-        while(maybe_rune) |rune| {       
-          _ = rune;
+        draw: {
           prog.console.cursorMove(.{.x = 0, .y = self.offset.y});
+          const line = self.line;
+          var   rune = line.text.runes orelse break: draw;
+          Prog.Console.Output.print(ansi.color.red);
+          var screen_pos_x: usize = 0;
+          var text_pos:     usize = self.offset.x;
+          while(true) {          
+            if (screen_pos_x >= prog.console.size.x - 3) break;
+            if (text_pos     >= line.len) break;
+            const glyph = rune.glyph orelse break;
+            prog.console.print(glyph.getText());
+            screen_pos_x += 1;
+            text_pos     += 1;
+            rune = rune.flat_next orelse break;
+          }
         }
+        Prog.Console.Output.print(ansi.clear_to_end_line);
         self.cursorMoveToCurrent();
+        prog.need_redraw = false;
+        Console.Output.flush();
       }
     // }
   }; // end view
@@ -1876,7 +1890,7 @@ pub fn main () !void {
               .ctrl_l     => {self.view.changeMode(.easy_motion_horizontal);},
               .ctrl_k     => {self.view.changeMode(.easy_motion_vertical);},
               .ctrl_z     => {self.view.restore();},
-              .ctrl_o     => {self.debug.toggle();},
+              .ctrl_o     => {self.view.drawRunes();},
               else        => {
                 var byte = @enumToInt(key);
                 self.view.insertSymbol(byte) catch {};
