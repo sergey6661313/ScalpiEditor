@@ -1,4 +1,4 @@
-// TODO: add words instead lines.text
+// TODO: add runes instead lines.text
 // TODO: remove buffer_lines.lines (use allocated memory and "first") {
   // create "flat_next" and "flat_prev" fix used functions and test this
   // fix "go to line from number" to work without '&' (use loop from first line and flat_next in loop)
@@ -94,6 +94,8 @@
       else return error.NoFreeSlots;
     }
     pub fn deleteBlock  (self: *Self, line: *Line) void {
+      // { just unfold all child lines
+      // }
       const start_line = line;
       const end_line = start_line.next;
       prog.view.unFold();
@@ -106,10 +108,10 @@
     } // end fn deleteBlock
     pub fn deleteLine   (self: *Self, line: *Line) void {
       //{ change links
-        if (line.prev) |prev| {
+        if (line.prev)   |prev| {
           prev.next = line.next;
         }
-        if (line.next) |next| {
+        if (line.next)   |next| {
           next.prev = line.prev;
         }
         if (line.parent) |parent| {
@@ -435,45 +437,60 @@
           prog.need_redraw  = true;
         }
         pub fn deletePrevSymbol  (self: *View) void {
-          if (self.symbol == 0) {
-            if (self.line == self.lines) return;
-            if (self.line.parent) |_| return;
-            var next = self.line;
-            if (self.line.prev) |prev| {
-              if (prev.text.countNonIndent() == 0) {
-                if (prev == self.lines) self.lines = self.line;
-                prog.buffer_lines.delete(prev);
+          switch (self.symbol) {
+            0    => {
+              if (self.line.parent) |_| return;
+              if (self.line.child)  |_| return;
+              if (self.line == self.lines) return;
+              
+              const prev       = self.line.prev orelse return;
+              
+              const non_indent = self.line.text.countNonIndent();
+              if (non_indent == 0) { // delete self line
+                prog.buffer_lines.delete(self.line);
+                self.line = prev;
+                prog.need_redraw = true;
+                return;
               }
-              else {
-                const next_used = next.text.used;
-                const prev_used = prev.text.used;
-                if (prev_used + next_used > Line.Text.size - 3) return;
-                if (prev_used != 0) { // move cursor
-                  self.goToPrevLine();
-                  self.goToEndOfLine();
-                  self.goToNextLine();
-                }
-                std.mem.copy(u8, prev.text.buffer[prev.text.used..], next.text.get());
-                prev.text.used += next_used;
-                self.deleteLine();
-                if (self.line.next) |_| self.goToPrevLine();
-                self.goToSymbol(prev_used);
+              
+              const prev_count = prev.text.countNonIndent();
+              switch (prev_count) {
+                0    => { // delete prev
+                  if (self.lines == prev) self.lines = self.line;
+                  prog.buffer_lines.delete(prev);
+                  prog.need_redraw = true;
+                  return;
+                },
+                else => { // join line
+                  self.joinLines();
+                },
               }
-            }
-            prog.need_clear  = true;
-          }
-          else {
-            if (self.line.text.used == 0) return;
-            self.goToPrevSymbol();
-            self.deleteSymbol();
+            },
+            else => {
+              if (self.line.text.used == 0) return;
+              self.goToPrevSymbol();
+              self.deleteSymbol();
+            },
           }
           prog.need_redraw  = true;
         }
         pub fn joinLines         (self: *View) void {
+          const next      = self.line;
+          const prev      = self.line.prev orelse return;
+          
           self.deleteIndent();
-          self.goToStartOfLine();
-          self.deletePrevSymbol();
+          
+          const next_used = next.text.used;
+          const prev_used = prev.text.used;
+          
+          if (prev_used + next_used > Line.Text.size - 3) return;
+          std.mem.copy(u8, prev.text.buffer[prev.text.used..], next.text.get());
+          prev.text.used += next_used;
+          prog.buffer_lines.delete(self.line);
+          self.line = prev;
+          self.goToSymbol(prev_used);
         }
+          
         pub fn clearLine         (self: *View) void {
           self.line.text.used = 0;
           self.goToStartOfLine();
@@ -495,6 +512,7 @@
           prog.need_clear   = true;
           prog.need_redraw  = true;
         }
+        
         pub fn divide            (self: *View) !void {
           const indent = self.line.text.countIndent(1);
           if (self.symbol <= indent) { // just add prev line
@@ -550,7 +568,7 @@
             self.goToSymbol(self.line.text.used);
             prog.need_clear  = true;
           }
-          else { 
+          else {
             if (self.line.child) |_| return;
             var   parent = self.line;
             var   pos    = self.symbol;
@@ -562,6 +580,8 @@
             self.goToSymbol(indent);
             parent.text.used = pos;
           }
+          self.indentToCutie();
+          self.goToSymbol(indent);
           prog.need_redraw  = true;
         }
         pub fn swapWithBottom    (self: *View) void {
@@ -581,18 +601,19 @@
           prog.need_redraw  = true;
         }
         pub fn deleteLine        (self: *View) void {
+          const line = self.line;
           var next_selected_line: *Line = undefined;
-          if (self.line.next) |next| {
+          if      (line.next)   |next| {
             next_selected_line = next;
           } 
-          else if (self.line.prev) |prev| {
+          else if (line.prev)   |prev| {
             next_selected_line = prev;
           } 
-          else if (self.line.parent) |parent| {
+          else if (line.parent) |parent| {
             next_selected_line = parent;
           } 
-          else {
-            self.line.text.set("") catch unreachable;
+          else { // clear and exit
+            self.clearLine();
             return;
           }
           self.clearLine();
