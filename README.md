@@ -1,3 +1,13 @@
+#    Due to the policy of github and the purchase of it by microsoft, we are moving to
+     https://chiselapp.com/user/sergey6661313/repository/ScalpiEditor
+\
+\
+\
+\
+\
+\
+\
+\
 #### Author: Scalpi
 #### github: (this repo contains is developer code. If you don't want surprises just use the latest "release".)
      https://github.com/sergey6661313/ScalpiEditor
